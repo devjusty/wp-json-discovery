@@ -1,0 +1,8 @@
+node_modules
+.DS_Store
+dist
+frontend/dist
+server/data/unsupported-plugins.json.backup
+server/data/activity.log
+.pnpm-debug.log*
+*.log
