@@ -1,6 +1,7 @@
 import cors from 'cors';
 import express from 'express';
 import morgan from 'morgan';
+import { readFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,6 +9,8 @@ import { logSilently, recordLog } from './logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+loadEnvFile(path.join(__dirname, '..', '.env'));
 
 const app = express();
 const PORT = process.env.PORT ?? 4100;
@@ -259,4 +262,26 @@ function withPluginsLock(task) {
     () => undefined
   );
   return run;
+}
+
+function loadEnvFile(filePath) {
+  try {
+    const content = readFileSync(filePath, 'utf-8');
+    content
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.startsWith('#'))
+      .forEach((line) => {
+        const [key, ...valueParts] = line.split('=');
+        if (!key || process.env[key] !== undefined) {
+          return;
+        }
+        const value = valueParts.join('=').trim();
+        process.env[key] = value;
+      });
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.warn(`[env] Failed to load ${filePath}: ${error.message}`);
+    }
+  }
 }

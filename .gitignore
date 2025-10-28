@@ -6,3 +6,10 @@ server/data/unsupported-plugins.json.backup
 server/data/activity.log
 .pnpm-debug.log*
 *.log
+.env
+.env.local
+.env.
+frontend/.env
+frontend/.env.local
+server/.env
+server/.env.local

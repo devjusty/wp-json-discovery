@@ -4,15 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "cross-env PORT=4100 node --watch src/index.js",
-    "start": "cross-env PORT=4100 node src/index.js"
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "morgan": "^1.10.0"
-  },
-  "devDependencies": {
-    "cross-env": "^10.1.0"
   }
 }

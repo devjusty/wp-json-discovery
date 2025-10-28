@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import clsx from 'clsx';
 import {
@@ -37,6 +37,8 @@ function DataTable({
     pageIndex: 0,
     pageSize: 10
   });
+  const [pageInputValue, setPageInputValue] = useState('1');
+  const pageSizeSelectId = useId();
 
   const data = useMemo(() => rows ?? [], [rows]);
 
@@ -58,6 +60,17 @@ function DataTable({
       }
     }
   });
+
+  const totalRows = data.length;
+  const pageCount = table.getPageCount();
+  const safePageCount = Math.max(pageCount, 1);
+  const { pageIndex, pageSize } = table.getState().pagination;
+  const startRow = totalRows === 0 ? 0 : pageIndex * pageSize + 1;
+  const endRow = totalRows === 0 ? 0 : Math.min(totalRows, (pageIndex + 1) * pageSize);
+
+  useEffect(() => {
+    setPageInputValue(String(pageIndex + 1));
+  }, [pageIndex]);
 
   const handleExport = () => {
     exportToCsv({
@@ -133,33 +146,49 @@ function DataTable({
                 <thead>
                   {table.getHeaderGroups().map((headerGroup) => (
                     <tr key={headerGroup.id}>
-                      {headerGroup.headers.map((header) => (
-                        <th
-                          key={header.id}
-                          colSpan={header.colSpan}
-                          className={clsx({
-                            sortable: header.column.getCanSort()
-                          })}
-                        >
-                          {header.isPlaceholder ? null : (
-                            <button
-                              type="button"
-                              className="table__sort"
-                              onClick={header.column.getToggleSortingHandler()}
-                              disabled={!header.column.getCanSort()}
-                            >
-                              {flexRender(
-                                header.column.columnDef.header,
-                                header.getContext()
-                              )}
-                              {{
-                                asc: ' ▲',
-                                desc: ' ▼'
-                              }[header.column.getIsSorted()] ?? ''}
-                            </button>
-                          )}
-                        </th>
-                      ))}
+                      {headerGroup.headers.map((header) => {
+                        const sortState = header.column.getIsSorted();
+                        return (
+                          <th
+                            key={header.id}
+                            colSpan={header.colSpan}
+                            className={clsx({
+                              sortable: header.column.getCanSort()
+                            })}
+                            aria-sort={
+                              sortState === 'asc'
+                                ? 'ascending'
+                                : sortState === 'desc'
+                                  ? 'descending'
+                                  : 'none'
+                            }
+                          >
+                            {header.isPlaceholder ? null : (
+                              <button
+                                type="button"
+                                className="table__sort"
+                                onClick={header.column.getToggleSortingHandler()}
+                                disabled={!header.column.getCanSort()}
+                              >
+                                {flexRender(
+                                  header.column.columnDef.header,
+                                  header.getContext()
+                                )}
+                                <span
+                                  className="table__sort-indicator"
+                                  aria-hidden="true"
+                                >
+                                  {sortState === 'asc'
+                                    ? '▲'
+                                    : sortState === 'desc'
+                                      ? '▼'
+                                      : '↕'}
+                                </span>
+                              </button>
+                            )}
+                          </th>
+                        );
+                      })}
                     </tr>
                   ))}
                 </thead>
@@ -185,50 +214,94 @@ function DataTable({
             {data.length > 0 ? (
               <div className="table__footer">
                 <div className="table__pagination">
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="table__pagination-button"
                     onClick={() => table.setPageIndex(0)}
                     disabled={!table.getCanPreviousPage()}
+                    aria-label="Go to first page"
                   >
                     ⏮
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="table__pagination-button"
                     onClick={() => table.previousPage()}
                     disabled={!table.getCanPreviousPage()}
+                    aria-label="Go to previous page"
                   >
                     ◀
-                  </button>
-                  <span>
-                    Page{' '}
-                    <strong>
-                      {table.getState().pagination.pageIndex + 1} of{' '}
-                      {table.getPageCount()}
-                    </strong>
-                  </span>
-                  <button
+                  </Button>
+                  <div className="table__page-jump">
+                    <label htmlFor={`${datasetKey}-page-input`}>
+                      Page
+                    </label>
+                    <input
+                      id={`${datasetKey}-page-input`}
+                      type="number"
+                      min={1}
+                      max={safePageCount}
+                      value={pageInputValue}
+                      onChange={(event) => {
+                        const nextValue = event.target.value;
+                        if (nextValue === '' || /^[0-9]+$/.test(nextValue)) {
+                          setPageInputValue(nextValue);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (pageInputValue === '') {
+                          setPageInputValue(String(pageIndex + 1));
+                          return;
+                        }
+                        const nextPage = Number(pageInputValue);
+                        if (Number.isNaN(nextPage)) {
+                          setPageInputValue(String(pageIndex + 1));
+                          return;
+                        }
+                        const clamped = Math.min(Math.max(nextPage, 1), safePageCount);
+                        table.setPageIndex(clamped - 1);
+                        setPageInputValue(String(clamped));
+                      }}
+                    />
+                    <span className="table__page-count">of {safePageCount}</span>
+                  </div>
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="table__pagination-button"
                     onClick={() => table.nextPage()}
                     disabled={!table.getCanNextPage()}
+                    aria-label="Go to next page"
                   >
                     ▶
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                    variant="ghost"
+                    size="sm"
+                    className="table__pagination-button"
+                    onClick={() => table.setPageIndex(Math.max(pageCount - 1, 0))}
                     disabled={!table.getCanNextPage()}
+                    aria-label="Go to last page"
                   >
                     ⏭
-                  </button>
+                  </Button>
                 </div>
                 <div>
-                  <label>
-                    Rows per page:{' '}
+                  <label htmlFor={pageSizeSelectId}>
+                    Rows per page
                     <select
-                      value={table.getState().pagination.pageSize}
-                      onChange={(event) =>
-                        table.setPageSize(Number(event.target.value))
-                      }
+                      id={pageSizeSelectId}
+                      value={pageSize}
+                      onChange={(event) => {
+                        table.setPageSize(Number(event.target.value));
+                        table.setPageIndex(0);
+                      }}
                     >
                       {[10, 20, 50, 100].map((size) => (
                         <option key={size} value={size}>
@@ -239,8 +312,9 @@ function DataTable({
                   </label>
                 </div>
                 <div className="table__meta">
-                  Showing {table.getRowModel().rows.length} of {data.length}{' '}
-                  total rows
+                  {totalRows === 0
+                    ? 'No rows to display'
+                    : `Showing ${startRow}–${endRow} of ${totalRows} rows`}
                 </div>
               </div>
             ) : null}

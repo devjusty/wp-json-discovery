@@ -6,10 +6,11 @@ WP JSON Discovery is a Vite-powered React application backed by a lightweight Ex
 
 ## Features
 
-- **Domain scanning** – Probe `/wp-json/` plus popular plugin namespaces, capturing route metadata, response timings, and schema hints.
+- **Domain scanning** – Probe `/wp-json/` plus plugin namespaces, capturing route metadata, response timings, and schema hints.
 - **Core content explorer** – Tabular views for posts, pages, categories, tags, and media with sortable columns, pagination, and CSV export.
-- **Plugin awareness** – Supports dozens of high-impact plugins (WooCommerce, Jetpack, Elementor, Rank Math, WPForms, Ninja Forms, WP Recipe Maker, etc.) and reports namespace coverage gaps.
+- **Plugin intelligence** – Supports dozens of high-impact plugins (WooCommerce, Jetpack, Elementor, Rank Math, WPForms, Ninja Forms, WP Recipe Maker, etc.) and reports namespace coverage gaps.
 - **Unsupported tracking** – Persists unknown namespaces to a shared list so teams can prioritise handler development.
+- **Research workflows** – Context7 queries are bundled into the docs so unsupported namespaces can be researched without leaving the terminal.
 - **Robust logging** – JSONL activity log records proxy performance, scan duration, persistence actions, and error diagnostics.
 - **Atomic design system** – UI is composed using Brad Frost’s atoms → molecules → organisms → templates → pages to encourage reuse and scalability.
 
@@ -43,6 +44,24 @@ root/
 
 ---
 
+## Unsupported Namespace Workflow
+
+The project now ships with the full WooCommerce, Rank Math, Divi, Health Check, LiteSpeed, MEC, and Yabe namespaces mapped under `frontend/src/config/plugins.js`, so `server/data/unsupported-plugins.json` should remain empty after a successful crawl. Use the following loop when new namespaces surface:
+
+1. **Run a scan** via the UI or `POST /api/scan` to reproduce the unsupported namespace.
+2. **Inspect persisted state**:
+   - `server/data/unsupported-plugins.json` – list of unresolved namespaces (JSON array).
+   - `server/data/activity.log` – JSONL log with `namespaceDetected`, `unsupportedPersisted`, and error entries.
+3. **Research the plugin** using Context7:
+   - `pnpm context7 -- "/wordpress/plugins/<namespace>"` (replace with the namespace slug) to retrieve docs, repo links, and usage details.
+   - Summarise findings in the PR description so future contributors understand the plugin surface area.
+4. **Add support** by extending `frontend/src/config/plugins.js` and any related UI/service logic.
+5. **Verify regression** by re-running the scan; confirm the array stays empty and no new log entries are emitted.
+
+Document edge cases (auth-only routes, HTML responses, rate limits) in PR notes so the unsupported list stays actionable for the team.
+
+---
+
 ## Project Status (2025-10-21)
 
 - **Scanning pipeline**: Stable for anonymous sites; error handling added for 401/403 (auth required) and non-JSON responses.
@@ -62,34 +81,61 @@ pnpm install
 
 # Start development servers (proxy + Vite) in parallel
 pnpm dev
+
+# Target a single service
+pnpm dev:server
+pnpm dev:frontend
+
+# Production smoke checks
+pnpm --filter frontend run preview
 ```
 
-Environment variables:
+**Environment variables**
 
-- `PORT` (default `4100`) – Express server port
-- `VITE_API_BASE_URL` – Override frontend API base URL (defaults to `http://localhost:4100`)
+- Copy `server/.env.example` to `server/.env` to override the Express server port (`PORT`) or add extra tuning flags.
+- Copy `frontend/.env.example` to `frontend/.env` to point the UI at a non-default proxy (`VITE_API_BASE_URL`).
+- Without overrides the proxy listens on `4100` and the frontend targets `http://localhost:4100`.
 
-Logs:
+**Logs & persistence**
 
-- `server/data/activity.log` – JSONL event log
-- `server/data/unsupported-plugins.json` – Persisted unsupported namespaces
+- `server/data/activity.log` – JSONL event log (rotate when >1 MB).
+- `server/data/unsupported-plugins.json` – Persisted unsupported namespaces (should be `[]` after a clean scan).
+- `frontend/src/config/plugins.js` – Source of truth for supported namespaces.
+
+Whenever you add new namespaces, run `pnpm --filter frontend run lint` and `pnpm --filter frontend run build` before committing.
 
 ---
 
-## Testing Strategy
+## Testing & QA
 
 Current validation:
 
-- `pnpm --filter frontend run build` for compile-time verification.
-- `node --check server/src/index.js` for syntax validation.
-- Manual scanning against a curated list of WordPress domains (public, restricted, plugin-heavy).
+- `pnpm --filter frontend run lint` – ESLint React rules (passes as of 2025-10-21).
+- `pnpm --filter frontend run build` – production bundle verification.
+- Manual scans against anonymous, auth-gated, and plugin-heavy WordPress domains, with log review.
 
-Upcoming improvements:
+Planned coverage:
 
-1. **Automated API contract tests** using mocked WordPress responses (e.g., MSW or nock) to verify scan pipeline logic.
-2. **Component snapshot tests** (Storybook + Chromatic or Jest + RTL) for key organisms/templates.
-3. **End-to-end smoke tests** (Playwright) covering domain submission, result rendering, CSV export.
-4. **Performance benchmarks** measuring proxy response times + frontend rendering latency across large datasets.
+1. **API contract tests** using MSW/nock fixtures to assert namespace enumeration and unsupported persistence.
+2. **Service orchestration tests** around `frontend/src/services/scan.js` (multiple namespace matches, empty unsupported list).
+3. **Component interaction tests** with `@testing-library/react` for the results table and plugin panels.
+4. **End-to-end regression tests** (Playwright) to validate domain submission, tab navigation, and CSV export.
+5. **Performance checks** capturing proxy latency and render times for large payloads.
+
+When adding tests, co-locate them under `frontend/src/__tests__/` or alongside the feature directory (e.g., `components/organisms/ResultsTable/ResultsTable.test.js`).
+
+## Operations & Troubleshooting
+
+- **Verify services** – `curl http://localhost:4100/api/health` confirms the Express proxy, while Vite serves the UI on `5173`.
+- **Reset persisted data** – Remove `activity.log` entries cautiously; never delete the file without confirming no scans are running.
+- **Common issues**
+  - `ECONNRESET` / `ETIMEDOUT`: Increase proxy timeout in `server/src/index.js`.
+  - HTML responses from `/wp-json/`: The scan service downgrades the namespace and logs a warning; check `activity.log` for the rendered HTML snippet ID.
+  - Non-empty unsupported list after a run: Re-check the plugin registry and run a Context7 lookup to confirm the namespace belongs to a known plugin.
+- **Context7 tips**
+  - `pnpm context7 -- "/wordpress/plugins/<namespace>"` – Docs lookup.
+  - `pnpm context7 -- "site:<vendor>.com <namespace> REST API"` – Narrow results to vendor docs.
+  - Cache results in PR descriptions for future contributors.
 
 ---
 
