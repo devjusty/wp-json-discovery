@@ -17,3 +17,19 @@ export async function logEvent(type, payload = {}) {
     console.warn('[logger] Failed to record event', type, error.message);
   }
 }
+
+export async function rotateActivityLog() {
+  const result = await request('/api/logs/rotate', {
+    method: 'POST'
+  });
+
+  if (!result.ok) {
+    const message =
+      typeof result.data?.error === 'string'
+        ? result.data.error
+        : 'Failed to rotate activity log';
+    throw new Error(message);
+  }
+
+  return result.data;
+}

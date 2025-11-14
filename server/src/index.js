@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { logSilently, recordLog } from './logger.js';
+import { logSilently, recordLog, rotateLog } from './logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -151,6 +151,19 @@ app.post('/api/logs', async (req, res) => {
     res.status(202).json({ acknowledged: true });
   } catch (error) {
     res.status(500).json({ error: 'Failed to record log entry', details: error.message });
+  }
+});
+
+app.post('/api/logs/rotate', async (_req, res) => {
+  try {
+    const { archiveName } = await rotateLog();
+    logSilently('logs.rotated', { archive: archiveName });
+    res.json({ filename: archiveName });
+  } catch (error) {
+    logSilently('logs.rotate_error', { message: error.message });
+    res
+      .status(500)
+      .json({ error: 'Failed to rotate activity log', details: error.message });
   }
 });
 

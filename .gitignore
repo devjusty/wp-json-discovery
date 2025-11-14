@@ -13,3 +13,4 @@ frontend/.env
 frontend/.env.local
 server/.env
 server/.env.local
+server/data/unsupported-plugins.json

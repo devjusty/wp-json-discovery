@@ -1,4 +1,4 @@
-import { appendFile, mkdir, stat } from 'node:fs/promises';
+import { appendFile, mkdir, rename, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -46,4 +46,19 @@ export function logSilently(type, payload = {}) {
   recordLog(type, payload).catch((error) => {
     console.error('[log:error]', error.message);
   });
+}
+
+export async function rotateLog() {
+  await ensureLogFile();
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const archiveName = `activity-${timestamp}.log`;
+  const archivePath = path.join(dataDir, archiveName);
+
+  await rename(logFilePath, archivePath);
+  await appendFile(logFilePath, '', 'utf-8');
+
+  return {
+    archivePath,
+    archiveName
+  };
 }

@@ -7,12 +7,13 @@ import ScanSummary from '../organisms/summary/ScanSummary.jsx';
 import DataTable from '../organisms/data/DataTable.jsx';
 import PluginRoutesTable from '../organisms/data/PluginRoutesTable.jsx';
 import UnsupportedPluginsPanel from '../organisms/panels/UnsupportedPluginsPanel.jsx';
+import Button from '../atoms/Button.jsx';
 import { scanDomain } from '../../services/scan.js';
 import {
   fetchUnsupportedPlugins,
   upsertUnsupportedPlugin
 } from '../../api/client.js';
-import { logEvent } from '../../services/logger.js';
+import { logEvent, rotateActivityLog } from '../../services/logger.js';
 
 function ScanPage() {
   const [result, setResult] = useState(null);
@@ -125,6 +126,22 @@ function ScanPage() {
         details: error?.details,
         stack: error.stack
       });
+    }
+  });
+
+  const rotateLogsMutation = useMutation({
+    mutationFn: rotateActivityLog,
+    onSuccess: (data) => {
+      toast.success('Activity log rotated.');
+      logEvent('logs.rotation_triggered', {
+        filename: data?.filename ?? 'unknown',
+        triggeredAt: new Date().toISOString()
+      });
+    },
+    onError: (error) => {
+      const message = error?.message ?? 'Failed to rotate logs.';
+      toast.error(message);
+      logEvent('logs.rotation_failed', { message });
     }
   });
 
@@ -302,6 +319,22 @@ function ScanPage() {
           isLoading={unsupportedQuery.isLoading}
           onRefresh={() => unsupportedQuery.refetch()}
         />
+      </section>
+
+      <section className="section">
+        <div className="app__footer-actions">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => rotateLogsMutation.mutate()}
+            disabled={rotateLogsMutation.isPending}
+          >
+            {rotateLogsMutation.isPending
+              ? 'Rotating logs…'
+              : 'Rotate activity log'}
+          </Button>
+        </div>
       </section>
     </AppLayout>
   );

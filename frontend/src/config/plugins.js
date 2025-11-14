@@ -60,6 +60,12 @@ export const SUPPORTED_PLUGINS = [
     namespaces: ['acf/v3']
   },
   {
+    id: 'pods',
+    label: 'Pods Framework',
+    description: 'Custom content type endpoints exposed by the Pods framework.',
+    namespaces: ['pods/v1']
+  },
+  {
     id: 'gravityforms',
     label: 'Gravity Forms',
     description: 'Read-only Gravity Forms endpoints (if exposed).',
@@ -75,13 +81,56 @@ export const SUPPORTED_PLUGINS = [
     id: 'elementor',
     label: 'Elementor',
     description: 'Page builder REST endpoints for Elementor templates and data.',
-    namespaces: ['elementor/v1']
+    namespaces: ['elementor/v1', 'elementor/v1/documents']
+  },
+  {
+    id: 'elementor-ai',
+    label: 'Elementor AI',
+    description: 'AI assistant features exposed via Elementor cloud endpoints.',
+    namespaces: ['elementor-ai/v1']
+  },
+  {
+    id: 'elementor-hello-elementor',
+    label: 'Hello Elementor Theme',
+    description: 'Theme onboarding endpoints bundled with Hello Elementor.',
+    namespaces: ['elementor-hello-elementor/v1']
+  },
+  {
+    id: 'elementor-pro',
+    label: 'Elementor Pro',
+    description: 'Pro-only Elementor REST endpoints for advanced widgets.',
+    namespaces: ['elementor-pro/v1']
+  },
+  {
+    id: 'elementskit',
+    label: 'ElementsKit',
+    description: 'ElementsKit widget, menu, and template helper routes.',
+    namespaces: [
+      'elementskit/v1/ajaxselect2',
+      'elementskit/v1/dynamic-content',
+      'elementskit/v1/layout-manager-api',
+      'elementskit/v1/megamenu',
+      'elementskit/v1/my-template',
+      'elementskit/v1/widget/mailchimp'
+    ]
+  },
+  {
+    id: 'template-kit-import',
+    label: 'Template Kit Import',
+    description: 'Elementor template kit import/export REST endpoints.',
+    namespaces: ['template-kit-import/v2']
   },
   {
     id: 'wpforms',
     label: 'WPForms',
     description: 'WPForms form listings and submission endpoints.',
     namespaces: ['wpforms/v1']
+  },
+  {
+    id: 'fluentform',
+    label: 'Fluent Forms',
+    description: 'Fluent Forms submissions and automation routes.',
+    namespaces: ['fluentform/v1']
   },
   {
     id: 'rank-math',
@@ -120,16 +169,40 @@ export const SUPPORTED_PLUGINS = [
     namespaces: ['wp-super-cache/v1']
   },
   {
+    id: 'wp-rocket',
+    label: 'WP Rocket',
+    description: 'WP Rocket cache control and diagnostics endpoints.',
+    namespaces: ['wp-rocket/v1']
+  },
+  {
     id: 'regenerate-thumbnails',
     label: 'Regenerate Thumbnails',
     description: 'REST helpers exposed by Regenerate Thumbnails.',
     namespaces: ['regenerate-thumbnails/v1']
   },
   {
+    id: 'akismet',
+    label: 'Akismet Anti-Spam',
+    description: 'Akismet spam detection and diagnostics endpoints.',
+    namespaces: ['akismet/v1']
+  },
+  {
     id: 'wordfence',
     label: 'Wordfence',
     description: 'Security endpoints from the Wordfence firewall plugin.',
     namespaces: ['wordfence/v1']
+  },
+  {
+    id: 'two-factor',
+    label: 'Two-Factor Authentication',
+    description: 'Two-Factor plugin verification and device routes.',
+    namespaces: ['two-factor/1.0']
+  },
+  {
+    id: 'monsterinsights',
+    label: 'MonsterInsights',
+    description: 'Google Analytics reporting endpoints from MonsterInsights.',
+    namespaces: ['monsterinsights/v1']
   },
   {
     id: 'wp-block-editor',
@@ -154,6 +227,30 @@ export const SUPPORTED_PLUGINS = [
     label: 'Redirection',
     description: 'Redirection plugin API exposing redirect rules.',
     namespaces: ['redirection/v1']
+  },
+  {
+    id: 'link-whisper',
+    label: 'Link Whisper',
+    description: 'Link Whisper internal linking automation routes.',
+    namespaces: ['link-whisper']
+  },
+  {
+    id: 'flywheel',
+    label: 'Flywheel Site Management',
+    description: 'Managed hosting diagnostics exposed by Flywheel.',
+    namespaces: ['flywheel/v1']
+  },
+  {
+    id: 'hub-connector',
+    label: 'Hub Connector',
+    description: 'Flywheel Hub connector routes used for remote actions.',
+    namespaces: ['hub-connector/v1']
+  },
+  {
+    id: 'nps-survey',
+    label: 'NPS Survey',
+    description: 'Net Promoter Score survey submission endpoints.',
+    namespaces: ['nps-survey/v1']
   },
   {
     id: 'wp-engine-advanced-network',
@@ -192,10 +289,76 @@ export const SUPPORTED_PLUGINS = [
     namespaces: ['mec/v1']
   },
   {
+    id: 'ultimate-addons-vc',
+    label: 'Ultimate Addons for VC',
+    description: 'Ultimate Addons for WPBakery/VC widget endpoints.',
+    namespaces: ['uavc/v1', 'ultimate-vc/v1']
+  },
+  {
+    id: 'wp-smush',
+    label: 'WP Smush',
+    description: 'Smush image optimization and CDN diagnostic routes.',
+    namespaces: ['wp-smush/v1']
+  },
+  {
+    id: 'wpmudev-blc',
+    label: 'WPMU DEV Broken Link Checker',
+    description: 'Broken Link Checker batch endpoints from WPMU DEV.',
+    namespaces: ['wpmudev_blc/v1']
+  },
+  {
+    id: 'wpmudev-pcs',
+    label: 'WPMU DEV Performance',
+    description: 'Performance check service endpoints provided by WPMU DEV.',
+    namespaces: ['wpmudev_pcs/v1']
+  },
+  {
+    id: 'exactmetrics',
+    label: 'ExactMetrics',
+    description: 'ExactMetrics analytics summary and reports API.',
+    namespaces: ['exactmetrics/v1']
+  },
+  {
+    id: 'fluent-smtp',
+    label: 'FluentSMTP',
+    description: 'FluentSMTP email delivery status endpoints.',
+    namespaces: ['fluent-smtp']
+  },
+  {
+    id: 'search-regex',
+    label: 'Search Regex',
+    description: 'Search Regex search/replace automation routes.',
+    namespaces: ['search-regex/v1']
+  },
+  {
+    id: 'slider-revolution',
+    label: 'Slider Revolution',
+    description: 'Slider Revolution slider import/export endpoints.',
+    namespaces: ['sliderrevolution']
+  },
+  {
+    id: 'userway',
+    label: 'UserWay Accessibility',
+    description: 'UserWay accessibility widget configuration routes.',
+    namespaces: ['userway/v1']
+  },
+  {
     id: 'yabe-webfont',
     label: 'Yabe Webfont',
     description: 'Yabe Webfont service endpoints exposed via REST.',
     namespaces: ['yabe-webfont/v1']
+  },
+  {
+    id: 'the-events-calendar',
+    label: 'The Events Calendar',
+    description: 'Modern Tribe event and calendar management routes.',
+    namespaces: [
+      'tec/v1',
+      'tec/v2/onboarding',
+      'tribe/event-aggregator/v1',
+      'tribe/events/v1',
+      'tribe/views/v2'
+    ]
   }
 ];
 

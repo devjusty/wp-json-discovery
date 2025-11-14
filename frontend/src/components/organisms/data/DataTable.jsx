@@ -96,6 +96,7 @@ function DataTable({
           <Button
             type="button"
             variant="secondary"
+            size="sm"
             onClick={handleExport}
             disabled={!data || data.length === 0}
           >
