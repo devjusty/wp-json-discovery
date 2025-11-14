@@ -34,7 +34,7 @@ root/
     └── public/           # Static assets
 ```
 
-**Data flow**
+### Data flow
 
 1. User submits a domain from the frontend.
 2. Client calls the Express proxy (`/api/proxy`) which fetches `https://domain/wp-json/...` with timeouts and logging.
@@ -90,13 +90,13 @@ pnpm dev:frontend
 pnpm --filter frontend run preview
 ```
 
-**Environment variables**
+### Environment variables
 
 - Copy `server/.env.example` to `server/.env` to override the Express server port (`PORT`) or add extra tuning flags.
 - Copy `frontend/.env.example` to `frontend/.env` to point the UI at a non-default proxy (`VITE_API_BASE_URL`).
 - Without overrides the proxy listens on `4100` and the frontend targets `http://localhost:4100`.
 
-**Logs & persistence**
+### Logs & persistence
 
 - `server/data/activity.log` – JSONL event log (rotate when >1 MB).
 - `server/data/unsupported-plugins.json` – Persisted unsupported namespaces (should be `[]` after a clean scan).
