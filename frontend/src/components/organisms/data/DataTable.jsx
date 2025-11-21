@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import { memo, useEffect, useId, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import clsx from 'clsx';
 import {
@@ -344,4 +344,4 @@ DataTable.propTypes = {
   onToggleExpand: PropTypes.func
 };
 
-export default DataTable;
+export default memo(DataTable);

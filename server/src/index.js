@@ -19,7 +19,8 @@ const dataDir = path.join(__dirname, '..', 'data');
 const unsupportedPluginsPath = path.join(dataDir, 'unsupported-plugins.json');
 let pluginsQueue = Promise.resolve();
 
-app.use(cors());
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173';
+app.use(cors({ origin: FRONTEND_ORIGIN }));
 app.use(express.json({ limit: '256kb' }));
 app.use(morgan('dev'));
 

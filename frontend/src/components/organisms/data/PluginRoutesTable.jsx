@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import PropTypes from 'prop-types';
 import DataTable from './DataTable.jsx';
 
@@ -76,4 +77,4 @@ PluginRoutesTable.propTypes = {
   onToggleExpand: PropTypes.func
 };
 
-export default PluginRoutesTable;
+export default memo(PluginRoutesTable);

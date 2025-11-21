@@ -51,7 +51,22 @@ export const SUPPORTED_PLUGINS = [
     id: 'jetpack',
     label: 'Jetpack',
     description: 'Public Jetpack site endpoints.',
-    namespaces: ['jetpack/v4']
+    namespaces: [
+      'jetpack/v4',
+      'jetpack-boost/v1',
+      'jetpack-global-styles/v1',
+      'jetpack/v4/blaze',
+      'jetpack/v4/blaze-app',
+      'jetpack/v4/explat',
+      'jetpack/v4/import',
+      'jetpack/v4/stats-app',
+      'my-jetpack/v1',
+      'newspack-blocks/v1',
+      'videopress/v1',
+      'wpcom/v2',
+      'wpcom/v3',
+      'wpcomsh/v1'
+    ]
   },
   {
     id: 'acf',
@@ -70,6 +85,21 @@ export const SUPPORTED_PLUGINS = [
     label: 'Gravity Forms',
     description: 'Read-only Gravity Forms endpoints (if exposed).',
     namespaces: ['gf/v2']
+  },
+  {
+    id: 'greenshift',
+    label: 'Greenshift',
+    description: 'Page and animation builder for Gutenberg.',
+    namespaces: [
+      'greenshift/v1',
+      'greenshifttheme/v1'
+    ]
+  },
+  {
+    id: 'google-site-kit',
+    label: 'Google Site Kit',
+    description: 'Official Google plugin to connect Google services like Analytics and Search Console.',
+    namespaces: ['google-site-kit/v1']
   },
   {
     id: 'wp-recipe-maker',
@@ -275,6 +305,24 @@ export const SUPPORTED_PLUGINS = [
     label: 'Health Check',
     description: 'Site Health diagnostic endpoints from the Health Check plugin.',
     namespaces: ['health-check/v1']
+  },
+  {
+    id: 'hostinger',
+    label: 'Hostinger',
+    description: 'Plugins provided by Hostinger for site management, AI, and analytics.',
+    namespaces: [
+      'hostinger-affiliate-plugin/v1',
+      'hostinger-amplitude/v1',
+      'hostinger-tools-plugin/v1',
+      'hostinger-easy-onboarding/v1',
+      'hostinger-ai-assistant/v1'
+    ]
+  },
+  {
+    id: 'instant-images',
+    label: 'Instant Images',
+    description: 'Directly upload images from Unsplash, Pixabay, and Pexels.',
+    namespaces: ['instant-images']
   },
   {
     id: 'litespeed-cache',

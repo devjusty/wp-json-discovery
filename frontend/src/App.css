@@ -401,6 +401,52 @@ th.sortable .table__sort:hover {
   margin: 0 0 1.5rem 0;
 }
 
+.summary__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.summary-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.summary-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.summary-stat {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.75rem 0.9rem;
+}
+
+.summary-stat__label {
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.summary-stat__value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.summary-stat__hint {
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
 .summary-grid dt {
   font-weight: 600;
   color: #334155;
@@ -429,6 +475,64 @@ th.sortable .table__sort:hover {
   font-size: 0.85rem;
 }
 
+.namespaces__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.namespaces__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0 0;
+}
+
+.namespace-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #1e293b;
+  padding: 0.35rem 0.6rem 0.35rem 0.5rem;
+  border-radius: 999px;
+}
+
+.namespace-pill__namespace {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.9rem;
+  color: #0f172a;
+}
+
+.namespace-pill__badge {
+  border-radius: 999px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
+  border: 1px solid transparent;
+}
+
+.namespace-pill__badge--core {
+  background: #ecfdf3;
+  color: #15803d;
+  border-color: #bbf7d0;
+}
+
+.namespace-pill__badge--plugin {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.namespace-pill__badge--unknown {
+  background: #fff7ed;
+  color: #c2410c;
+  border-color: #fed7aa;
+}
+
 .authentication pre {
   background: #0f172a;
   color: #e2e8f0;
@@ -436,6 +540,47 @@ th.sortable .table__sort:hover {
   border-radius: 12px;
   overflow-x: auto;
   font-size: 0.85rem;
+}
+
+.authentication .auth-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.auth-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.85rem;
+}
+
+.auth-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.auth-card__code {
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+}
+
+.auth-card__description {
+  margin: 0.35rem 0;
+  color: #334155;
+}
+
+.auth-card__list {
+  margin: 0.25rem 0 0 0;
+  padding-left: 1.1rem;
+  color: #0f172a;
+  font-size: 0.95rem;
 }
 
 .unsupported-list {
