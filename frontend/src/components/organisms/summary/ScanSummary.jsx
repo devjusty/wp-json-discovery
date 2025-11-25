@@ -30,6 +30,7 @@ function ScanSummary({
     const successCoreCount = (coreDatasets || []).filter(
       (dataset) => dataset.status === 'success'
     ).length;
+    const contentTotalsLabel = formatContentTotals(metrics?.contentTotals);
 
     return [
       {
@@ -56,6 +57,11 @@ function ScanSummary({
         label: 'Core datasets',
         value: `${successCoreCount}/${coreDatasets?.length ?? 0} ok`,
         hint: 'Availability of posts, pages, users, and media.'
+      },
+      {
+        label: 'Content',
+        value: contentTotalsLabel,
+        hint: 'Totals from X-WP-Total headers.'
       }
     ];
   }, [metrics, namespaces.length, safeSummary.routesCount, plugins, coreDatasets]);
@@ -196,6 +202,10 @@ function ScanSummary({
             <dt>GMT offset</dt>
             <dd>{safeSummary.gmtOffset ?? '—'}</dd>
           </div>
+          <div>
+            <dt>WordPress version</dt>
+            <dd>{metrics?.versions?.wordpress?.version || 'Unknown'}</dd>
+          </div>
         </dl>
 
         <div className="namespaces">
@@ -275,6 +285,29 @@ function formatDuration(durationMs) {
   return `${durationMs}ms`;
 }
 
+function formatContentTotals(totals) {
+  if (!totals) {
+    return '—';
+  }
+
+  const parts = [];
+  if (Number.isFinite(totals.posts)) {
+    parts.push(`${totals.posts} posts`);
+  }
+  if (Number.isFinite(totals.pages)) {
+    parts.push(`${totals.pages} pages`);
+  }
+  if (Number.isFinite(totals.users)) {
+    parts.push(`${totals.users} users`);
+  }
+
+  if (parts.length === 0) {
+    return '—';
+  }
+
+  return parts.join(' · ');
+}
+
 function normalizeAuthentication(authentication) {
   if (!authentication) {
     return [];
@@ -334,7 +367,11 @@ ScanSummary.propTypes = {
   namespaces: PropTypes.arrayOf(PropTypes.string).isRequired,
   metrics: PropTypes.shape({
     durationMs: PropTypes.number,
-    namespacesCount: PropTypes.number
+    namespacesCount: PropTypes.number,
+    contentTotals: PropTypes.object,
+    performance: PropTypes.object,
+    exposure: PropTypes.object,
+    versions: PropTypes.object
   }),
   plugins: PropTypes.shape({
     matched: PropTypes.arrayOf(

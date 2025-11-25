@@ -21,10 +21,15 @@ export async function request(path, options = {}) {
     });
 
     const contentType = response.headers.get('content-type') ?? '';
+    const responseHeaders = Object.fromEntries(response.headers.entries());
     let data;
 
     if (contentType.includes('application/json')) {
-      data = await response.json();
+      try {
+        data = await response.json();
+      } catch (error) {
+        data = await response.text();
+      }
     } else {
       data = await response.text();
     }
@@ -33,7 +38,8 @@ export async function request(path, options = {}) {
       ok: response.ok,
       status: response.status,
       data,
-      contentType
+      contentType,
+      headers: responseHeaders
     };
   } catch (error) {
     throw new Error(`Failed to reach API at ${url}: ${error.message}`);
@@ -69,6 +75,19 @@ export async function upsertUnsupportedPlugin(payload) {
     throw new Error(
       `Unable to persist unsupported plugin (${payload.namespace})`
     );
+  }
+
+  return result.data;
+}
+
+export async function runSitemapScan(payload) {
+  const result = await request('/api/sitemap-scan', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+
+  if (!result.ok) {
+    throw new Error('Sitemap scan failed');
   }
 
   return result.data;

@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseSitemap, fetchPageDetails, fetchSitemap } from './sitemap.js';
 import { logSilently, recordLog, rotateLog } from './logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -19,8 +20,48 @@ const dataDir = path.join(__dirname, '..', 'data');
 const unsupportedPluginsPath = path.join(dataDir, 'unsupported-plugins.json');
 let pluginsQueue = Promise.resolve();
 
+const EXPOSED_HEADERS = [
+  'x-wp-total',
+  'x-wp-totalpages',
+  'link',
+  'server',
+  'x-powered-by',
+  'x-cache',
+  'x-cache-status',
+  'x-proxy-cache',
+  'x-litespeed-cache',
+  'cf-ray',
+  'age',
+  'cache-control',
+  'vary',
+  'location',
+  'x-wpjd-final-url',
+  'x-wpjd-redirects',
+  'x-wpjd-upstream-status',
+  'x-wpjd-upstream-duration'
+];
+
+const FORWARDED_RESPONSE_HEADERS = [
+  'x-wp-total',
+  'x-wp-totalpages',
+  'link',
+  'server',
+  'x-powered-by',
+  'x-cache',
+  'x-cache-status',
+  'x-proxy-cache',
+  'x-litespeed-cache',
+  'cf-ray',
+  'age',
+  'cache-control',
+  'vary',
+  'location',
+  'x-wpjd-final-url',
+  'x-wpjd-redirects'
+];
+
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173';
-app.use(cors({ origin: FRONTEND_ORIGIN }));
+app.use(cors({ origin: FRONTEND_ORIGIN, exposedHeaders: EXPOSED_HEADERS }));
 app.use(express.json({ limit: '256kb' }));
 app.use(morgan('dev'));
 
@@ -55,7 +96,7 @@ app.get('/api/proxy', async (req, res) => {
   const startedAt = Date.now();
 
   try {
-    const response = await fetch(targetUrl, {
+    const { response, finalUrl, redirects } = await fetchWithRedirects(targetUrl, {
       signal: controller.signal,
       headers: {
         'user-agent': 'wp-json-discovery/0.0.1 (+https://github.com/justinthompson/wp-json-discovery)'
@@ -70,13 +111,25 @@ app.get('/api/proxy', async (req, res) => {
       domain: sanitizedDomain,
       endpoint: normalizedEndpoint,
       targetUrl,
+      finalUrl,
       status: response.status,
+      redirects,
       durationMs,
       contentType,
       bytes: payload.length
     });
 
     res.status(response.status);
+    res.set('x-wpjd-upstream-status', String(response.status));
+    res.set('x-wpjd-upstream-duration', String(durationMs));
+    res.set('x-wpjd-final-url', finalUrl ?? targetUrl);
+    res.set('x-wpjd-redirects', String(redirects ?? 0));
+    FORWARDED_RESPONSE_HEADERS.forEach((headerName) => {
+      const value = response.headers.get(headerName);
+      if (value !== null) {
+        res.set(headerName, value);
+      }
+    });
     res.set('content-type', contentType);
     res.send(payload);
   } catch (error) {
@@ -153,6 +206,112 @@ app.post('/api/logs', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Failed to record log entry', details: error.message });
   }
+});
+
+app.post('/api/sitemap-scan', async (req, res) => {
+  const { domain, sitemapUrl, maxPages = 50 } = req.body ?? {};
+
+  if (typeof domain !== 'string' || domain.trim().length === 0) {
+    return res.status(400).json({ error: 'domain is required' });
+  }
+
+  const sanitizedDomain = sanitizeDomain(domain);
+  if (!sanitizedDomain) {
+    return res.status(400).json({ error: 'Invalid domain provided' });
+  }
+
+  const resolvedSitemapUrl = sitemapUrl
+    ? sitemapUrl
+    : `https://${sanitizedDomain}/sitemap.xml`;
+
+  const startedAt = Date.now();
+  const sitemapSummaries = [];
+  const pages = [];
+  const errors = [];
+  const seenSitemaps = new Set();
+  const seenPages = new Set();
+  const pageLimit = Math.min(Math.max(Number(maxPages) || 0, 1), 200);
+
+  async function processSitemap(target) {
+    if (seenSitemaps.has(target)) return;
+    seenSitemaps.add(target);
+
+    try {
+      const sitemapFetch = await fetchSitemap(target);
+      if (!sitemapFetch.ok) {
+        errors.push({ stage: 'sitemap', url: target, message: `HTTP ${sitemapFetch.status}` });
+        return;
+      }
+      const parsed = parseSitemap(sitemapFetch.body ?? '');
+      sitemapSummaries.push({
+        url: target,
+        statusCode: sitemapFetch.status,
+        redirects: sitemapFetch.redirects,
+        finalUrl: sitemapFetch.finalUrl,
+        entries: (parsed.urls ?? []).length,
+        type: parsed.type
+      });
+
+      if (parsed.type === 'index') {
+        for (const child of parsed.sitemapUrls.slice(0, 10)) {
+          await processSitemap(child);
+        }
+      }
+
+      parsed.urls.forEach((entry) => {
+        if (seenPages.size < pageLimit && entry.loc && !seenPages.has(entry.loc)) {
+          seenPages.add(entry.loc);
+        }
+      });
+    } catch (error) {
+      errors.push({ stage: 'sitemap', url: target, message: error.message });
+    }
+  }
+
+  await processSitemap(resolvedSitemapUrl);
+
+  const pageUrls = Array.from(seenPages).slice(0, pageLimit);
+  for (const url of pageUrls) {
+    try {
+      const detail = await fetchPageDetails(url);
+      pages.push(detail);
+      if (detail.schema?.items) {
+        const invalid = detail.schema.items.filter((item) => item.valid === false);
+        if (invalid.length > 0) {
+          logSilently('sitemap.page.schema_invalid', {
+            domain: sanitizedDomain,
+            url,
+            types: detail.schema.types,
+            errors: invalid.flatMap((item) => item.errors ?? [])
+          });
+        }
+      }
+    } catch (error) {
+      errors.push({ stage: 'page', url, message: error.message });
+    }
+  }
+
+  const completedAt = Date.now();
+  const invalidSchemaCount = pages.filter((p) => p.flags.includes('schema_invalid')).length;
+  const noindexCount = pages.filter((p) => p.flags.includes('noindex')).length;
+
+  res.json({
+    domain: sanitizedDomain,
+    startedAt: new Date(startedAt).toISOString(),
+    completedAt: new Date(completedAt).toISOString(),
+    durationMs: completedAt - startedAt,
+    sitemap: {
+      root: resolvedSitemapUrl,
+      sitemaps: sitemapSummaries
+    },
+    pages,
+    totals: {
+      pagesScanned: pages.length,
+      invalidSchema: invalidSchemaCount,
+      noindex: noindexCount
+    },
+    errors
+  });
 });
 
 app.post('/api/logs/rotate', async (_req, res) => {
@@ -261,6 +420,35 @@ async function readRawUnsupportedPlugins() {
 
     throw error;
   }
+}
+
+async function fetchWithRedirects(targetUrl, options, maxRedirects = 3) {
+  let currentUrl = targetUrl;
+  let redirects = 0;
+
+  while (redirects <= maxRedirects) {
+    const response = await fetch(currentUrl, {
+      ...options,
+      redirect: 'manual'
+    });
+
+    const location = response.headers.get('location');
+    const isRedirect = response.status >= 300 && response.status < 400 && location;
+
+    if (!isRedirect) {
+      return { response, finalUrl: currentUrl, redirects };
+    }
+
+    redirects += 1;
+    currentUrl = new URL(location, currentUrl).toString();
+  }
+
+  // Return last response even if redirect limit exceeded
+  const response = await fetch(currentUrl, {
+    ...options,
+    redirect: 'manual'
+  });
+  return { response, finalUrl: currentUrl, redirects };
 }
 
 async function writeRawUnsupportedPlugins(plugins) {

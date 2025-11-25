@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import AppLayout from '../templates/AppLayout.jsx';
 import DomainForm from '../molecules/forms/DomainForm.jsx';
@@ -5,10 +6,29 @@ import ScanSummary from '../organisms/summary/ScanSummary.jsx';
 import DataTable from '../organisms/data/DataTable.jsx';
 import PluginRoutesTable from '../organisms/data/PluginRoutesTable.jsx';
 import UnsupportedPluginsPanel from '../organisms/panels/UnsupportedPluginsPanel.jsx';
+import ExposurePanel from '../organisms/panels/ExposurePanel.jsx';
+import PerformancePanel from '../organisms/panels/PerformancePanel.jsx';
+import ContentOverviewPanel from '../organisms/panels/ContentOverviewPanel.jsx';
+import VersionPanel from '../organisms/panels/VersionPanel.jsx';
+import SitemapScanPanel from '../organisms/panels/SitemapScanPanel.jsx';
+import SitemapPagesTable from '../organisms/panels/SitemapPagesTable.jsx';
+import PluginSummaryPanel from '../organisms/panels/PluginSummaryPanel.jsx';
 import Button from '../atoms/Button.jsx';
 import { fetchUnsupportedPlugins } from '../../api/client.js';
 import { useScan } from '../../hooks/useScan.js';
-import { useTableInteractions } from '../../hooks/useTableInteractions.js';
+import { useSitemapScan } from '../../hooks/useSitemapScan.js';
+
+const SECTIONS = [
+  { id: 'overview', label: 'Overview', requiresScan: true },
+  { id: 'exposure', label: 'Exposure', requiresScan: true },
+  { id: 'performance', label: 'Performance', requiresScan: true },
+  { id: 'content', label: 'Content footprint', requiresScan: true },
+  { id: 'versions', label: 'Versions', requiresScan: true },
+  { id: 'sitemap', label: 'Sitemap scan', requiresScan: true },
+  { id: 'core', label: 'Core data', requiresScan: true },
+  { id: 'plugins', label: 'Plugins', requiresScan: true },
+  { id: 'unsupported', label: 'Unsupported', requiresScan: false }
+];
 
 function ScanPage() {
   const {
@@ -22,10 +42,13 @@ function ScanPage() {
   } = useScan();
 
   const {
-    getTableState,
-    toggleTableCollapse,
-    toggleTableExpand
-  } = useTableInteractions();
+    startSitemapScan,
+    result: sitemapResult,
+    isRunning: isSitemapRunning
+  } = useSitemapScan();
+  const [sitemapFilter, setSitemapFilter] = useState('all');
+
+  const [activeSection, setActiveSection] = useState('overview');
 
   const unsupportedQuery = useQuery({
     queryKey: ['unsupportedPlugins'],
@@ -33,10 +56,214 @@ function ScanPage() {
     initialData: []
   });
 
+  useEffect(() => {
+    if (scanResult) {
+      setActiveSection('overview');
+    }
+  }, [scanResult]);
+
+  const sidebarNav = useMemo(() => {
+    return (
+      <nav className="sidebar">
+        <div className="sidebar__section">
+          <p className="sidebar__title">Navigation</p>
+          <ul className="sidebar__nav">
+            {SECTIONS.map((item) => {
+              const disabled = item.requiresScan && !scanResult;
+              const isActive = activeSection === item.id;
+
+              return (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    className={`sidebar__link ${isActive ? 'is-active' : ''}`}
+                    onClick={() => !disabled && setActiveSection(item.id)}
+                    disabled={disabled}
+                  >
+                    {item.label}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+        <div className="sidebar__section">
+          <p className="sidebar__title">Actions</p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={rotateLogs}
+            disabled={isRotatingLogs}
+            className="sidebar__action"
+          >
+            {isRotatingLogs ? 'Rotating logs…' : 'Rotate activity log'}
+          </Button>
+        </div>
+      </nav>
+    );
+  }, [activeSection, scanResult, rotateLogs, isRotatingLogs]);
+
+  const renderSectionContent = () => {
+    if (!scanResult) {
+      return (
+        <div className="card card--info">
+          <div className="card__content">
+            <p>
+              Enter a domain to discover available REST endpoints, review core
+              content, and track unsupported plugin namespaces.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    switch (activeSection) {
+      case 'overview':
+        return (
+          <>
+            <ScanSummary
+              domain={scanResult.domain}
+              fetchedAt={scanResult.fetchedAt}
+              summary={scanResult.summary}
+              namespaces={scanResult.namespaces}
+              metrics={scanResult.metrics}
+              plugins={scanResult.plugins}
+              coreDatasets={scanResult.core}
+            />
+            <section className="section">
+              <div className="grid">
+                <ExposurePanel exposure={scanResult.exposure} />
+                <PerformancePanel performance={scanResult.performance} />
+                <ContentOverviewPanel overview={scanResult.contentOverview} />
+                <VersionPanel versions={scanResult.versions} />
+              </div>
+            </section>
+          </>
+        );
+      case 'exposure':
+        return (
+          <section className="section">
+            <ExposurePanel exposure={scanResult.exposure} />
+          </section>
+        );
+      case 'performance':
+        return (
+          <section className="section">
+            <PerformancePanel performance={scanResult.performance} />
+          </section>
+        );
+      case 'content':
+        return (
+          <section className="section">
+            <ContentOverviewPanel overview={scanResult.contentOverview} />
+          </section>
+        );
+      case 'versions':
+        return (
+          <section className="section">
+            <VersionPanel versions={scanResult.versions} />
+          </section>
+        );
+      case 'sitemap': {
+        const domain = scanResult.domain;
+        return (
+          <section className="section">
+            <div className="grid">
+              <SitemapScanPanel
+                domain={domain}
+                onScan={startSitemapScan}
+                isRunning={isSitemapRunning}
+                result={sitemapResult}
+              />
+              <SitemapPagesTable
+                pages={sitemapResult?.pages ?? []}
+                filterValue={sitemapFilter}
+                onFilterChange={setSitemapFilter}
+              />
+            </div>
+          </section>
+        );
+      }
+      case 'core':
+        return (
+          <section className="section">
+            <h2>Core data</h2>
+            <div className="grid">
+              {scanResult.core.map((dataset) => (
+                <DataTable
+                  key={dataset.key}
+                  domain={scanResult.domain}
+                  datasetKey={dataset.key}
+                  title={dataset.label}
+                  description={dataset.description}
+                  columns={dataset.columns}
+                  rows={dataset.rows}
+                  status={dataset.status}
+                  error={dataset.error}
+                />
+              ))}
+            </div>
+          </section>
+        );
+      case 'plugins':
+        return (
+          <section className="section">
+            <h2>Plugin routes</h2>
+            <div className="grid">
+              <PluginSummaryPanel plugins={scanResult.plugins} />
+            </div>
+            <div className="grid">
+              {scanResult.plugins.matched.length > 0 ? (
+                scanResult.plugins.matched.map((plugin) => (
+                  <PluginRoutesTable
+                    key={plugin.plugin.id}
+                    domain={scanResult.domain}
+                    pluginMatch={plugin}
+                  />
+                ))
+              ) : (
+                <div className="card">
+                  <div className="card__content">
+                    <p>No supported plugin namespaces detected.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            {scanResult.plugins.unsupportedNamespaces.length > 0 ? (
+              <div className="card card--info">
+                <div className="card__content">
+                  <p>
+                    Unsupported namespaces recorded:{' '}
+                    {scanResult.plugins.unsupportedNamespaces.join(', ')}.
+                    They&apos;ve been added to the persistent tracking list
+                    under the Unsupported tab.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+          </section>
+        );
+      case 'unsupported':
+        return (
+          <section className="section">
+            <UnsupportedPluginsPanel
+              plugins={unsupportedQuery.data ?? []}
+              isLoading={unsupportedQuery.isLoading}
+              onRefresh={() => unsupportedQuery.refetch()}
+            />
+          </section>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <AppLayout
       title="WP JSON Discovery"
       subtitle="Scan a WordPress site and explore publicly accessible REST data."
+      sidebar={sidebarNav}
     >
       <DomainForm
         onSubmit={startScan}
@@ -73,120 +300,7 @@ function ScanPage() {
         </div>
       ) : null}
 
-      {scanResult ? (
-        <>
-          <ScanSummary
-            domain={scanResult.domain}
-            fetchedAt={scanResult.fetchedAt}
-            summary={scanResult.summary}
-            namespaces={scanResult.namespaces}
-            metrics={scanResult.metrics}
-            plugins={scanResult.plugins}
-            coreDatasets={scanResult.core}
-          />
-
-          <section className="section">
-            <h2>Core data</h2>
-              <div className="grid">
-                {scanResult.core.map((dataset) => (
-                  <DataTable
-                    key={dataset.key}
-                    domain={scanResult.domain}
-                    datasetKey={dataset.key}
-                    title={dataset.label}
-                    description={dataset.description}
-                    columns={dataset.columns}
-                    rows={dataset.rows}
-                    status={dataset.status}
-                    error={dataset.error}
-                    isCollapsed={getTableState(dataset.key).collapsed}
-                    isExpanded={getTableState(dataset.key).expanded}
-                    onToggleCollapse={() => toggleTableCollapse(dataset.key)}
-                    onToggleExpand={() => toggleTableExpand(dataset.key)}
-                  />
-                ))}
-              </div>
-            </section>
-
-            <section className="section">
-              <h2>Plugin routes</h2>
-              <div className="grid">
-                {scanResult.plugins.matched.length > 0 ? (
-                  scanResult.plugins.matched.map((plugin) => (
-                    <PluginRoutesTable
-                      key={plugin.plugin.id}
-                      domain={scanResult.domain}
-                      pluginMatch={plugin}
-                      isCollapsed={
-                        getTableState(`plugin-${plugin.plugin.id}`).collapsed
-                      }
-                      isExpanded={
-                        getTableState(`plugin-${plugin.plugin.id}`).expanded
-                      }
-                      onToggleCollapse={() =>
-                        toggleTableCollapse(`plugin-${plugin.plugin.id}`)
-                      }
-                      onToggleExpand={() =>
-                        toggleTableExpand(`plugin-${plugin.plugin.id}`)
-                      }
-                    />
-                  ))
-                ) : (
-                  <div className="card">
-                    <div className="card__content">
-                    <p>No supported plugin namespaces detected.</p>
-                  </div>
-                </div>
-              )}
-            </div>
-            {scanResult.plugins.unsupportedNamespaces.length > 0 ? (
-              <div className="card card--info">
-                <div className="card__content">
-                  <p>
-                    Unsupported namespaces recorded:{' '}
-                    {scanResult.plugins.unsupportedNamespaces.join(', ')}.
-                    They&apos;ve been added to the persistent tracking list
-                    below.
-                  </p>
-                </div>
-              </div>
-            ) : null}
-          </section>
-        </>
-      ) : (
-        <div className="card card--info">
-          <div className="card__content">
-            <p>
-              Enter a domain to discover available REST endpoints, review core
-              content, and track unsupported plugin namespaces.
-            </p>
-          </div>
-        </div>
-      )}
-
-      <section className="section">
-        <UnsupportedPluginsPanel
-          plugins={unsupportedQuery.data ?? []}
-          isLoading={unsupportedQuery.isLoading}
-          onRefresh={() => unsupportedQuery.refetch()}
-        />
-      </section>
-
-      <section className="section">
-        <div className="app__footer-actions">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={rotateLogs}
-            disabled={isRotatingLogs}
-          >
-            {isRotatingLogs
-              ? 'Rotating logs…'
-              : 'Rotate activity log'}
-          </Button>
-        </div>
-      </section>
+      {renderSectionContent()}
     </AppLayout>
   );
 }
