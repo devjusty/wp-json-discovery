@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { useQuery } from '@tanstack/react-query';
 import AppLayout from '../templates/AppLayout.jsx';
 import DomainForm from '../molecules/forms/DomainForm.jsx';
@@ -15,7 +16,6 @@ import SitemapPagesTable from '../organisms/panels/SitemapPagesTable.jsx';
 import PluginSummaryPanel from '../organisms/panels/PluginSummaryPanel.jsx';
 import Button from '../atoms/Button.jsx';
 import { fetchUnsupportedPlugins } from '../../api/client.js';
-import { useScan } from '../../hooks/useScan.js';
 import { useSitemapScan } from '../../hooks/useSitemapScan.js';
 
 const SECTIONS = [
@@ -30,17 +30,24 @@ const SECTIONS = [
   { id: 'unsupported', label: 'Unsupported', requiresScan: false }
 ];
 
-function ScanPage() {
-  const {
-    startScan,
-    scanResult,
-    isScanning,
-    scanError,
-    activeDomain,
-    isRotatingLogs,
-    rotateLogs
-  } = useScan();
-
+function ScanPage({
+  headerActions,
+  domain,
+  onDomainChange,
+  onNavigateHomepage,
+  startScan,
+  scanResult,
+  isScanning,
+  scanError,
+  activeDomain,
+  isRotatingLogs,
+  rotateLogs,
+  homepageResult,
+  homepageIsRunning,
+  onRunHomepage,
+  homepageAutoEnabled,
+  onToggleHomepageAuto
+}) {
   const {
     startSitemapScan,
     result: sitemapResult,
@@ -263,12 +270,44 @@ function ScanPage() {
     <AppLayout
       title="WP JSON Discovery"
       subtitle="Scan a WordPress site and explore publicly accessible REST data."
+      headerActions={headerActions}
       sidebar={sidebarNav}
     >
       <DomainForm
         onSubmit={startScan}
         isScanning={isScanning}
         initialDomain={scanResult?.domain ?? activeDomain}
+        domain={domain}
+        onDomainChange={onDomainChange}
+        showHomepageToggle
+        homepageEnabled={homepageAutoEnabled}
+        onToggleHomepage={onToggleHomepageAuto}
+      />
+      <div className="card">
+        <div className="card__content card__content--cta">
+          <div>
+            <h3 className="cta-title">Need homepage signals?</h3>
+            <p className="card__meta">
+              Jump to the opt-in homepage source scan to extract generators, builder hints, and asset paths.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={onNavigateHomepage}
+            disabled={!domain && !activeDomain}
+          >
+            Open homepage source scan
+          </Button>
+        </div>
+      </div>
+      <HomepageSummaryCard
+        domain={domain || activeDomain}
+        result={homepageResult}
+        isRunning={homepageIsRunning}
+        onRunHomepage={() => onRunHomepage(domain || activeDomain)}
+        onNavigateHomepage={onNavigateHomepage}
       />
 
       {isScanning ? (
@@ -305,4 +344,109 @@ function ScanPage() {
   );
 }
 
+ScanPage.propTypes = {
+  headerActions: PropTypes.node,
+  domain: PropTypes.string,
+  onDomainChange: PropTypes.func.isRequired,
+  onNavigateHomepage: PropTypes.func.isRequired,
+  startScan: PropTypes.func.isRequired,
+  scanResult: PropTypes.object,
+  isScanning: PropTypes.bool,
+  scanError: PropTypes.object,
+  activeDomain: PropTypes.string,
+  isRotatingLogs: PropTypes.bool,
+  rotateLogs: PropTypes.func.isRequired,
+  homepageResult: PropTypes.object,
+  homepageIsRunning: PropTypes.bool,
+  onRunHomepage: PropTypes.func.isRequired,
+  homepageAutoEnabled: PropTypes.bool.isRequired,
+  onToggleHomepageAuto: PropTypes.func.isRequired
+};
+
+ScanPage.defaultProps = {
+  headerActions: null,
+  domain: '',
+  scanResult: null,
+  isScanning: false,
+  scanError: null,
+  activeDomain: '',
+  isRotatingLogs: false,
+  homepageResult: null,
+  homepageIsRunning: false
+};
+
 export default ScanPage;
+
+function HomepageSummaryCard({
+  domain,
+  result,
+  isRunning,
+  onRunHomepage,
+  onNavigateHomepage
+}) {
+  return (
+    <div className="card">
+      <div className="card__content card__content--cta">
+        <div>
+          <h3 className="cta-title">Homepage source snapshot</h3>
+          {result ? (
+            <p className="card__meta">
+              Status {result.source?.statusCode ?? '—'} · {formatBytes(result.source?.sizeBytes)} ·{' '}
+              {result.insights?.meta?.length ?? 0} meta · {result.insights?.assets?.length ?? 0} assets ·{' '}
+              {result.insights?.frameworks?.length ?? 0} frameworks
+            </p>
+          ) : (
+            <p className="card__meta">
+              Run the homepage scan to capture generator hints, comments, assets, and frameworks for {domain || 'this site'}.
+            </p>
+          )}
+        </div>
+        <div className="cta-actions">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onNavigateHomepage}
+            disabled={!domain}
+          >
+            View details
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={onRunHomepage}
+            disabled={!domain || isRunning}
+          >
+            {isRunning ? 'Running…' : 'Run homepage scan'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+HomepageSummaryCard.propTypes = {
+  domain: PropTypes.string,
+  result: PropTypes.object,
+  isRunning: PropTypes.bool,
+  onRunHomepage: PropTypes.func.isRequired,
+  onNavigateHomepage: PropTypes.func.isRequired
+};
+
+HomepageSummaryCard.defaultProps = {
+  domain: '',
+  result: null,
+  isRunning: false
+};
+
+function formatBytes(bytes) {
+  if (!bytes || Number.isNaN(bytes)) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const index = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1
+  );
+  const value = bytes / Math.pow(1024, index);
+  return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
+}

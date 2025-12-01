@@ -7,7 +7,7 @@ export function normalizeDomain(input = '') {
     .toLowerCase();
 }
 
-export function stripHtml(value) {
+function stripHtml(value) {
   if (!value || typeof value !== 'string') {
     return '';
   }

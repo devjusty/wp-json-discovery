@@ -13,6 +13,7 @@ WP JSON Discovery is a Vite-powered React application backed by a lightweight Ex
 - **Research workflows** – Context7 queries are bundled into the docs so unsupported namespaces can be researched without leaving the terminal.
 - **Robust logging** – JSONL activity log records proxy performance, scan duration, persistence actions, and error diagnostics.
 - **Atomic design system** – UI is composed using Brad Frost’s atoms → molecules → organisms → templates → pages to encourage reuse and scalability.
+- **Homepage source scan (opt-in)** – Single GET to `/` (1 MB cap) to extract generators, builder hints, asset paths, and framework signals without crawling sub-resources.
 
 ---
 
@@ -101,6 +102,7 @@ pnpm --filter frontend run preview
 - `server/data/activity.log` – JSONL event log (rotate when >1 MB).
 - `server/data/unsupported-plugins.json` – Persisted unsupported namespaces (should be `[]` after a clean scan).
 - `frontend/src/config/plugins.js` – Source of truth for supported namespaces.
+- `homepage-scan` log entries include status, size, cap, truncate flag, and counts for meta/comments/scripts/assets/frameworks for debugging.
 
 Whenever you add new namespaces, run `pnpm --filter frontend run lint` and `pnpm --filter frontend run build` before committing.
 

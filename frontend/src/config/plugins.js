@@ -19,6 +19,13 @@ export const SUPPORTED_PLUGINS = [
     ]
   },
   {
+    id: 'wc-gla',
+    label: 'Google Listings & Ads',
+    description: 'WooCommerce Google Listings & Ads campaign and sync endpoints.',
+    pluginUrl: 'https://woocommerce.com/products/google-listings-and-ads/',
+    namespaces: ['wc/gla']
+  },
+  {
     id: 'aioseo',
     label: 'All in One SEO',
     description: 'SEO analysis and sitemap endpoints exposed by All in One SEO.',
@@ -160,6 +167,12 @@ export const SUPPORTED_PLUGINS = [
     ]
   },
   {
+    id: 'jet-engine',
+    label: 'JetEngine',
+    description: 'Crocoblock JetEngine dynamic content and custom post type endpoints.',
+    namespaces: ['jet-engine/v2']
+  },
+  {
     id: 'template-kit-import',
     label: 'Template Kit Import',
     description: 'Elementor template kit import/export REST endpoints.',
@@ -187,6 +200,7 @@ export const SUPPORTED_PLUGINS = [
     pluginUrl: 'https://wordpress.org/plugins/seo-by-rank-math/',
     namespaces: [
       'rankmath/v1',
+      'rankmath/v1/ca',
       'rankmath/v1/an',
       'rankmath/v1/in',
       'rankmath/v1/status',
@@ -267,6 +281,13 @@ export const SUPPORTED_PLUGINS = [
     namespaces: ['wp-block-editor/v1']
   },
   {
+    id: 'accordion-blocks',
+    label: 'Accordion Blocks',
+    description: 'Accordion Blocks plugin REST routes for block content.',
+    pluginUrl: 'https://wordpress.org/plugins/accordion-blocks/',
+    namespaces: ['accordion-blocks/v1']
+  },
+  {
     id: 'cleantalk-antispam',
     label: 'CleanTalk Anti-Spam',
     description: 'CleanTalk anti-spam diagnostics endpoints.',
@@ -328,6 +349,13 @@ export const SUPPORTED_PLUGINS = [
     label: 'Divi Builder',
     description: 'Divi Builder REST endpoints for layouts and modules.',
     namespaces: ['divi/v1']
+  },
+  {
+    id: 'bricks',
+    label: 'Bricks Builder',
+    description: 'Bricks site builder endpoints for templates and content.',
+    pluginUrl: 'https://bricksbuilder.io/',
+    namespaces: ['bricks/v1']
   },
   {
     id: 'health-check',
@@ -416,6 +444,13 @@ export const SUPPORTED_PLUGINS = [
     namespaces: ['search-regex/v1']
   },
   {
+    id: 'code-snippets',
+    label: 'Code Snippets',
+    description: 'Code Snippets management endpoints for reusable snippets.',
+    pluginUrl: 'https://wordpress.org/plugins/code-snippets/',
+    namespaces: ['code-snippets/v1']
+  },
+  {
     id: 'slider-revolution',
     label: 'Slider Revolution',
     description: 'Slider Revolution slider import/export endpoints.',
@@ -450,6 +485,32 @@ export const SUPPORTED_PLUGINS = [
     namespaces: ['gtmkit/v1']
   },
   {
+    id: 'publishpress-future',
+    label: 'PublishPress Future',
+    description: 'Schedule and automation endpoints from PublishPress Future.',
+    pluginUrl: 'https://wordpress.org/plugins/publishpress-future/',
+    namespaces: ['publishpress-future/v1']
+  },
+  {
+    id: 'trustindex',
+    label: 'Trustindex Reviews',
+    description: 'Trustindex review widget endpoints for pulling reviews.',
+    namespaces: ['trustindex/v1']
+  },
+  {
+    id: 'webp-converter',
+    label: 'WebP Converter for Media',
+    description: 'Image conversion and optimization endpoints for WebP Converter.',
+    pluginUrl: 'https://wordpress.org/plugins/webp-converter-for-media/',
+    namespaces: ['webp-converter/v1']
+  },
+  {
+    id: 'youtube-importer-secondline',
+    label: 'YouTube Importer by SecondLine',
+    description: 'Import videos from YouTube into WordPress via SecondLine.',
+    namespaces: ['youtube-importer-secondline/v1']
+  },
+  {
     id: 'formidable',
     label: 'Formidable Forms',
     description: 'Formidable Forms admin REST helpers.',
@@ -479,6 +540,19 @@ export const SUPPORTED_PLUGINS = [
       'tribe/event-aggregator/v1',
       'tribe/events/v1',
       'tribe/views/v2'
+    ]
+  },
+  {
+    id: 'wpml',
+    label: 'WPML',
+    description: 'WPML multilingual site management endpoints and installer helpers.',
+    pluginUrl: 'https://wpml.org/',
+    namespaces: [
+      'wpml/ate/v1',
+      'wpml/st/v1',
+      'wpml/tm/v1',
+      'wpml/v1',
+      'otgs/installer/v1'
     ]
   }
 ];

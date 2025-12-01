@@ -27,7 +27,7 @@ export async function request(path, options = {}) {
     if (contentType.includes('application/json')) {
       try {
         data = await response.json();
-      } catch (error) {
+      } catch {
         data = await response.text();
       }
     } else {
@@ -75,6 +75,23 @@ export async function upsertUnsupportedPlugin(payload) {
     throw new Error(
       `Unable to persist unsupported plugin (${payload.namespace})`
     );
+  }
+
+  return result.data;
+}
+
+export async function runHomepageScan(payload) {
+  const result = await request('/api/homepage-scan', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+
+  if (!result.ok) {
+    const message =
+      typeof result.data?.error === 'string'
+        ? result.data.error
+        : 'Homepage scan failed';
+    throw new Error(message);
   }
 
   return result.data;

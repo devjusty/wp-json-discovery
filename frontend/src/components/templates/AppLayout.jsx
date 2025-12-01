@@ -1,6 +1,8 @@
 import PropTypes from 'prop-types';
 
 function AppLayout({ title, subtitle, headerActions, sidebar, children }) {
+  const bodyClass = sidebar ? 'app__body' : 'app__body app__body--single';
+
   return (
     <div className="app">
       <header className="app__header">
@@ -12,7 +14,7 @@ function AppLayout({ title, subtitle, headerActions, sidebar, children }) {
           <div className="app__header-actions">{headerActions}</div>
         ) : null}
       </header>
-      <div className="app__body">
+      <div className={bodyClass}>
         {sidebar ? <aside className="app__sidebar">{sidebar}</aside> : null}
         <main className="app__main">{children}</main>
       </div>

@@ -9,18 +9,38 @@ import {
 import TextInput from '../../atoms/TextInput.jsx';
 import { normalizeDomain } from '../../../utils/format.js';
 
-function DomainForm({ onSubmit, isScanning, initialDomain }) {
-  const [domain, setDomain] = useState(initialDomain ?? '');
+function DomainForm({
+  onSubmit,
+  isScanning,
+  initialDomain,
+  domain,
+  onDomainChange,
+  showHomepageToggle,
+  homepageEnabled,
+  onToggleHomepage
+}) {
+  const isControlled = typeof domain === 'string';
+  const [internalDomain, setInternalDomain] = useState(initialDomain ?? '');
+  const value = isControlled ? domain : internalDomain;
 
   useEffect(() => {
-    if (initialDomain) {
-      setDomain(initialDomain);
+    if (!isControlled && initialDomain) {
+      setInternalDomain(initialDomain);
     }
-  }, [initialDomain]);
+  }, [initialDomain, isControlled]);
+
+  const handleChange = (event) => {
+    const next = event.target.value;
+    if (isControlled && onDomainChange) {
+      onDomainChange(next);
+    } else {
+      setInternalDomain(next);
+    }
+  };
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    const normalized = normalizeDomain(domain);
+    const normalized = normalizeDomain(value);
 
     if (!normalized) {
       return;
@@ -29,7 +49,7 @@ function DomainForm({ onSubmit, isScanning, initialDomain }) {
     onSubmit(normalized);
   };
 
-  const isValidDomain = Boolean(normalizeDomain(domain));
+  const isValidDomain = Boolean(normalizeDomain(value));
 
   return (
     <Card as="form" className="domain-form" onSubmit={handleSubmit}>
@@ -52,8 +72,8 @@ function DomainForm({ onSubmit, isScanning, initialDomain }) {
             type="text"
             className="domain-form__input"
             placeholder="example.com"
-            value={domain}
-            onChange={(event) => setDomain(event.target.value)}
+            value={value}
+            onChange={handleChange}
             aria-label="WordPress domain"
           />
           <Button
@@ -64,6 +84,16 @@ function DomainForm({ onSubmit, isScanning, initialDomain }) {
             {isScanning ? 'Scanning…' : 'Start scan'}
           </Button>
         </div>
+        {showHomepageToggle ? (
+          <label className="domain-form__toggle">
+            <input
+              type="checkbox"
+              checked={homepageEnabled}
+              onChange={(event) => onToggleHomepage?.(event.target.checked)}
+            />
+            <span>Also run homepage source scan after REST scan</span>
+          </label>
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -72,7 +102,22 @@ function DomainForm({ onSubmit, isScanning, initialDomain }) {
 DomainForm.propTypes = {
   onSubmit: PropTypes.func.isRequired,
   isScanning: PropTypes.bool,
-  initialDomain: PropTypes.string
+  initialDomain: PropTypes.string,
+  domain: PropTypes.string,
+  onDomainChange: PropTypes.func,
+  showHomepageToggle: PropTypes.bool,
+  homepageEnabled: PropTypes.bool,
+  onToggleHomepage: PropTypes.func
+};
+
+DomainForm.defaultProps = {
+  isScanning: false,
+  initialDomain: '',
+  domain: undefined,
+  onDomainChange: null,
+  showHomepageToggle: false,
+  homepageEnabled: true,
+  onToggleHomepage: null
 };
 
 export default DomainForm;
