@@ -1,7 +1,12 @@
 import { URL } from 'node:url';
+import * as cheerio from 'cheerio';
+import { fetchWithRedirects } from './utils/fetch.js';
+import { AppError, NetworkError, ValidationError } from './utils/errors.js';
+import { MAX_PAGE_BODY_BYTES, DEFAULT_USER_AGENT } from './config.js';
+import { logSilently } from '../logger.js'; // Import logSilently
 
-const MAX_PAGE_BYTES = 1.5 * 1024 * 1024;
-const DEFAULT_UA = 'wp-json-discovery/0.0.1 (+https://github.com/justinthompson/wp-json-discovery)';
+const MAX_PAGE_BYTES = MAX_PAGE_BODY_BYTES;
+const DEFAULT_UA = DEFAULT_USER_AGENT;
 
 export async function fetchSitemap(url) {
   const { response, finalUrl, redirects } = await fetchWithRedirects(url, {
@@ -10,6 +15,10 @@ export async function fetchSitemap(url) {
       'user-agent': DEFAULT_UA
     }
   });
+
+  if (!response.ok) {
+    throw new NetworkError(`Failed to fetch sitemap from ${url}. Status: ${response.status}`, response.status);
+  }
 
   const body = await response.text();
   return {
@@ -27,16 +36,13 @@ export function parseSitemap(xmlString) {
   const isIndex = lower.includes('<sitemapindex');
   const isUrlset = lower.includes('<urlset');
 
-  const locRegex = /<loc>([^<]+)<\/loc>/gi;
-  const lastmodRegex = /<lastmod>([^<]+)<\/lastmod>/gi;
-
+  const $ = cheerio.load(xmlString, { xml: true });
   const entries = [];
-  let match;
-  while ((match = locRegex.exec(xmlString)) !== null) {
-    const loc = match[1].trim();
-    const lastmodMatch = lastmodRegex.exec(xmlString);
-    entries.push({ loc, lastmod: lastmodMatch ? lastmodMatch[1].trim() : null });
-  }
+  $('loc').each((_i, el) => {
+    const loc = $(el).text().trim();
+    const lastmod = $(el).nextAll('lastmod').first().text().trim() || null;
+    entries.push({ loc, lastmod });
+  });
 
   if (isIndex) {
     return { type: 'index', sitemapUrls: entries.map((e) => e.loc), urls: [] };
@@ -58,6 +64,10 @@ export async function fetchPageDetails(url, { signal, userAgent = DEFAULT_UA } =
       'user-agent': userAgent
     }
   });
+
+  if (!response.ok) {
+    throw new NetworkError(`Failed to fetch page details from ${url}. Status: ${response.status}`, response.status);
+  }
 
   const reader = response.body?.getReader?.();
   let bytesRead = 0;
@@ -100,12 +110,27 @@ export async function fetchPageDetails(url, { signal, userAgent = DEFAULT_UA } =
 }
 
 function extractSeo(html) {
-  const title = matchTag(html, /<title[^>]*>([^<]*)<\/title>/i);
-  const description = matchMeta(html, 'name', 'description');
-  const robots = matchMeta(html, 'name', 'robots');
-  const canonical = matchLink(html, 'canonical');
-  const ogTags = pickMeta(html, 'property', /^og:/i);
-  const twitterTags = pickMeta(html, 'name', /^twitter:/i);
+  const $ = cheerio.load(html);
+  const title = $('title').first().text();
+  const description = $('meta[name="description"]').attr('content');
+  const robots = $('meta[name="robots"]').attr('content');
+  const canonical = $('link[rel="canonical"]').attr('href');
+  const ogTags = {};
+  $('meta[property^="og:"]').each((_i, el) => {
+    const prop = $(el).attr('property');
+    const content = $(el).attr('content');
+    if (prop && content) {
+      ogTags[prop] = content;
+    }
+  });
+  const twitterTags = {};
+  $('meta[name^="twitter:"]').each((_i, el) => {
+    const name = $(el).attr('name');
+    const content = $(el).attr('content');
+    if (name && content) {
+      twitterTags[name] = content;
+    }
+  });
 
   return {
     title,
@@ -134,6 +159,8 @@ function extractSchema(html) {
       });
     } catch (error) {
       items.push({ type: 'unknown', raw, valid: false, errors: [error.message] });
+      // Optionally re-throw as ValidationError if a hard failure is desired
+      // throw new ValidationError(`Failed to parse schema JSON: ${error.message}`, { raw, error: error.message });
     }
   });
 
@@ -144,12 +171,11 @@ function extractSchema(html) {
 }
 
 function extractLdScripts(html) {
+  const $ = cheerio.load(html);
   const scripts = [];
-  const regex = /<script[^>]*type=['"]application\/ld\+json['"][^>]*>([\s\S]*?)<\/script>/gi;
-  let match;
-  while ((match = regex.exec(html)) !== null) {
-    scripts.push(match[1]);
-  }
+  $('script[type="application/ld+json"]').each((_i, el) => {
+    scripts.push($(el).html());
+  });
   return scripts;
 }
 
@@ -214,71 +240,6 @@ function hasPath(obj, path) {
   return path.split('.').reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : null), obj) !== null;
 }
 
-function matchTag(html, regex) {
-  const m = regex.exec(html);
-  return m ? decode(m[1]) : '';
-}
-
-function matchMeta(html, attr, name) {
-  const regex = new RegExp(`<meta[^>]*${attr}=["']${escapeRegex(name)}["'][^>]*content=["']([^"']*)["'][^>]*>`, 'i');
-  const match = regex.exec(html);
-  return match ? decode(match[1]) : '';
-}
-
-function pickMeta(html, attr, prefixRegex) {
-  const regex = new RegExp(`<meta[^>]*${attr}=["']([^"']+)["'][^>]*content=["']([^"']*)["'][^>]*>`, 'gi');
-  const out = {};
-  let match;
-  while ((match = regex.exec(html)) !== null) {
-    if (prefixRegex.test(match[1])) {
-      out[match[1]] = decode(match[2]);
-    }
-  }
-  return out;
-}
-
-function matchLink(html, rel) {
-  const regex = new RegExp(`<link[^>]*rel=["']${escapeRegex(rel)}["'][^>]*href=["']([^"']+)["'][^>]*>`, 'i');
-  const match = regex.exec(html);
-  return match ? decode(match[1]) : '';
-}
-
-function decode(value) {
-  return value.replace(/&amp;/g, '&').replace(/&quot;/g, '"').trim();
-}
-
-function escapeRegex(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-async function fetchWithRedirects(targetUrl, options, maxRedirects = 3) {
-  let currentUrl = targetUrl;
-  let redirects = 0;
-
-  while (redirects <= maxRedirects) {
-    const response = await fetch(currentUrl, {
-      ...options,
-      redirect: 'manual'
-    });
-
-    const location = response.headers.get('location');
-    const isRedirect = response.status >= 300 && response.status < 400 && location;
-
-    if (!isRedirect) {
-      return { response, finalUrl: currentUrl, redirects };
-    }
-
-    redirects += 1;
-    currentUrl = new URL(location, currentUrl).toString();
-  }
-
-  const response = await fetch(currentUrl, {
-    ...options,
-    redirect: 'manual'
-  });
-  return { response, finalUrl: currentUrl, redirects };
-}
-
 const REQUIRED_FIELDS = {
   organization: ['name', 'url'],
   localbusiness: ['name', 'address'],
@@ -289,3 +250,72 @@ const REQUIRED_FIELDS = {
   howto: ['name', 'step'],
   breadcrumblist: ['itemListElement']
 };
+
+export async function fetchAndParseSitemap(targetUrl, maxPages = 50) {
+  const sitemapSummaries = [];
+  const seenSitemaps = new Set();
+  const seenPages = new Set();
+  const pageLimit = Math.min(Math.max(Number(maxPages) || 0, 1), 200);
+
+  async function processSitemap(url) {
+    if (seenSitemaps.has(url)) return;
+    seenSitemaps.add(url);
+
+    const sitemapFetch = await fetchSitemap(url);
+    const parsed = parseSitemap(sitemapFetch.body ?? '');
+
+    sitemapSummaries.push({
+      url,
+      statusCode: sitemapFetch.status,
+      redirects: sitemapFetch.redirects,
+      finalUrl: sitemapFetch.finalUrl,
+      entries: (parsed.urls ?? []).length,
+      type: parsed.type
+    });
+
+    if (parsed.type === 'index') {
+      for (const child of parsed.sitemapUrls.slice(0, 10)) {
+        await processSitemap(child);
+      }
+    }
+
+    parsed.urls.forEach((entry) => {
+      if (seenPages.size < pageLimit && entry.loc && !seenPages.has(entry.loc)) {
+        seenPages.add(entry.loc);
+      }
+    });
+  }
+
+  await processSitemap(targetUrl);
+
+  return { sitemapSummaries, seenPages };
+}
+
+export async function fetchAndProcessPageDetails(pageUrls, sanitizedDomain) {
+  const pages = [];
+
+  for (const url of pageUrls) {
+    try {
+      const detail = await fetchPageDetails(url);
+      pages.push(detail);
+      if (detail.schema?.items) {
+        const invalid = detail.schema.items.filter((item) => item.valid === false);
+        if (invalid.length > 0) {
+          logSilently('sitemap.page.schema_invalid', {
+            domain: sanitizedDomain,
+            url,
+            types: detail.schema.types,
+            errors: invalid.flatMap((item) => item.errors ?? [])
+          });
+        }
+      }
+    } catch (error) {
+      logSilently('sitemap.page_fetching_error', { url, message: error.message });
+      // Re-throw if critical, or continue if this is just logging and processing should proceed
+      // For now, we'll log and let the sitemap scan complete with whatever pages it managed to fetch
+      // If the caller needs strict error handling, they will wrap this in a try/catch
+    }
+  }
+
+  return pages;
+}

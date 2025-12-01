@@ -8,16 +8,18 @@ import {
   CardHeader
 } from '../atoms/Card.jsx';
 import PropTypes from 'prop-types';
+import { useScanContext } from '../../context/ScanContext.jsx';
 
-function HomepageScanPage({
-  headerActions,
-  domain,
-  onDomainChange,
-  startHomepageScan,
-  result,
-  isRunning,
-  error
-}) {
+function HomepageScanPage() {
+  const {
+    headerActions,
+    domain,
+    handleDomainChange: onDomainChange,
+    startHomepageScan,
+    homepageResult: result,
+    homepageIsRunning: isRunning,
+    homepageError: error
+  } = useScanContext();
   return (
     <AppLayout
       title="Homepage Source Scan"
@@ -99,23 +101,7 @@ function HomepageScanPage({
   );
 }
 
-HomepageScanPage.propTypes = {
-  headerActions: PropTypes.node,
-  domain: PropTypes.string,
-  onDomainChange: PropTypes.func.isRequired,
-  startHomepageScan: PropTypes.func.isRequired,
-  result: PropTypes.object,
-  isRunning: PropTypes.bool,
-  error: PropTypes.object
-};
 
-HomepageScanPage.defaultProps = {
-  headerActions: null,
-  domain: '',
-  result: null,
-  isRunning: false,
-  error: null
-};
 
 function JsonSchemaPreview({ data }) {
   if (!data) return null;

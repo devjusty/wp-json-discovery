@@ -1,25 +1,32 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import ScanPage from './components/pages/ScanPage.jsx';
 import HomepageScanPage from './components/pages/HomepageScanPage.jsx';
 import Button from './components/atoms/Button.jsx';
-import { useScan } from './hooks/useScan.js';
-import { useHomepageScan } from './hooks/useHomepageScan.js';
 import './App.css';
+import { ScanProvider, useScanContext } from './context/ScanContext.jsx';
 
-function App() {
-  const [activePage, setActivePage] = useState('scan');
-  const [domain, setDomain] = useState('');
-  const [autoHomepageDomain, setAutoHomepageDomain] = useState(null);
-  const [autoHomepageEnabled, setAutoHomepageEnabled] = useState(true);
 
-  const scan = useScan();
-  const homepageScan = useHomepageScan();
+function AppContent() {
   const {
+    activePage,
+    setActivePage,
+    domain,
+    handleDomainChange,
+    homepageResult,
+    homepageIsRunning,
+    homepageError,
     startHomepageScan,
-    result: homepageResult,
-    isRunning: homepageIsRunning,
-    error: homepageError
-  } = homepageScan;
+    scanResult,
+    isScanning,
+    scanError,
+    startScan,
+    isRotatingLogs,
+    rotateLogs,
+    activeDomain,
+    autoHomepageEnabled,
+    setAutoHomepageEnabled,
+    setAutoHomepageDomain
+  } = useScanContext();
 
   const headerActions = useMemo(() => {
     return (
@@ -44,33 +51,7 @@ function App() {
         </Button>
       </div>
     );
-  }, [activePage]);
-
-  const handleDomainChange = (value) => {
-    setDomain(value);
-  };
-
-  const handleStartScan = (value) => {
-    setDomain(value);
-    scan.startScan(value);
-  };
-
-  const handleStartHomepageScan = (value) => {
-    setDomain(value);
-    setAutoHomepageDomain(value);
-    startHomepageScan(value);
-  };
-
-  // Auto-run homepage scan after REST scan completes for the same domain
-  useEffect(() => {
-    const scannedDomain = scan.scanResult?.domain;
-    if (!scannedDomain) return;
-    if (autoHomepageDomain === scannedDomain) return;
-    if (autoHomepageEnabled) {
-      setAutoHomepageDomain(scannedDomain);
-      startHomepageScan(scannedDomain);
-    }
-  }, [scan.scanResult, autoHomepageDomain, startHomepageScan, autoHomepageEnabled]);
+  }, [activePage, setActivePage]);
 
   if (activePage === 'homepage') {
     return (
@@ -78,8 +59,8 @@ function App() {
         headerActions={headerActions}
         domain={domain}
         onDomainChange={handleDomainChange}
-        startHomepageScan={handleStartHomepageScan}
-        result={homepageResult?.domain === domain ? homepageResult : homepageResult}
+        startHomepageScan={startHomepageScan}
+        result={homepageResult}
         isRunning={homepageIsRunning}
         error={homepageError}
       />
@@ -92,24 +73,30 @@ function App() {
       domain={domain}
       onDomainChange={handleDomainChange}
       onNavigateHomepage={() => setActivePage('homepage')}
-      scanResult={scan.scanResult}
-      isScanning={scan.isScanning}
-      scanError={scan.scanError}
-      startScan={handleStartScan}
-      isRotatingLogs={scan.isRotatingLogs}
-      rotateLogs={scan.rotateLogs}
-      activeDomain={domain || scan.activeDomain}
-      homepageResult={
-        homepageResult?.domain === domain ? homepageResult : homepageResult
-      }
+      scanResult={scanResult}
+      isScanning={isScanning}
+      scanError={scanError}
+      startScan={startScan}
+      isRotatingLogs={isRotatingLogs}
+      rotateLogs={rotateLogs}
+      activeDomain={activeDomain}
+      homepageResult={homepageResult}
       homepageIsRunning={homepageIsRunning}
-      onRunHomepage={handleStartHomepageScan}
+      onRunHomepage={startHomepageScan}
       homepageAutoEnabled={autoHomepageEnabled}
       onToggleHomepageAuto={(checked) => {
         setAutoHomepageEnabled(checked);
         setAutoHomepageDomain(null);
       }}
     />
+  );
+}
+
+function App() {
+  return (
+    <ScanProvider>
+      <AppContent />
+    </ScanProvider>
   );
 }
 

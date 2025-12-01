@@ -17,6 +17,7 @@ import PluginSummaryPanel from '../organisms/panels/PluginSummaryPanel.jsx';
 import Button from '../atoms/Button.jsx';
 import { fetchUnsupportedPlugins } from '../../api/client.js';
 import { useSitemapScan } from '../../hooks/useSitemapScan.js';
+import { useScanContext } from '../../context/ScanContext.jsx';
 
 const SECTIONS = [
   { id: 'overview', label: 'Overview', requiresScan: true },
@@ -30,24 +31,25 @@ const SECTIONS = [
   { id: 'unsupported', label: 'Unsupported', requiresScan: false }
 ];
 
-function ScanPage({
-  headerActions,
-  domain,
-  onDomainChange,
-  onNavigateHomepage,
-  startScan,
-  scanResult,
-  isScanning,
-  scanError,
-  activeDomain,
-  isRotatingLogs,
-  rotateLogs,
-  homepageResult,
-  homepageIsRunning,
-  onRunHomepage,
-  homepageAutoEnabled,
-  onToggleHomepageAuto
-}) {
+function ScanPage() {
+  const {
+    headerActions,
+    domain,
+    onDomainChange,
+    setActivePage: onNavigateHomepage,
+    startScan,
+    scanResult,
+    isScanning,
+    scanError,
+    activeDomain,
+    isRotatingLogs,
+    rotateLogs,
+    homepageResult,
+    homepageIsRunning,
+    startHomepageScan: onRunHomepage,
+    autoHomepageEnabled: homepageAutoEnabled,
+    setAutoHomepageEnabled: onToggleHomepageAuto
+  } = useScanContext();
   const {
     startSitemapScan,
     result: sitemapResult,
@@ -344,36 +346,7 @@ function ScanPage({
   );
 }
 
-ScanPage.propTypes = {
-  headerActions: PropTypes.node,
-  domain: PropTypes.string,
-  onDomainChange: PropTypes.func.isRequired,
-  onNavigateHomepage: PropTypes.func.isRequired,
-  startScan: PropTypes.func.isRequired,
-  scanResult: PropTypes.object,
-  isScanning: PropTypes.bool,
-  scanError: PropTypes.object,
-  activeDomain: PropTypes.string,
-  isRotatingLogs: PropTypes.bool,
-  rotateLogs: PropTypes.func.isRequired,
-  homepageResult: PropTypes.object,
-  homepageIsRunning: PropTypes.bool,
-  onRunHomepage: PropTypes.func.isRequired,
-  homepageAutoEnabled: PropTypes.bool.isRequired,
-  onToggleHomepageAuto: PropTypes.func.isRequired
-};
 
-ScanPage.defaultProps = {
-  headerActions: null,
-  domain: '',
-  scanResult: null,
-  isScanning: false,
-  scanError: null,
-  activeDomain: '',
-  isRotatingLogs: false,
-  homepageResult: null,
-  homepageIsRunning: false
-};
 
 export default ScanPage;
 
