@@ -35,7 +35,7 @@ function ScanPage() {
   const {
     headerActions,
     domain,
-    onDomainChange,
+    handleDomainChange: onDomainChange,
     setActivePage: onNavigateHomepage,
     startScan,
     scanResult,
