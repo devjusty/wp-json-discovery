@@ -7,10 +7,10 @@ Brief notes on what we can reliably surface from public WordPress endpoints and 
 - REST index (`/wp-json`): site name, description, timezone, namespaces, routes; generator header for WP version hints. ✅ Implemented.
 - Plugin/theme signals: `/wp-json/wp/v2/plugins` or `/wp-json/wp/v2/themes` when exposed; infer from namespaces (e.g., `jetpack/v4`, `wc/v3`, `yoast/v1`, `rankmath/v1`, `contact-form-7/v1`). ✅ Namespace inference in place; plugin list expands over time.
 - Content footprint: use `X-WP-Total` from `/wp-json/wp/v2/{posts,pages,categories,tags,media,users}?per_page=1&_fields=id` to estimate counts; media MIME distribution via `/media`. ✅ Counts + media breakdown implemented.
-- Exposure checks: user enumeration (`/users`), settings leakage (`/wp/v2/settings`), REST availability/lockdown, XML-RPC status, directory listing probe on `/wp-content/uploads/` (todo). ✅ Most checks implemented; uploads probe pending.
+- Exposure checks: user enumeration (`/users`), settings leakage (`/wp/v2/settings`), REST availability/lockdown, XML-RPC status, directory listing probe on `/wp-content/uploads/`. ✅ Checks implemented; uploads probe flags likely indexable HTML responses.
 - Commerce: WooCommerce routes (`/wc/v3`), currency/tax display and product counts if catalog is public. 🚧 Infer from namespaces today; product/currency extraction still pending.
 - SEO & crawl seeds: `sitemap.xml`, `robots.txt`, `humans.txt`, Yoast/Rank Math endpoints for sitemap hints or analyzer data. ✅ Robots + sitemap probes with redirect awareness and external links; humans + plugin-specific analyzers pending.
-- Infra & performance: TTFB + status for root, `/wp-json`, `/xmlrpc.php`, `/sitemap.xml`, `/robots.txt`; headers for CDN/host/cache (`cf-ray`, `x-cache`, `x-litespeed-cache`), compression, HSTS. ✅ Basic snapshot with cache/server headers; add compression/HSTS check next.
+- Infra & performance: TTFB + status for root, `/wp-json`, `/xmlrpc.php`, `/sitemap.xml`, `/robots.txt`; headers for CDN/host/cache (`cf-ray`, `x-cache`, `x-litespeed-cache`), compression, HSTS. ✅ Snapshot includes cache/server headers, redirect count, compression/HSTS flags; could add more detail (e.g., Brotli vs gzip, cert age).
 
 ## Feature ideas
 

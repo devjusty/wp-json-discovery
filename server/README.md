@@ -37,12 +37,13 @@ Values from `.env` override the bundled defaults; restart the server after chang
 | POST   | `/api/unsupported-plugins`    | Upserts a namespace/domain pair and stamps `lastDetectedAt`. |
 | POST   | `/api/logs`                   | Accepts structured log events coming from the frontend scan workflow. |
 | POST   | `/api/logs/rotate`            | Rotates the activity log file and clears the SQLite log table. |
+| GET    | `/api/admin/db-snapshot`      | Returns SQLite snapshot (counts, unsupported plugins, recent logs). |
 
 The proxy attaches a custom user agent (`wp-json-discovery/0.0.1`) to aid vendor rate-limit debugging.
 
 ## Persistence & Logging
 
-- SQLite database at `server/data/wpjd.sqlite` holds `unsupported_plugins`, `unsupported_plugin_domains`, and `activity_logs`. Set `DB_PATH` to store it elsewhere.
+- SQLite database at `server/data/wpjd.sqlite` holds `unsupported_plugins`, `unsupported_plugin_domains`, and `activity_logs`. Set `DB_PATH` to store it elsewhere. WAL/SHM files live alongside the DB and are gitignored.
 - `server/data/unsupported-plugins.json` – Legacy file store; automatically imported into SQLite on first boot when the DB table is empty.
 - `server/data/activity.log` – JSONL log containing `proxy.response`, `unsupported_plugins.upserted`, and custom events from the frontend. `/api/logs/rotate` archives this file and clears the DB table to keep storage small.
 

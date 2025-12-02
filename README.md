@@ -14,6 +14,7 @@ WP JSON Discovery is a Vite-powered React application backed by a lightweight Ex
 - **Robust logging** – JSONL activity log records proxy performance, scan duration, persistence actions, and error diagnostics.
 - **Atomic design system** – UI is composed using Brad Frost’s atoms → molecules → organisms → templates → pages to encourage reuse and scalability.
 - **Homepage source scan (opt-in)** – Single GET to `/` (1 MB cap) to extract generators, builder hints, asset paths, and framework signals without crawling sub-resources.
+- **Admin views** – Built-in Admin tab to inspect SQLite persistence (unsupported plugins, recent logs) and supported plugin/theme registries.
 
 ---
 
@@ -24,7 +25,8 @@ root/
 ├── server/               # Express proxy + persistence
 │   ├── src/index.js      # REST proxy, unsupported plugin API, logging
 │   ├── src/logger.js     # JSONL logger utility
-│   └── data/             # Persisted unsupported plugin list + logs
+│   ├── src/db/           # SQLite client, migrations, maintenance scripts
+│   └── data/             # Persisted unsupported plugin list + logs + SQLite DB
 └── frontend/             # Vite + React client
     ├── src/
     │   ├── api/          # Client wrappers for proxy + persistence endpoints
@@ -40,8 +42,8 @@ root/
 1. User submits a domain from the frontend.
 2. Client calls the Express proxy (`/api/proxy`) which fetches `https://domain/wp-json/...` with timeouts and logging.
 3. Scan service enumerates namespaces, triggers core collection fetches, and collects plugin route metadata.
-4. Newly detected namespaces without handlers are POSTed to `/api/unsupported-plugins` and persisted.
-5. Results render into tables, summaries, and plugin panels; CSV exports leverage `papaparse`.
+4. Newly detected namespaces without handlers are POSTed to `/api/unsupported-plugins` and persisted to SQLite (seeded from the legacy JSON).
+5. Results render into tables, summaries, plugin panels, and admin views; CSV exports leverage `papaparse`.
 
 ---
 
@@ -93,15 +95,17 @@ pnpm --filter frontend run preview
 
 ### Environment variables
 
-- Copy `server/.env.example` to `server/.env` to override the Express server port (`PORT`) or add extra tuning flags.
+- Copy `server/.env.example` to `server/.env` to override the Express server port (`PORT`), admin toggle, or DB path.
 - Copy `frontend/.env.example` to `frontend/.env` to point the UI at a non-default proxy (`VITE_API_BASE_URL`).
 - Without overrides the proxy listens on `4100` and the frontend targets `http://localhost:4100`.
 
 ### Logs & persistence
 
 - `server/data/activity.log` – JSONL event log (rotate when >1 MB).
-- `server/data/unsupported-plugins.json` – Persisted unsupported namespaces (should be `[]` after a clean scan).
+- `server/data/wpjd.sqlite` – SQLite database for unsupported plugins and activity logs (seeded from legacy JSON).
+- `server/data/unsupported-plugins.json` – Legacy file store (auto-seeded into SQLite on first access).
 - `frontend/src/config/plugins.js` – Source of truth for supported namespaces.
+- `frontend/src/config/themes.js` – Source of truth for supported themes and detection signals.
 - `homepage-scan` log entries include status, size, cap, truncate flag, and counts for meta/comments/scripts/assets/frameworks for debugging.
 
 Whenever you add new namespaces, run `pnpm --filter frontend run lint` and `pnpm --filter frontend run build` before committing.

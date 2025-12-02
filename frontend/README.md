@@ -29,7 +29,7 @@ frontend/src/
 │   ├── organisms/     # Data-heavy widgets (results table, plugin matrices)
 │   ├── templates/     # Layout scaffolding
 │   └── pages/         # Top-level routes/views
-├── config/            # `plugins.js` (namespace registry), default table schemas
+├── config/            # `plugins.js` (namespace registry), `themes.js` (theme signals), default table schemas
 ├── services/          # `scan.js` orchestrates crawling, normalization, and logging
 ├── utils/             # CSV helpers, formatting, timing utilities
 └── styles/            # Global stylesheets and tokens (if present)
@@ -62,3 +62,4 @@ When a scan surfaces a new namespace:
 - **Blank results** – Verify the proxy is on `http://localhost:4100` and Vite was launched with the same base URL.
 - **CORS errors** – The proxy handles cross-origin requests; ensure `VITE_API_BASE_URL` is unset or matches the proxy origin.
 - **Build warnings** – Run `pnpm --filter frontend run lint -- --fix` to autofix stylistic issues before committing.
+- **Admin tab empty** – Ensure backend admin endpoints are enabled (`ADMIN_ENABLED` not set to `false`) and the server is on `4100`.
