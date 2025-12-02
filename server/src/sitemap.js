@@ -3,7 +3,7 @@ import * as cheerio from 'cheerio';
 import { fetchWithRedirects } from './utils/fetch.js';
 import { AppError, NetworkError, ValidationError } from './utils/errors.js';
 import { MAX_PAGE_BODY_BYTES, DEFAULT_USER_AGENT } from './config.js';
-import { logSilently } from '../logger.js'; // Import logSilently
+import { logSilently } from './logger.js'; // Import logSilently
 
 const MAX_PAGE_BYTES = MAX_PAGE_BODY_BYTES;
 const DEFAULT_UA = DEFAULT_USER_AGENT;

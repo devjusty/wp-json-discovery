@@ -491,12 +491,13 @@ body {
 
 .button--ghost {
   background: transparent;
-  color: #0f172a;
+  /* color: #0f172a; */
   border: 1px solid #cbd5f5;
 }
 
 .button--ghost:not(:disabled):hover {
   background: #e2e8f0;
+  color: #0f172a;
 }
 
 .button:disabled {
@@ -879,7 +880,7 @@ th.sortable .table__sort:hover {
 }
 
 .namespace-pill__namespace {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 0.9rem;
   color: #0f172a;
 }
@@ -1152,7 +1153,7 @@ th.sortable .table__sort:hover {
   display: block;
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 .perf-grid {

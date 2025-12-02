@@ -58,6 +58,12 @@ function ScanPage() {
   const [sitemapFilter, setSitemapFilter] = useState('all');
 
   const [activeSection, setActiveSection] = useState('overview');
+  const homepageDomain = domain || activeDomain;
+  const homepageSummary = homepageResult
+    ? `Status ${homepageResult.source?.statusCode ?? '-'} / ${homepageResult.insights?.meta?.length ?? 0} meta / ${homepageResult.insights?.assets?.length ?? 0} assets`
+    : 'Capture generator hints, builder clues, and asset references from the homepage HTML.';
+
+  const handleNavigateHomepage = () => onNavigateHomepage('homepage');
 
   const unsupportedQuery = useQuery({
     queryKey: ['unsupportedPlugins'],
@@ -97,6 +103,29 @@ function ScanPage() {
           </ul>
         </div>
         <div className="sidebar__section">
+          <p className="sidebar__title">Homepage scan</p>
+          <p className="card__meta">{homepageSummary}</p>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="sidebar__action"
+            onClick={() => homepageDomain && onRunHomepage(homepageDomain)}
+            disabled={!homepageDomain || homepageIsRunning}
+          >
+            {homepageIsRunning ? 'Running homepage scan.' : 'Run homepage scan'}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="sidebar__action"
+            onClick={handleNavigateHomepage}
+          >
+            View scan details
+          </Button>
+        </div>
+        <div className="sidebar__section">
           <p className="sidebar__title">Actions</p>
           <Button
             type="button"
@@ -111,7 +140,17 @@ function ScanPage() {
         </div>
       </nav>
     );
-  }, [activeSection, scanResult, rotateLogs, isRotatingLogs]);
+  }, [
+    activeSection,
+    scanResult,
+    rotateLogs,
+    isRotatingLogs,
+    homepageSummary,
+    homepageDomain,
+    onRunHomepage,
+    homepageIsRunning,
+    handleNavigateHomepage
+  ]);
 
   const renderSectionContent = () => {
     if (!scanResult) {
@@ -297,7 +336,7 @@ function ScanPage() {
             type="button"
             variant="secondary"
             size="sm"
-            onClick={onNavigateHomepage}
+            onClick={handleNavigateHomepage}
             disabled={!domain && !activeDomain}
           >
             Open homepage source scan
@@ -305,11 +344,11 @@ function ScanPage() {
         </div>
       </div>
       <HomepageSummaryCard
-        domain={domain || activeDomain}
+        domain={homepageDomain}
         result={homepageResult}
         isRunning={homepageIsRunning}
-        onRunHomepage={() => onRunHomepage(domain || activeDomain)}
-        onNavigateHomepage={onNavigateHomepage}
+        onRunHomepage={() => onRunHomepage(homepageDomain)}
+        onNavigateHomepage={handleNavigateHomepage}
       />
 
       {isScanning ? (

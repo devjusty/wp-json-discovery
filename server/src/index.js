@@ -23,8 +23,6 @@ loadEnvFile(path.join(__dirname, '..', '.env'));
 
 const app = express();
 const PORT = process.env.PORT ?? 4100;
-const REQUEST_TIMEOUT_MS = REQUEST_TIMEOUT_MS;
-const HOMEPAGE_HTML_CAP_BYTES = HOMEPAGE_HTML_CAP_BYTES;
 
 const EXPOSED_HEADERS = EXPOSED_HEADERS_LIST;
 
@@ -164,6 +162,7 @@ app.post('/api/unsupported-plugins', async (req, res) => {
   } catch (error) {
     const saveError = new AppError('Failed to save unsupported plugin', 500);
     throw saveError;
+  }
 });
 
 app.post('/api/logs', async (req, res) => {
@@ -179,6 +178,7 @@ app.post('/api/logs', async (req, res) => {
   } catch (error) {
     const logError = new AppError('Failed to record log entry', 500);
     throw logError;
+  }
 });
 
 app.post('/api/sitemap-scan', async (req, res) => {
@@ -322,6 +322,7 @@ app.post('/api/logs/rotate', async (_req, res) => {
     logSilently('logs.rotate_error', { message: error.message });
     const rotateError = new AppError('Failed to rotate activity log', 500);
     throw rotateError;
+  }
 });
 
 app.listen(PORT, () => {
