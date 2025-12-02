@@ -8,6 +8,10 @@ The server workspace exposes a lightweight Express API that proxies WordPress RE
 pnpm install                 # Install dependencies for the server workspace
 pnpm dev:server              # Start the API on http://localhost:4100
 pnpm --filter server run lint   # (Future) hook for linting once introduced
+pnpm --filter server run db:inspect  # Print SQLite table counts and last log entry
+pnpm --filter server run db:vacuum   # Run VACUUM on the SQLite database
+pnpm --filter server run db:backup   # Copy the SQLite DB to a timestamped file
+pnpm --filter server run db:import:logs  # Import activity.log JSONL into SQLite
 ```
 
 The workspace is booted automatically when you run `pnpm dev` from the repository root.
@@ -18,6 +22,8 @@ Copy `.env.example` to `.env` in this directory to customize defaults:
 
 - `PORT` – Express listen port (defaults to `4100` if unset).
 - (Optional) `LOG_LEVEL` – Reserved for future logger controls.
+- (Optional) `DB_PATH` – Override the SQLite database path (defaults to `server/data/wpjd.sqlite`).
+- (Optional) `ADMIN_ENABLED` – Set to `false` to disable `/api/admin/*` endpoints when exposing the server beyond local dev.
 
 Values from `.env` override the bundled defaults; restart the server after changes.
 
@@ -30,13 +36,15 @@ Values from `.env` override the bundled defaults; restart the server after chang
 | GET    | `/api/unsupported-plugins`    | Returns the persisted list from `server/data/unsupported-plugins.json`. |
 | POST   | `/api/unsupported-plugins`    | Upserts a namespace/domain pair and stamps `lastDetectedAt`. |
 | POST   | `/api/logs`                   | Accepts structured log events coming from the frontend scan workflow. |
+| POST   | `/api/logs/rotate`            | Rotates the activity log file and clears the SQLite log table. |
 
 The proxy attaches a custom user agent (`wp-json-discovery/0.0.1`) to aid vendor rate-limit debugging.
 
 ## Persistence & Logging
 
-- `server/data/unsupported-plugins.json` – Array of `{ namespace, domains, lastDetectedAt }`. This file should remain `[]` now that WooCommerce, Rank Math, Divi, Health Check, LiteSpeed, MEC, and Yabe namespaces are supported.
-- `server/data/activity.log` – JSONL log containing `proxy.response`, `unsupported_plugins.upserted`, and custom events from the frontend.
+- SQLite database at `server/data/wpjd.sqlite` holds `unsupported_plugins`, `unsupported_plugin_domains`, and `activity_logs`. Set `DB_PATH` to store it elsewhere.
+- `server/data/unsupported-plugins.json` – Legacy file store; automatically imported into SQLite on first boot when the DB table is empty.
+- `server/data/activity.log` – JSONL log containing `proxy.response`, `unsupported_plugins.upserted`, and custom events from the frontend. `/api/logs/rotate` archives this file and clears the DB table to keep storage small.
 
 All file writes are protected by a simple promise queue to prevent concurrent corruption. If you encounter malformed JSON, rebuild the file from a recent commit and re-run the failing scan.
 

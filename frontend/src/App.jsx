@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import ScanPage from './components/pages/ScanPage.jsx';
 import HomepageScanPage from './components/pages/HomepageScanPage.jsx';
+import AdminPage from './components/pages/AdminPage.jsx';
 import Button from './components/atoms/Button.jsx';
 import './App.css';
 import { ScanProvider, useScanContext } from './context/ScanContext.jsx';
@@ -49,6 +50,15 @@ function AppContent() {
         >
           Homepage source (opt-in)
         </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className={`app__tab ${activePage === 'admin' ? 'is-active' : ''}`}
+          onClick={() => setActivePage('admin')}
+        >
+          Admin
+        </Button>
       </div>
     );
   }, [activePage, setActivePage]);
@@ -63,6 +73,15 @@ function AppContent() {
         result={homepageResult}
         isRunning={homepageIsRunning}
         error={homepageError}
+      />
+    );
+  }
+
+  if (activePage === 'admin') {
+    return (
+      <AdminPage
+        headerActions={headerActions}
+        onNavigate={setActivePage}
       />
     );
   }

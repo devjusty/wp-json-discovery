@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import AppLayout from '../templates/AppLayout.jsx';
 import DomainForm from '../molecules/forms/DomainForm.jsx';
 import HomepageSourcePanel from '../organisms/panels/HomepageSourcePanel.jsx';
@@ -7,6 +8,7 @@ import {
   CardContent,
   CardHeader
 } from '../atoms/Card.jsx';
+import Button from '../atoms/Button.jsx';
 import PropTypes from 'prop-types';
 import { useScanContext } from '../../context/ScanContext.jsx';
 
@@ -18,13 +20,84 @@ function HomepageScanPage() {
     startHomepageScan,
     homepageResult: result,
     homepageIsRunning: isRunning,
-    homepageError: error
+    homepageError: error,
+    setActivePage,
+    scanResult,
+    activeDomain
   } = useScanContext();
+
+  const sidebarNav = useMemo(() => {
+    const currentDomain = domain || result?.domain || activeDomain;
+    return (
+      <nav className="sidebar">
+        <div className="sidebar__section">
+          <p className="sidebar__title">Navigation</p>
+          <ul className="sidebar__nav">
+            <li>
+              <button
+                type="button"
+                className="sidebar__link"
+                onClick={() => setActivePage('scan')}
+              >
+                ← Back to overview
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                className="sidebar__link"
+                onClick={() => setActivePage('admin')}
+              >
+                Admin view
+              </button>
+            </li>
+          </ul>
+        </div>
+        <div className="sidebar__section">
+          <p className="sidebar__title">Homepage scan</p>
+          <p className="card__meta">
+            {result
+              ? `Status ${result.source?.statusCode ?? '—'} · ${result.insights?.meta?.length ?? 0} meta · ${result.insights?.assets?.length ?? 0} assets`
+              : 'Run the opt-in homepage scan to extract builder and framework hints.'}
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="sidebar__action"
+            onClick={() => currentDomain && startHomepageScan(currentDomain)}
+            disabled={!currentDomain || isRunning}
+          >
+            {isRunning ? 'Running homepage scan…' : 'Run homepage scan'}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="sidebar__action"
+            onClick={() => setActivePage('scan')}
+          >
+            View REST overview
+          </Button>
+        </div>
+        <div className="sidebar__section">
+          <p className="sidebar__title">Latest REST scan</p>
+          <p className="card__meta">
+            {scanResult?.domain
+              ? `${scanResult.domain} · ${scanResult.metrics?.namespacesCount ?? 0} namespaces`
+              : 'No REST scan yet'}
+          </p>
+        </div>
+      </nav>
+    );
+  }, [activeDomain, domain, isRunning, result, scanResult, setActivePage, startHomepageScan]);
+
   return (
     <AppLayout
       title="Homepage Source Scan"
       subtitle="Opt-in HTML fetch of the homepage to surface meta tags, builder hints, and asset paths without crawling."
       headerActions={headerActions}
+      sidebar={sidebarNav}
     >
       <DomainForm
         onSubmit={startHomepageScan}

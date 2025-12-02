@@ -10,6 +10,7 @@ Goal: add a secondary scan that crawls sitemap(s), fetches page-level data, and 
 - Extract SEO basics: ✅ Title, meta description, meta robots, canonical, OG/Twitter captured.
 - Schema detection: ✅ JSON-LD parse; collects `@type` including `@graph`; minimal validation for common types.
 - Flags: ✅ Missing title/description, noindex, canonical mismatch, schema_invalid. (Length checks pending.)
+- UI wiring: ✅ Overview shows sitemap availability; Sitemap tab can reuse overview probe/final URL as placeholder. ✅ Summary + table exist. 🚧 No detail drawer yet; filters only cover flags.
 
 ## Data model
 
@@ -46,12 +47,12 @@ Goal: add a secondary scan that crawls sitemap(s), fetches page-level data, and 
 ## Frontend changes (frontend/)
 
 - Add a new navigation section "Sitemap scan" with:
-  - Controls: max pages, optional sitemap URL override.
-  - Summary card: pages scanned, average latency, invalid schema count, noindex count.
-  - Table of pages with filters (flags, schema types, status).
-  - Detail drawer per page showing SEO tags and schema parse/validation results.
-- Extend `scan.js` or add `sitemapScan.js` service to call `/api/sitemap-scan`.
-- Add cards to existing Performance/Exposure to show if sitemap crawl succeeded and how many pages were scanned.
+  - Controls: max pages, optional sitemap URL override; pre-fill placeholder with overview redirect target. ✅
+  - Summary card: pages scanned, invalid schema count, noindex count. ✅
+  - Table of pages with filters (flags, schema types, status). ✅ (flags only)
+  - Detail drawer per page showing SEO tags and schema parse/validation results. 🚧 Not built.
+- Extend `scan.js` or add `sitemapScan.js` service to call `/api/sitemap-scan`. ✅ `useSitemapScan` wraps API + toasts/logging.
+- Add cards to existing Performance/Exposure to show if sitemap crawl succeeded and how many pages were scanned. ✅ Availability + status shown in Exposure/Performance; reused in Sitemap tab.
 
 ## Validation approach (light)
 
@@ -69,8 +70,9 @@ Goal: add a secondary scan that crawls sitemap(s), fetches page-level data, and 
 ## Phased delivery
 
 1. ✅ Backend: sitemap discovery + page fetch + SEO/JSON-LD extraction; return raw results.
-2. ✅ Frontend: sitemap scan UI + summary + pages table with flags and filters (schema_invalid/noindex).
-3. Validation polish (next): richer schema checks, microdata/RDFa, posts/CPT support, dedupe by canonical, robots.txt allow/deny awareness, per-page error surfacing.
+2. ✅ Frontend: sitemap scan UI + summary + pages table with flags and filters (schema_invalid/noindex); uses overview probe for placeholder status/URL.
+3. Validation polish (next): richer schema checks, microdata/RDFa, posts/CPT support, dedupe by canonical, robots.txt allow/deny awareness, per-page error surfacing/detail drawer.
+4. Stability: add explicit loading/error UI on the sitemap tab; ensure `/api/sitemap-scan` returns 4xx/5xx toasts rather than a hanging “Scanning…” state.
 
 ## Open questions
 
@@ -78,3 +80,4 @@ Goal: add a secondary scan that crawls sitemap(s), fetches page-level data, and 
 - Caching: store recent sitemap scans per domain in `server/data` to avoid re-fetching unchanged sites.
 - Throttling: per-host delay/backoff to avoid hammering slow sites.
 - Surface schema errors in UI: show invalid item types + messages per page and log details (partially logged server-side).
+- Handle 4xx/timeout from `/api/sitemap-scan` gracefully so the client exits the pending state and surfaces an error toast.

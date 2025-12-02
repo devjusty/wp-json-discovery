@@ -8,11 +8,23 @@ import {
   CardHeader
 } from '../../atoms/Card.jsx';
 
-function SitemapScanPanel({ domain, onScan, isRunning, result }) {
+function SitemapScanPanel({ domain, onScan, isRunning, result, sitemapProbe, sitemapExposure }) {
   const [maxPages, setMaxPages] = useState(50);
   const [sitemapUrl, setSitemapUrl] = useState('');
 
   const pages = result?.pages ?? [];
+  const initialStatus = sitemapExposure?.available
+    ? 'Available'
+    : sitemapExposure
+      ? 'Missing'
+      : null;
+  const initialStatusCode = sitemapExposure?.statusCode ?? sitemapProbe?.statusCode ?? null;
+  const initialDuration = sitemapProbe?.durationMs ?? null;
+  const initialUrl = sitemapProbe?.finalUrl ?? sitemapProbe?.endpoint ?? '/sitemap.xml';
+  const placeholderUrl =
+    sitemapProbe?.redirectCount > 0 && sitemapProbe?.finalUrl
+      ? sitemapProbe.finalUrl
+      : '';
 
   return (
     <Card>
@@ -21,6 +33,7 @@ function SitemapScanPanel({ domain, onScan, isRunning, result }) {
           <h2>Sitemap scan</h2>
           <p className="card__meta">
             Crawl sitemap.xml for pages and extract SEO/Schema info. Pages only for now.
+            {initialStatus ? ` Seen in overview: ${initialStatus}${initialStatusCode ? ` (HTTP ${initialStatusCode})` : ''}.` : ''}
           </p>
         </div>
         <div className="card__actions">
@@ -38,9 +51,11 @@ function SitemapScanPanel({ domain, onScan, isRunning, result }) {
             type="text"
             value={sitemapUrl}
             onChange={(e) => setSitemapUrl(e.target.value)}
-            placeholder="Override sitemap URL (optional)"
+            placeholder={
+              placeholderUrl || 'Override sitemap URL (optional)'
+            }
             className="text-input"
-            style={{ minWidth: '16rem' }}
+            style={{ minWidth: '28rem' }}
           />
           <Button
             type="button"
@@ -49,7 +64,7 @@ function SitemapScanPanel({ domain, onScan, isRunning, result }) {
             onClick={() => onScan({ domain, sitemapUrl: sitemapUrl || undefined, maxPages })}
             disabled={isRunning || !domain}
           >
-            {isRunning ? 'Scanning…' : 'Run sitemap scan'}
+            {isRunning ? 'Scanning…' : 'Scan sitemap'}
           </Button>
         </div>
       </CardHeader>
@@ -79,7 +94,19 @@ function SitemapScanPanel({ domain, onScan, isRunning, result }) {
             </div>
           </div>
         ) : (
-          <p className="card__meta">Run a sitemap scan to populate page details.</p>
+          <div className="stat-chip">
+            <div className="stat-chip__top">
+              <span className="stat-chip__label">Overview snapshot</span>
+              <StatusBadge
+                label={initialStatusCode ? `HTTP ${initialStatusCode}` : initialStatus || 'Unknown'}
+                tone={initialStatus === 'Available' ? 'success' : 'warning'}
+              />
+            </div>
+            <div className="stat-chip__hint">
+              {initialUrl ? `Last checked: ${initialUrl}` : 'Sitemap availability pulled from initial scan.'}
+              {initialDuration ? ` · ${initialDuration} ms` : ''}
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>
@@ -93,13 +120,25 @@ SitemapScanPanel.propTypes = {
   result: PropTypes.shape({
     pages: PropTypes.array,
     totals: PropTypes.object
+  }),
+  sitemapProbe: PropTypes.shape({
+    statusCode: PropTypes.number,
+    durationMs: PropTypes.number,
+    finalUrl: PropTypes.string,
+    endpoint: PropTypes.string
+  }),
+  sitemapExposure: PropTypes.shape({
+    available: PropTypes.bool,
+    statusCode: PropTypes.number
   })
 };
 
 SitemapScanPanel.defaultProps = {
   domain: '',
   isRunning: false,
-  result: null
+  result: null,
+  sitemapProbe: null,
+  sitemapExposure: null
 };
 
 export default SitemapScanPanel;

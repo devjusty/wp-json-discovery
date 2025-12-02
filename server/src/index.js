@@ -15,6 +15,8 @@ import { AppError, NetworkError, ValidationError } from './utils/errors.js';
 import { REQUEST_TIMEOUT_MS, HOMEPAGE_HTML_CAP_BYTES, DEFAULT_USER_AGENT, MAX_SITEMAP_PAGES, FRONTEND_ORIGIN_DEFAULT, EXPOSED_HEADERS_LIST, FORWARDED_RESPONSE_HEADERS_LIST } from './config.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { apiRateLimiter } from './middleware/rateLimiter.js';
+import { wrapAsync } from './utils/route.js';
+import { getDb } from './db/client.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,7 +41,7 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.get('/api/proxy', async (req, res) => {
+app.get('/api/proxy', wrapAsync(async (req, res) => {
   const { domain, endpoint = '/wp-json/' } = req.query;
 
   if (typeof domain !== 'string' || domain.trim().length === 0) {
@@ -120,9 +122,9 @@ app.get('/api/proxy', async (req, res) => {
   } finally {
     clearTimeout(timeout);
   }
-});
+}));
 
-app.get('/api/unsupported-plugins', async (_req, res) => {
+app.get('/api/unsupported-plugins', wrapAsync(async (_req, res) => {
   try {
     const plugins = await readUnsupportedPlugins();
     res.json(plugins);
@@ -133,9 +135,9 @@ app.get('/api/unsupported-plugins', async (_req, res) => {
     const pluginsError = new AppError('Failed to read unsupported plugins list', 500);
     throw pluginsError;
   }
-});
+}));
 
-app.post('/api/unsupported-plugins', async (req, res) => {
+app.post('/api/unsupported-plugins', wrapAsync(async (req, res) => {
   const { namespace, domain } = req.body ?? {};
 
   if (typeof namespace !== 'string' || namespace.trim().length === 0) {
@@ -163,9 +165,9 @@ app.post('/api/unsupported-plugins', async (req, res) => {
     const saveError = new AppError('Failed to save unsupported plugin', 500);
     throw saveError;
   }
-});
+}));
 
-app.post('/api/logs', async (req, res) => {
+app.post('/api/logs', wrapAsync(async (req, res) => {
   const { type, payload } = req.body ?? {};
 
   if (typeof type !== 'string' || type.trim().length === 0) {
@@ -179,9 +181,9 @@ app.post('/api/logs', async (req, res) => {
     const logError = new AppError('Failed to record log entry', 500);
     throw logError;
   }
-});
+}));
 
-app.post('/api/sitemap-scan', async (req, res) => {
+app.post('/api/sitemap-scan', wrapAsync(async (req, res) => {
   const { domain, sitemapUrl, maxPages = MAX_SITEMAP_PAGES } = req.body ?? {};
 
   if (typeof domain !== 'string' || domain.trim().length === 0) {
@@ -192,6 +194,12 @@ app.post('/api/sitemap-scan', async (req, res) => {
   if (!sanitizedDomain) {
     throw new ValidationError('Invalid domain provided');
   }
+
+  const startedAt = Date.now();
+  const parsedPageLimit = Number.parseInt(maxPages, 10);
+  const pageLimit = Number.isFinite(parsedPageLimit) && parsedPageLimit > 0
+    ? Math.min(parsedPageLimit, MAX_SITEMAP_PAGES)
+    : MAX_SITEMAP_PAGES;
 
   const resolvedSitemapUrl = sitemapUrl
     ? sitemapUrl
@@ -220,9 +228,9 @@ app.post('/api/sitemap-scan', async (req, res) => {
       noindex: noindexCount
     }
   });
-});
+}));
 
-app.post('/api/homepage-scan', async (req, res) => {
+app.post('/api/homepage-scan', wrapAsync(async (req, res) => {
   const { domain } = req.body ?? {};
 
   if (typeof domain !== 'string' || domain.trim().length === 0) {
@@ -311,19 +319,64 @@ app.post('/api/homepage-scan', async (req, res) => {
   } finally {
     clearTimeout(timeout);
   }
-});
+}));
 
-app.post('/api/logs/rotate', async (_req, res) => {
+app.post('/api/logs/rotate', wrapAsync(async (_req, res) => {
   try {
-    const { archiveName } = await rotateLog();
-    logSilently('logs.rotated', { archive: archiveName });
-    res.json({ filename: archiveName });
+    const { archiveName, rowsCleared } = await rotateLog();
+    logSilently('logs.rotated', { archive: archiveName, rowsCleared });
+    res.json({ filename: archiveName, rowsCleared });
   } catch (error) {
     logSilently('logs.rotate_error', { message: error.message });
     const rotateError = new AppError('Failed to rotate activity log', 500);
     throw rotateError;
   }
-});
+}));
+
+app.get('/api/admin/db-snapshot', wrapAsync(async (req, res) => {
+  const limitRaw = Number.parseInt(req.query.limit ?? '50', 10);
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 200) : 50;
+
+  if (process.env.ADMIN_ENABLED === 'false') {
+    throw new AppError('Admin endpoints are disabled', 403);
+  }
+
+  const db = await getDb();
+
+  const totals = {
+    unsupportedPlugins: db.prepare('select count(1) as count from unsupported_plugins').get()?.count ?? 0,
+    unsupportedPluginDomains: db.prepare('select count(1) as count from unsupported_plugin_domains').get()?.count ?? 0,
+    activityLogs: db.prepare('select count(1) as count from activity_logs').get()?.count ?? 0
+  };
+
+  const activityLogs = db
+    .prepare('select id, timestamp, type, payload_json from activity_logs order by id desc limit ?')
+    .all(limit)
+    .map((row) => ({
+      id: row.id,
+      timestamp: row.timestamp,
+      type: row.type,
+      payload: safeParseJson(row.payload_json)
+    }));
+
+  const unsupportedPlugins = await readUnsupportedPlugins();
+
+  res.json({
+    dbPath: db.name,
+    totals,
+    unsupportedPlugins,
+    activityLogs
+  });
+}));
+
+function safeParseJson(raw) {
+  if (typeof raw !== 'string') return raw;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+}
 
 app.listen(PORT, () => {
   console.log(`Server listening on http://localhost:${PORT}`);

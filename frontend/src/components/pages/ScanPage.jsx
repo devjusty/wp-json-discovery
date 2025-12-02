@@ -36,7 +36,7 @@ function ScanPage() {
     headerActions,
     domain,
     handleDomainChange: onDomainChange,
-    setActivePage: onNavigateHomepage,
+    setActivePage,
     startScan,
     scanResult,
     isScanning,
@@ -63,7 +63,7 @@ function ScanPage() {
     ? `Status ${homepageResult.source?.statusCode ?? '-'} / ${homepageResult.insights?.meta?.length ?? 0} meta / ${homepageResult.insights?.assets?.length ?? 0} assets`
     : 'Capture generator hints, builder clues, and asset references from the homepage HTML.';
 
-  const handleNavigateHomepage = () => onNavigateHomepage('homepage');
+  const handleNavigateHomepage = () => setActivePage('homepage');
 
   const unsupportedQuery = useQuery({
     queryKey: ['unsupportedPlugins'],
@@ -100,6 +100,15 @@ function ScanPage() {
                 </li>
               );
             })}
+            <li>
+              <button
+                type="button"
+                className="sidebar__link"
+                onClick={() => setActivePage('admin')}
+              >
+                Admin view
+              </button>
+            </li>
           </ul>
         </div>
         <div className="sidebar__section">
@@ -143,6 +152,7 @@ function ScanPage() {
   }, [
     activeSection,
     scanResult,
+    setActivePage,
     rotateLogs,
     isRotatingLogs,
     homepageSummary,
@@ -178,6 +188,13 @@ function ScanPage() {
               metrics={scanResult.metrics}
               plugins={scanResult.plugins}
               coreDatasets={scanResult.core}
+            />
+            <HomepageOverviewCard
+              domain={homepageDomain}
+              result={homepageResult}
+              isRunning={homepageIsRunning}
+              onRunHomepage={() => onRunHomepage(homepageDomain)}
+              onNavigateHomepage={handleNavigateHomepage}
             />
             <section className="section">
               <div className="grid">
@@ -223,6 +240,8 @@ function ScanPage() {
                 onScan={startSitemapScan}
                 isRunning={isSitemapRunning}
                 result={sitemapResult}
+                sitemapProbe={scanResult.performance?.sitemap}
+                sitemapExposure={scanResult.exposure?.sitemapXml}
               />
               <SitemapPagesTable
                 pages={sitemapResult?.pages ?? []}
@@ -322,34 +341,8 @@ function ScanPage() {
         onDomainChange={onDomainChange}
         showHomepageToggle
         homepageEnabled={homepageAutoEnabled}
-        onToggleHomepage={onToggleHomepageAuto}
-      />
-      <div className="card">
-        <div className="card__content card__content--cta">
-          <div>
-            <h3 className="cta-title">Need homepage signals?</h3>
-            <p className="card__meta">
-              Jump to the opt-in homepage source scan to extract generators, builder hints, and asset paths.
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={handleNavigateHomepage}
-            disabled={!domain && !activeDomain}
-          >
-            Open homepage source scan
-          </Button>
-        </div>
-      </div>
-      <HomepageSummaryCard
-        domain={homepageDomain}
-        result={homepageResult}
-        isRunning={homepageIsRunning}
-        onRunHomepage={() => onRunHomepage(homepageDomain)}
-        onNavigateHomepage={handleNavigateHomepage}
-      />
+    onToggleHomepage={onToggleHomepageAuto}
+  />
 
       {isScanning ? (
         <div className="card card--info">
@@ -389,7 +382,7 @@ function ScanPage() {
 
 export default ScanPage;
 
-function HomepageSummaryCard({
+function HomepageOverviewCard({
   domain,
   result,
   isRunning,
@@ -400,7 +393,7 @@ function HomepageSummaryCard({
     <div className="card">
       <div className="card__content card__content--cta">
         <div>
-          <h3 className="cta-title">Homepage source snapshot</h3>
+          <h3 className="cta-title">Homepage source signals</h3>
           {result ? (
             <p className="card__meta">
               Status {result.source?.statusCode ?? '—'} · {formatBytes(result.source?.sizeBytes)} ·{' '}
@@ -409,7 +402,7 @@ function HomepageSummaryCard({
             </p>
           ) : (
             <p className="card__meta">
-              Run the homepage scan to capture generator hints, comments, assets, and frameworks for {domain || 'this site'}.
+              Capture generator hints, builder clues, frameworks, and asset paths from the homepage HTML for {domain || 'this site'}.
             </p>
           )}
         </div>
@@ -421,7 +414,7 @@ function HomepageSummaryCard({
             onClick={onNavigateHomepage}
             disabled={!domain}
           >
-            View details
+            View homepage scan
           </Button>
           <Button
             type="button"
@@ -438,7 +431,7 @@ function HomepageSummaryCard({
   );
 }
 
-HomepageSummaryCard.propTypes = {
+HomepageOverviewCard.propTypes = {
   domain: PropTypes.string,
   result: PropTypes.object,
   isRunning: PropTypes.bool,
@@ -446,7 +439,7 @@ HomepageSummaryCard.propTypes = {
   onNavigateHomepage: PropTypes.func.isRequired
 };
 
-HomepageSummaryCard.defaultProps = {
+HomepageOverviewCard.defaultProps = {
   domain: '',
   result: null,
   isRunning: false

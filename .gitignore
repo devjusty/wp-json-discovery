@@ -14,3 +14,6 @@ frontend/.env.local
 server/.env
 server/.env.local
 server/data/unsupported-plugins.json
+server/data/*.sqlite
+server/data/*.sqlite-shm
+server/data/*.sqlite-wal

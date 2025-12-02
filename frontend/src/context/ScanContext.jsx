@@ -65,7 +65,7 @@ export function ScanProvider({ children }) {
       homepageError,
       startHomepageScan: handleStartHomepageScan,
       handleDomainChange,
-      setAutoHomepageDomain,
+      setAutoHomepageDomain
     }),
     [
       activePage,

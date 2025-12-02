@@ -1,7 +1,14 @@
+process.env.NODE_ENV = 'test';
 import request from 'supertest';
 import app from './index.js';
+import { getDb } from './db/client.js';
 
 describe('API routes', () => {
+  beforeAll(() => {
+    process.env.ADMIN_ENABLED = 'true';
+    process.env.DB_PATH = ':memory:';
+  });
+
   it('should respond to /health', async () => {
     const res = await request(app).get('/health');
     expect(res.statusCode).toEqual(200);
@@ -41,5 +48,25 @@ describe('API routes', () => {
   it('should respond to /api/logs/rotate', async () => {
     const res = await request(app).post('/api/logs/rotate');
     expect(res.statusCode).not.toEqual(404);
+  });
+
+  it('returns admin db snapshot when enabled', async () => {
+    process.env.ADMIN_ENABLED = 'true';
+    const db = await getDb();
+    // seed a log entry
+    db.prepare(
+      'insert into activity_logs (timestamp, type, payload_json) values (?, ?, ?)'
+    ).run(new Date().toISOString(), 'test.admin', '{"ok":true}');
+
+    const res = await request(app).get('/api/admin/db-snapshot?limit=5');
+    expect(res.statusCode).toEqual(200);
+    expect(res.body).toHaveProperty('totals.activityLogs');
+    expect(Array.isArray(res.body.activityLogs)).toBe(true);
+  });
+
+  it('blocks admin snapshot when disabled', async () => {
+    process.env.ADMIN_ENABLED = 'false';
+    const res = await request(app).get('/api/admin/db-snapshot');
+    expect(res.statusCode).toEqual(403);
   });
 });

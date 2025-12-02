@@ -1325,6 +1325,57 @@ th.sortable .table__sort:hover {
   border: 1px solid #e2e8f0;
 }
 
+.admin-table {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.admin-table__header,
+.admin-table__row {
+  display: grid;
+  grid-template-columns: 1fr 0.6fr 0.7fr 1fr;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.admin-table__header {
+  background: #f8fafc;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.admin-table__row:last-child {
+  border-bottom: none;
+}
+
+.admin-table--logs .admin-table__header,
+.admin-table--logs .admin-table__row {
+  grid-template-columns: 0.4fr 1fr 1fr 2fr;
+}
+
+.admin-table--plugins .admin-table__header,
+.admin-table--plugins .admin-table__row {
+  grid-template-columns: 0.9fr 0.5fr 0.6fr 1.4fr;
+}
+
+.admin-table--themes .admin-table__header,
+.admin-table--themes .admin-table__row {
+  grid-template-columns: 0.9fr 0.5fr 0.6fr 1.4fr;
+}
+
+.admin-table__code {
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 0.5rem;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  display: block;
+}
+
 .unsupported-pill-row {
   margin-top: 1rem;
   display: grid;
