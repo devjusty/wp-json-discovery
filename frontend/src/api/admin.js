@@ -9,3 +9,16 @@ export async function fetchDbSnapshot(limit = 50) {
 
   return result.data;
 }
+
+export async function pruneActivityLogs(payload = {}) {
+  const result = await request('/api/admin/activity/prune', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+
+  if (!result.ok) {
+    throw new Error('Failed to prune activity logs');
+  }
+
+  return result.data;
+}

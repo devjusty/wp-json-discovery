@@ -33,5 +33,33 @@ export const SUPPORTED_THEMES = [
     description: 'Elegant Themes’ builder theme with visual editor and layout packs.',
     themeUrl: 'https://www.elegantthemes.com/gallery/divi/',
     signals: ['/wp-content/themes/Divi', 'divi-builder-version']
+  },
+  {
+    id: 'kadence',
+    label: 'Kadence',
+    description: 'Kadence WP theme with lightweight defaults and design library.',
+    themeUrl: 'https://www.kadencewp.com/kadence-theme/',
+    signals: ['/wp-content/themes/kadence', 'kadence-theme']
+  },
+  {
+    id: 'greenshift-theme',
+    label: 'Greenshift Theme',
+    description: 'Companion theme for Greenshift’s animation and block toolkit.',
+    themeUrl: 'https://greenshiftwp.com/',
+    signals: ['/wp-content/themes/greenshift']
+  },
+  {
+    id: 'shakti',
+    label: 'Shakti',
+    description: 'ThemeREX Shakti theme and common child-theme variant.',
+    themeUrl: 'https://themeforest.net/item/shakti-ayurveda-yoga-and-spa-wordpress-theme/44356518',
+    signals: ['/wp-content/themes/shakti', '/wp-content/themes/shakti-child']
+  },
+  {
+    id: 'generatepress-child',
+    label: 'GeneratePress Child',
+    description: 'Child themes based on GeneratePress.',
+    themeUrl: 'https://generatepress.com/',
+    signals: ['/wp-content/themes/generatepress_child']
   }
 ];

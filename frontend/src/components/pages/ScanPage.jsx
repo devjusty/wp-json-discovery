@@ -42,8 +42,6 @@ function ScanPage() {
     isScanning,
     scanError,
     activeDomain,
-    isRotatingLogs,
-    rotateLogs,
     homepageResult,
     homepageIsRunning,
     startHomepageScan: onRunHomepage,
@@ -134,27 +132,12 @@ function ScanPage() {
             View scan details
           </Button>
         </div>
-        <div className="sidebar__section">
-          <p className="sidebar__title">Actions</p>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={rotateLogs}
-            disabled={isRotatingLogs}
-            className="sidebar__action"
-          >
-            {isRotatingLogs ? 'Rotating logs…' : 'Rotate activity log'}
-          </Button>
-        </div>
       </nav>
     );
   }, [
     activeSection,
     scanResult,
     setActivePage,
-    rotateLogs,
-    isRotatingLogs,
     homepageSummary,
     homepageDomain,
     onRunHomepage,

@@ -2,6 +2,7 @@ import cors from 'cors';
 import express from 'express';
 import morgan from 'morgan';
 import path from 'node:path';
+import { stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { parseSitemap, fetchPageDetails, fetchSitemap, fetchAndParseSitemap, fetchAndProcessPageDetails } from './sitemap.js';
 import { logSilently, recordLog, rotateLog } from './logger.js';
@@ -12,7 +13,7 @@ import { readBodyWithLimit } from './utils/http.js';
 import { extractHomepageInsights } from './utils/html.js';
 import { readUnsupportedPlugins, upsertUnsupportedPluginRecord } from './utils/plugins.js';
 import { AppError, NetworkError, ValidationError } from './utils/errors.js';
-import { REQUEST_TIMEOUT_MS, HOMEPAGE_HTML_CAP_BYTES, DEFAULT_USER_AGENT, MAX_SITEMAP_PAGES, FRONTEND_ORIGIN_DEFAULT, EXPOSED_HEADERS_LIST, FORWARDED_RESPONSE_HEADERS_LIST } from './config.js';
+import { REQUEST_TIMEOUT_MS, HOMEPAGE_HTML_CAP_BYTES, DEFAULT_USER_AGENT, MAX_SITEMAP_PAGES, FRONTEND_ORIGIN_DEFAULT, EXPOSED_HEADERS_LIST, FORWARDED_RESPONSE_HEADERS_LIST, ACTIVITY_LOG_PRUNE_DEFAULTS } from './config.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { apiRateLimiter } from './middleware/rateLimiter.js';
 import { wrapAsync } from './utils/route.js';
@@ -32,7 +33,7 @@ const FORWARDED_RESPONSE_HEADERS = FORWARDED_RESPONSE_HEADERS_LIST;
 
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN ?? FRONTEND_ORIGIN_DEFAULT;
 app.use(cors({ origin: FRONTEND_ORIGIN, exposedHeaders: EXPOSED_HEADERS }));
-app.use(express.json({ limit: '256kb' }));
+app.use(express.json({ limit: '2mb' }));
 app.use(morgan('dev'));
 
 app.use('/api', apiRateLimiter);
@@ -267,6 +268,20 @@ app.post('/api/homepage-scan', wrapAsync(async (req, res) => {
     );
 
     const insights = extractHomepageInsights(html);
+    const assetSamples = insights.assets
+      .slice(0, 15)
+      .map(({ path, type, count, slug, matches = [] }) => ({
+        path,
+        type,
+        count,
+        slug,
+        matches: matches.map((match) => ({
+          id: match.id,
+          label: match.label,
+          type: match.type,
+          slug: match.slug
+        }))
+      }));
     const source = {
       statusCode: response.status,
       finalUrl: finalUrl ?? targetUrl,
@@ -291,6 +306,7 @@ app.post('/api/homepage-scan', wrapAsync(async (req, res) => {
       commentCount: insights.comments.length,
       scriptCount: insights.scripts.length,
       assetPaths: insights.assets.length,
+      assetSamples,
       frameworks: insights.frameworks,
       htmlPreviewLength: html.slice(0, 2000).length,
       capBytes: HOMEPAGE_HTML_CAP_BYTES
@@ -361,11 +377,58 @@ app.get('/api/admin/db-snapshot', wrapAsync(async (req, res) => {
 
   const unsupportedPlugins = await readUnsupportedPlugins();
 
+  const files = await collectStorageStats(db.name);
+
   res.json({
     dbPath: db.name,
     totals,
     unsupportedPlugins,
-    activityLogs
+    activityLogs,
+    files
+  });
+}));
+
+app.post('/api/admin/activity/prune', wrapAsync(async (req, res) => {
+  const {
+    keepLatest = ACTIVITY_LOG_PRUNE_DEFAULTS.keepLatest,
+    olderThanDays = ACTIVITY_LOG_PRUNE_DEFAULTS.olderThanDays
+  } = req.body ?? {};
+
+  if (process.env.ADMIN_ENABLED === 'false') {
+    throw new AppError('Admin endpoints are disabled', 403);
+  }
+
+  const db = await getDb();
+
+  let prunedByAge = 0;
+  let prunedByCount = 0;
+
+  if (Number.isFinite(olderThanDays) && olderThanDays > 0) {
+    const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000).toISOString();
+    const result = db
+      .prepare('delete from activity_logs where timestamp < ?')
+      .run(cutoff);
+    prunedByAge = result?.changes ?? 0;
+  }
+
+  if (Number.isFinite(keepLatest) && keepLatest > 0) {
+    const result = db
+      .prepare(`
+        delete from activity_logs
+        where id not in (
+          select id from activity_logs order by id desc limit ?
+        )
+      `)
+      .run(keepLatest);
+    prunedByCount = result?.changes ?? 0;
+  }
+
+  const totals = db.prepare('select count(1) as count from activity_logs').get()?.count ?? 0;
+
+  res.json({
+    prunedByAge,
+    prunedByCount,
+    remaining: totals
   });
 }));
 
@@ -376,6 +439,35 @@ function safeParseJson(raw) {
   } catch {
     return raw;
   }
+}
+
+async function collectStorageStats(dbPath) {
+  const stats = {
+    db: {
+      path: dbPath,
+      sizeBytes: null
+    },
+    activityLog: {
+      path: path.join(__dirname, 'data', 'activity.log'),
+      sizeBytes: null
+    }
+  };
+
+  try {
+    const dbStats = await stat(dbPath);
+    stats.db.sizeBytes = dbStats.size;
+  } catch {
+    stats.db.sizeBytes = null;
+  }
+
+  try {
+    const logStats = await stat(stats.activityLog.path);
+    stats.activityLog.sizeBytes = logStats.size;
+  } catch {
+    stats.activityLog.sizeBytes = null;
+  }
+
+  return stats;
 }
 
 app.listen(PORT, () => {

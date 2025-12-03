@@ -53,6 +53,7 @@ function HomepageInsightsPanel({ insights, htmlPreview }) {
                     <span className="badge">{asset.type}</span>
                     <span className="muted">×{asset.count}</span>
                   </div>
+                  {renderAssetMatches(asset)}
                 </div>
               ))}
             </div>
@@ -145,11 +146,38 @@ function renderList(items, emptyText) {
   );
 }
 
+function renderAssetMatches(asset) {
+  if (asset.matches && asset.matches.length > 0) {
+    return (
+      <div className="tag-cloud tag-cloud--compact">
+        {asset.matches.map((match) => (
+          <span key={`${asset.path}:${match.id}`} className="tag">
+            {match.label}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  return <p className="card__meta">No known plugin or theme match.</p>;
+}
+
 HomepageInsightsPanel.propTypes = {
   insights: PropTypes.shape({
     meta: PropTypes.array,
     comments: PropTypes.array,
-    assets: PropTypes.array,
+    assets: PropTypes.arrayOf(PropTypes.shape({
+      path: PropTypes.string,
+      count: PropTypes.number,
+      type: PropTypes.string,
+      slug: PropTypes.string,
+      matches: PropTypes.arrayOf(PropTypes.shape({
+        id: PropTypes.string,
+        label: PropTypes.string,
+        type: PropTypes.string,
+        slug: PropTypes.string
+      }))
+    })),
     scripts: PropTypes.array,
     frameworks: PropTypes.array,
     other: PropTypes.array

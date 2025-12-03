@@ -91,7 +91,9 @@ export function useScan() {
           routes: plugin.routes.length
         })),
         unsupportedNamespaces: data.plugins.unsupportedNamespaces,
-        unsupportedPersistence: persistenceReport
+        unsupportedPersistence: persistenceReport,
+        snapshot: data,
+        snapshotBytes: JSON.stringify(data).length
       });
     },
     onError: (error) => {

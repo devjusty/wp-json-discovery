@@ -1,4 +1,9 @@
 import * as cheerio from 'cheerio';
+import { SUPPORTED_PLUGINS } from '../../../frontend/src/config/plugins.js';
+import { SUPPORTED_THEMES } from '../../../frontend/src/config/themes.js';
+
+const KNOWN_PLUGIN_ASSETS = buildAssetLookup(SUPPORTED_PLUGINS, 'plugin');
+const KNOWN_THEME_ASSETS = buildAssetLookup(SUPPORTED_THEMES, 'theme');
 
 export function extractHomepageInsights(html = '') {
   const $ = cheerio.load(html);
@@ -78,7 +83,7 @@ function extractAssetPaths($) {
       }
     });
 
-  return Array.from(counts.entries())
+  const assets = Array.from(counts.entries())
     .map(([pathValue, count]) => ({
       path: pathValue,
       count,
@@ -86,6 +91,17 @@ function extractAssetPaths($) {
     }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 50);
+
+  return assets.map((asset) => {
+    const slug = extractAssetSlug(asset.path);
+    const matches = matchAssetSlug(asset.type, slug);
+
+    return {
+      ...asset,
+      slug,
+      matches
+    };
+  });
 }
 
 function extractScriptHints($) {
@@ -191,4 +207,100 @@ function detectOtherHints($) {
     hints.push('hreflang tags present');
   }
   return hints.slice(0, 20);
+}
+
+function extractAssetSlug(pathValue = '') {
+  const match = pathValue.match(/\/wp-content\/(?:plugins|themes)\/([^/]+)/i);
+  if (!match || !match[1]) {
+    return null;
+  }
+  return match[1].toLowerCase();
+}
+
+function matchAssetSlug(type, slug) {
+  if (!slug) {
+    return [];
+  }
+  const lookup = type === 'plugin' ? KNOWN_PLUGIN_ASSETS : KNOWN_THEME_ASSETS;
+  return lookup.get(slug) ?? [];
+}
+
+function buildAssetLookup(definitions = [], type) {
+  const lookup = new Map();
+
+  definitions.forEach((item) => {
+    const slugs = collectAssetSlugs(item);
+
+    slugs.forEach((slug) => {
+      const normalized = slug.toLowerCase();
+      const existing = lookup.get(normalized) ?? [];
+      const match = {
+        id: item.id ?? normalized,
+        label: item.label ?? normalized,
+        type,
+        slug: normalized
+      };
+
+      if (!existing.some((entry) => entry.id === match.id)) {
+        lookup.set(normalized, [...existing, match]);
+      }
+    });
+  });
+
+  return lookup;
+}
+
+function collectAssetSlugs(item) {
+  const slugs = new Set();
+  if (!item) {
+    return slugs;
+  }
+
+  if (typeof item.id === 'string') {
+    slugs.add(item.id);
+  }
+
+  if (typeof item.pluginUrl === 'string') {
+    const pluginSlug = extractSlugFromUrl(item.pluginUrl);
+    if (pluginSlug) {
+      slugs.add(pluginSlug);
+    }
+  }
+
+  if (typeof item.themeUrl === 'string') {
+    const themeSlug = extractSlugFromUrl(item.themeUrl);
+    if (themeSlug) {
+      slugs.add(themeSlug);
+    }
+  }
+
+  if (Array.isArray(item.signals)) {
+    item.signals.forEach((signal) => {
+      const signalSlug = extractAssetSlug(signal);
+      if (signalSlug) {
+        slugs.add(signalSlug);
+      }
+    });
+  }
+
+  if (Array.isArray(item.assetHints)) {
+    item.assetHints.forEach((hint) => {
+      if (typeof hint === 'string' && hint.trim().length > 0) {
+        slugs.add(hint.trim());
+      }
+    });
+  }
+
+  return slugs;
+}
+
+function extractSlugFromUrl(url = '') {
+  try {
+    const parsed = new URL(url);
+    const segments = parsed.pathname.split('/').filter(Boolean);
+    return segments[segments.length - 1] ?? null;
+  } catch {
+    const match = String(url).match(/\/([^/]+)\/?$/);
+    return match ? match[1] : null;
+  }
 }

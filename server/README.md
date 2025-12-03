@@ -70,4 +70,4 @@ All file writes are protected by a simple promise queue to prevent concurrent co
 
 - Add request caching for duplicate namespace fetches across scans.
 - Introduce MSW/nock-based integration tests around `upsertUnsupportedPluginRecord`.
-- Emit structured metrics (p95 proxy latency, per-namespace hit counts) to aid prioritisation.
+- Emit structured metrics (p95 proxy latency, per-namespace hit counts) to aid prioritization.

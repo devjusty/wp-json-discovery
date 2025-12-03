@@ -14,7 +14,9 @@ export function useHomepageScan() {
         source: data.source,
         metaCount: data.insights?.meta?.length ?? 0,
         assetCount: data.insights?.assets?.length ?? 0,
-        frameworks: data.insights?.frameworks ?? []
+        frameworks: data.insights?.frameworks ?? [],
+        snapshot: data,
+        snapshotBytes: JSON.stringify(data).length
       });
     },
     onError: (error) => {

@@ -218,7 +218,14 @@ export const SUPPORTED_PLUGINS = [
     id: 'learndash',
     label: 'LearnDash LMS',
     description: 'Course and lesson endpoints exposed by LearnDash LMS.',
-    namespaces: ['ldlms/v1']
+    namespaces: [
+      'ldlms/v1',
+      'ldlms/v2',
+      'ld-propanel/v1',
+      'learndashCourseReviews/v1',
+      'learndash/v1'
+    ],
+    assetHints: ['sfwd-lms']
   },
   {
     id: 'memberpress',
@@ -528,6 +535,352 @@ export const SUPPORTED_PLUGINS = [
     label: 'Yabe Webfont',
     description: 'Yabe Webfont service endpoints exposed via REST.',
     namespaces: ['yabe-webfont/v1']
+  },
+  {
+    id: 'instagram-feed',
+    label: 'Smash Balloon Instagram Feed',
+    description: 'Instagram feed plugin assets by Smash Balloon.',
+    pluginUrl: 'https://wordpress.org/plugins/instagram-feed/',
+    namespaces: [],
+    assetHints: ['instagram-feed']
+  },
+  {
+    id: 'beaver-builder',
+    label: 'Beaver Builder',
+    description: 'Beaver Builder page builder core assets.',
+    pluginUrl: 'https://www.wpbeaverbuilder.com/',
+    namespaces: [],
+    assetHints: ['bb-plugin', 'bb-theme-builder']
+  },
+  {
+    id: 'beaver-builder-powerpack',
+    label: 'PowerPack for Beaver Builder',
+    description: 'PowerPack addon assets for Beaver Builder.',
+    pluginUrl: 'https://www.wpbeaverbuilder.com/addons/',
+    namespaces: [],
+    assetHints: ['bbpowerpack']
+  },
+  {
+    id: 'events-calendar-pro',
+    label: 'The Events Calendar Pro',
+    description: 'Pro assets for The Events Calendar.',
+    pluginUrl: 'https://theeventscalendar.com/products/wordpress-events-calendar-pro/',
+    namespaces: [],
+    assetHints: ['events-calendar-pro']
+  },
+  {
+    id: 'wp-analytify',
+    label: 'Analytify',
+    description: 'Google Analytics dashboard plugin assets.',
+    pluginUrl: 'https://wordpress.org/plugins/wp-analytify/',
+    namespaces: [],
+    assetHints: ['wp-analytify', 'wp-analytify-pro']
+  },
+  {
+    id: 'pojo-accessibility',
+    label: 'Accessibility by Pojo',
+    description: 'Accessibility toolbox assets by Pojo.',
+    pluginUrl: 'https://wordpress.org/plugins/pojo-accessibility/',
+    namespaces: [],
+    assetHints: ['pojo-accessibility']
+  },
+  {
+    id: 'breeze',
+    label: 'Breeze Cache',
+    description: 'Cloudways Breeze caching assets.',
+    pluginUrl: 'https://wordpress.org/plugins/breeze/',
+    namespaces: [],
+    assetHints: ['breeze']
+  },
+  {
+    id: 'max-mega-menu',
+    label: 'Max Mega Menu',
+    description: 'Mega menu plugin assets.',
+    pluginUrl: 'https://wordpress.org/plugins/megamenu/',
+    namespaces: [],
+    assetHints: ['megamenu', 'megamenu-pro']
+  },
+  {
+    id: 'page-links-to',
+    label: 'Page Links To',
+    description: 'Page Links To plugin assets.',
+    pluginUrl: 'https://wordpress.org/plugins/page-links-to/',
+    namespaces: [],
+    assetHints: ['page-links-to']
+  },
+  {
+    id: 'wpdatatables',
+    label: 'wpDataTables',
+    description: 'wpDataTables table and chart assets.',
+    pluginUrl: 'https://wpdatatables.com/',
+    namespaces: [],
+    assetHints: ['wpdatatables']
+  },
+  {
+    id: 'font-awesome',
+    label: 'Font Awesome',
+    description: 'Font Awesome official plugin endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/font-awesome/',
+    namespaces: ['font-awesome/v1']
+  },
+  {
+    id: 'syntax-highlighting-code-block',
+    label: 'Syntax Highlighting Code Block',
+    description: 'Syntax Highlighting Code Block plugin endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/syntax-highlighting-code-block/',
+    namespaces: ['syntax-highlighting-code-block/v1']
+  },
+  {
+    id: 'smart-slider-3',
+    label: 'Smart Slider 3',
+    description: 'Smart Slider 3 slider endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/smart-slider-3/',
+    namespaces: ['smart-slider-3/v1']
+  },
+  {
+    id: 'post-duplicator',
+    label: 'Post Duplicator',
+    description: 'Post Duplicator plugin endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/post-duplicator/',
+    namespaces: ['post-duplicator/v1']
+  },
+  {
+    id: 'mtphrsettings',
+    label: 'Metaphor Settings',
+    description: 'mtphrSettings endpoints (metaphor settings framework).',
+    namespaces: ['mtphrSettings/v1']
+  },
+  {
+    id: 'hubspot-leadin',
+    label: 'HubSpot Leadin',
+    description: 'HubSpot Leadin/Forms endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/leadin/',
+    namespaces: ['leadin/v1']
+  },
+  {
+    id: 'pronto-marketing',
+    label: 'Pronto Marketing',
+    description: 'Pronto Marketing custom API endpoints.',
+    namespaces: ['api/pronto']
+  },
+  {
+    id: 'bsf-custom-fonts',
+    label: 'Custom Fonts (Brainstorm Force)',
+    description: 'Brainstorm Force Custom Fonts endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/custom-fonts/',
+    namespaces: ['bsf-custom-fonts/v1', 'custom-fonts/v1']
+  },
+  {
+    id: 'generatepress-pro',
+    label: 'GeneratePress Premium',
+    description: 'GeneratePress Premium endpoints.',
+    pluginUrl: 'https://generatepress.com/premium/',
+    namespaces: ['generatepress-pro/v1', 'generatepress/v1']
+  },
+  {
+    id: 'advgb',
+    label: 'Advanced Gutenberg (PublishPress Blocks)',
+    description: 'PublishPress/Advanced Gutenberg block endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/advanced-gutenberg/',
+    namespaces: ['advgb/v1']
+  },
+  {
+    id: 'accordion-blocks',
+    label: 'Accordion Blocks',
+    description: 'Accordion Blocks endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/accordion-blocks/',
+    namespaces: ['accordion-blocks/v1']
+  },
+  {
+    id: 'visual-portfolio',
+    label: 'Visual Portfolio',
+    description: 'Visual Portfolio gallery endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/visual-portfolio/',
+    namespaces: ['visual-portfolio/v1']
+  },
+  {
+    id: 'gravity-pdf',
+    label: 'Gravity PDF',
+    description: 'Gravity PDF endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/gravity-forms-pdf-extended/',
+    namespaces: ['gravity-pdf/v1']
+  },
+  {
+    id: 'easy-digital-downloads',
+    label: 'Easy Digital Downloads',
+    description: 'EDD core and common extensions (recurring, software licensing) asset detection.',
+    pluginUrl: 'https://wordpress.org/plugins/easy-digital-downloads/',
+    namespaces: [],
+    assetHints: [
+      'easy-digital-downloads',
+      'easy-digital-downloads-pro',
+      'edd-sl-shortcodes',
+      'edd-recurring',
+      'edd-reviews'
+    ]
+  },
+  {
+    id: 'affiliate-wp',
+    label: 'AffiliateWP',
+    description: 'AffiliateWP referrals and payouts assets.',
+    pluginUrl: 'https://affiliatewp.com/',
+    namespaces: [],
+    assetHints: ['affiliate-wp']
+  },
+  {
+    id: 'givewp',
+    label: 'GiveWP',
+    description: 'GiveWP donation assets and gateways.',
+    pluginUrl: 'https://wordpress.org/plugins/give/',
+    namespaces: ['give-api/v2', 'givewp/v3', 'givewp/form-builder/email-preview'],
+    assetHints: ['give', 'give-authorize-net']
+  },
+  {
+    id: 'trx-addons',
+    label: 'TRX Addons',
+    description: 'ThemeREX addons bundle assets (shortcodes, layouts).',
+    pluginUrl: 'https://wordpress.org/plugins/trx-addons/',
+    namespaces: ['trx_addons/v1'],
+    assetHints: ['trx_addons']
+  },
+  {
+    id: 'plausible-analytics',
+    label: 'Plausible Analytics',
+    description: 'Plausible Analytics tracking plugin assets.',
+    pluginUrl: 'https://wordpress.org/plugins/plausible-analytics/',
+    namespaces: [],
+    assetHints: ['plausible-analytics']
+  },
+  {
+    id: 'creative-mail',
+    label: 'Creative Mail by Constant Contact',
+    description: 'Creative Mail newsletter and automation assets.',
+    pluginUrl: 'https://wordpress.org/plugins/creative-mail-by-constant-contact/',
+    namespaces: ['creativemail/v1'],
+    assetHints: ['creative-mail-by-constant-contact']
+  },
+  {
+    id: 'woocommerce-authorize-net-cim',
+    label: 'WooCommerce Authorize.Net CIM Gateway',
+    description: 'Authorize.Net CIM payment gateway assets for WooCommerce.',
+    pluginUrl: 'https://woocommerce.com/products/authorize-net-cim/',
+    namespaces: [],
+    assetHints: ['woocommerce-gateway-authorize-net-cim']
+  },
+  {
+    id: 'pymntpl-paypal-woocommerce',
+    label: 'Pymntpl PayPal for WooCommerce',
+    description: 'Pymntpl PayPal integration assets for WooCommerce.',
+    pluginUrl: 'https://wordpress.org/plugins/pymntpl-paypal-woocommerce/',
+    namespaces: [],
+    assetHints: ['pymntpl-paypal-woocommerce']
+  },
+  {
+    id: 'wp-help-scout-docs',
+    label: 'Help Scout Docs for WP',
+    description: 'Help Scout Docs embedding assets.',
+    namespaces: [],
+    assetHints: ['wp-help-scout-docs']
+  },
+  {
+    id: 'honeypot',
+    label: 'Honeypot',
+    description: 'Generic honeypot spam protection assets.',
+    namespaces: [],
+    assetHints: ['honeypot']
+  },
+  {
+    id: 'mailin',
+    label: 'Mailin (Brevo)',
+    description: 'Mailin/Sendy integrations and assets.',
+    namespaces: ['mailin/v1'],
+    assetHints: ['mailin']
+  },
+  {
+    id: 'stop-user-enumeration',
+    label: 'Stop User Enumeration',
+    description: 'Hardens user enumeration endpoints.',
+    namespaces: [],
+    assetHints: ['stop-user-enumeration']
+  },
+  {
+    id: 'mc4wp',
+    label: 'Mailchimp for WordPress',
+    description: 'Mailchimp for WP forms and integration endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/mailchimp-for-wp/',
+    namespaces: ['mc4wp/v1']
+  },
+  {
+    id: 'wc-ppcp',
+    label: 'WooCommerce PayPal Payments',
+    description: 'PayPal Payments (PPCP) gateways for WooCommerce.',
+    pluginUrl: 'https://wordpress.org/plugins/woocommerce-paypal-payments/',
+    namespaces: ['wc-ppcp/v1', 'wc-ppcp/v1/admin']
+  },
+  {
+    id: 'stackable',
+    label: 'Stackable Blocks',
+    description: 'Stackable Gutenberg blocks and design library.',
+    pluginUrl: 'https://wordpress.org/plugins/stackable-ultimate-gutenberg-blocks/',
+    namespaces: ['stackable/v2', 'stackable/v3']
+  },
+  {
+    id: 'gravitysmtp',
+    label: 'Gravity SMTP',
+    description: 'Gravity SMTP mailer diagnostics.',
+    namespaces: ['gravitysmtp/v1']
+  },
+  {
+    id: 'mapsvg',
+    label: 'MapSVG',
+    description: 'MapSVG interactive map endpoints.',
+    namespaces: ['mapsvg/v1']
+  },
+  {
+    id: 'wp-mail-smtp',
+    label: 'WP Mail SMTP',
+    description: 'WP Mail SMTP settings and diagnostics endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/wp-mail-smtp/',
+    namespaces: ['wp-mail-smtp/v1']
+  },
+  {
+    id: 'string-locator',
+    label: 'String Locator',
+    description: 'String Locator search endpoints.',
+    namespaces: ['string-locator/v1']
+  },
+  {
+    id: 'zipwp',
+    label: 'ZipWP',
+    description: 'ZipWP AI builder assets and images.',
+    namespaces: ['zipwp/v1', 'zipwp-images/v1']
+  },
+  {
+    id: 'bsf-core',
+    label: 'Brainstorm Force Core',
+    description: 'Brainstorm Force core helper endpoints.',
+    namespaces: ['bsf-core/v1']
+  },
+  {
+    id: 'uael',
+    label: 'Ultimate Addons for Elementor',
+    description: 'UAEL widgets and helpers.',
+    namespaces: ['uael/v1']
+  },
+  {
+    id: 'elementskit-extras',
+    label: 'ElementsKit Extras',
+    description: 'Additional ElementsKit widget endpoints.',
+    namespaces: [
+      'elementskit/v1/widget-builder',
+      'elementskit/v1/behance',
+      'elementskit/v1/pinterest',
+      'elementskit/v1/widget/dribble',
+      'elementskit/v1/widget/fb-feed',
+      'elementskit/v1/widget/fb-pg-review',
+      'elementskit/v1/widget/instagram-feed',
+      'elementskit/v1/zoom-meeting'
+    ]
   },
   {
     id: 'the-events-calendar',

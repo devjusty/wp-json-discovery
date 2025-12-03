@@ -9,7 +9,7 @@ WP JSON Discovery is a Vite-powered React application backed by a lightweight Ex
 - **Domain scanning** – Probe `/wp-json/` plus plugin namespaces, capturing route metadata, response timings, and schema hints.
 - **Core content explorer** – Tabular views for posts, pages, categories, tags, and media with sortable columns, pagination, and CSV export.
 - **Plugin intelligence** – Supports dozens of high-impact plugins (WooCommerce, Jetpack, Elementor, Rank Math, WPForms, Ninja Forms, WP Recipe Maker, etc.) and reports namespace coverage gaps.
-- **Unsupported tracking** – Persists unknown namespaces to a shared list so teams can prioritise handler development.
+- **Unsupported tracking** – Persists unknown namespaces to a shared list so teams can prioritize handler development.
 - **Research workflows** – Context7 queries are bundled into the docs so unsupported namespaces can be researched without leaving the terminal.
 - **Robust logging** – JSONL activity log records proxy performance, scan duration, persistence actions, and error diagnostics.
 - **Atomic design system** – UI is composed using Brad Frost’s atoms → molecules → organisms → templates → pages to encourage reuse and scalability.
@@ -57,7 +57,7 @@ The project now ships with the full WooCommerce, Rank Math, Divi, Health Check, 
    - `server/data/activity.log` – JSONL log with `namespaceDetected`, `unsupportedPersisted`, and error entries.
 3. **Research the plugin** using Context7:
    - `pnpm context7 -- "/wordpress/plugins/<namespace>"` (replace with the namespace slug) to retrieve docs, repo links, and usage details.
-   - Summarise findings in the PR description so future contributors understand the plugin surface area.
+   - Summarize findings in the PR description so future contributors understand the plugin surface area.
 4. **Add support** by extending `frontend/src/config/plugins.js` and any related UI/service logic.
 5. **Verify regression** by re-running the scan; confirm the array stays empty and no new log entries are emitted.
 
@@ -72,7 +72,7 @@ Document edge cases (auth-only routes, HTML responses, rate limits) in PR notes 
 - **Plugin coverage**: 25+ plugins supported (WooCommerce, Jetpack, Contact Form 7, Ninja Forms, WP Recipe Maker, Wordfence, CleanTalk, WP Engine MU suite, Elementor, WPForms, Rank Math, SEOPress, LearnDash, MemberPress, etc.).
 - **Unsupported namespaces**: Actively tracked; recent scans surfaced Rank Math sub-routes, LiteSpeed cache, Divi, Modern Events Calendar, and WooCommerce telemetry routes for future support.
 - **Logging**: Structured `activity.log` capturing scan lifecycle, proxy timings, persistence, and errors. Auto-repair for malformed JSON store implemented.
-- **UI**: Atomic design refactor completed; major components reorganised by layer for maintainability.
+- **UI**: Atomic design refactor completed; major components reorganized by layer for maintainability.
 
 ---
 
@@ -147,13 +147,13 @@ When adding tests, co-locate them under `frontend/src/__tests__/` or alongside t
 
 ## Roadmap & Ideas
 
-- **Plugin deep dives** – Build specialised handlers for Rank Math, LiteSpeed Cache, Divi, Modern Events Calendar, WP Engine Telemetry, WooCommerce Analytics to replace unsupported namespace alerts.
+- **Plugin deep dives** – Build specialized handlers for Rank Math, LiteSpeed Cache, Divi, Modern Events Calendar, WP Engine Telemetry, WooCommerce Analytics to replace unsupported namespace alerts.
 - **Credentialed scanning** – Support application passwords / OAuth for sites that restrict anonymous REST access.
 - **Batch scanning + scheduling** – Allow multiple domains to be queued and scanned concurrently with aggregated reporting.
 - **Insights & scoring** – Highlight security or content exposure risks (e.g., user endpoints enabled, debug routes).
 - **UI enhancements** – Add filters, saved scans, and richer plugin dashboards (route grouping, schema diffs).
 - **Data export** – Extend beyond CSV (JSON, PDF summaries) and optional S3 upload.
-- **DevOps** – Dockerise services, add CI workflows for lint/test/build, and configure log rotation.
+- **DevOps** – Dockerize services, add CI workflows for lint/test/build, and configure log rotation.
 
 ---
 

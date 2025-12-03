@@ -82,6 +82,13 @@ function AppContent() {
       <AdminPage
         headerActions={headerActions}
         onNavigate={setActivePage}
+        rotateLogs={rotateLogs}
+        isRotatingLogs={isRotatingLogs}
+        onRescan={(domain) => {
+          if (!domain) return;
+          setActivePage('scan');
+          startScan(domain);
+        }}
       />
     );
   }
@@ -96,8 +103,6 @@ function AppContent() {
       isScanning={isScanning}
       scanError={scanError}
       startScan={startScan}
-      isRotatingLogs={isRotatingLogs}
-      rotateLogs={rotateLogs}
       activeDomain={activeDomain}
       homepageResult={homepageResult}
       homepageIsRunning={homepageIsRunning}
