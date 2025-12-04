@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const dataDir = path.join(__dirname, '..', '..', 'data');
-const unsupportedPluginsPath = path.join(dataDir, 'unsupported-plugins.json');
+const unsupportedPluginsPath = path.join(dataDir, 'unsupported-plugins.json'); // legacy, removed
 let pluginsQueue = Promise.resolve();
 
 async function seedFromJsonIfEmpty(db) {

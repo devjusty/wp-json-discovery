@@ -706,6 +706,147 @@ export const SUPPORTED_PLUGINS = [
     namespaces: ['gravity-pdf/v1']
   },
   {
+    id: 'wpbakery',
+    label: 'WPBakery Page Builder',
+    description: 'WPBakery Page Builder endpoints and assets.',
+    pluginUrl: 'https://wpbakery.com/',
+    namespaces: ['js_composer'],
+    assetHints: ['js_composer']
+  },
+  {
+    id: 'ultimate-addons-wpbakery',
+    label: 'Ultimate Addons for WPBakery',
+    description: 'Ultimate Addons for WPBakery Page Builder assets.',
+    pluginUrl: 'https://codecanyon.net/item/ultimate-addons-for-visual-composer/6892199',
+    namespaces: [],
+    assetHints: ['Ultimate_VC_Addons']
+  },
+  {
+    id: 'revslider',
+    label: 'Slider Revolution',
+    description: 'Slider Revolution endpoints and assets.',
+    pluginUrl: 'https://revolution.themepunch.com/',
+    namespaces: ['revslider/v1'],
+    assetHints: ['revslider']
+  },
+  {
+    id: 'templatera',
+    label: 'Templatera',
+    description: 'Templatera template manager for WPBakery.',
+    pluginUrl: 'https://codecanyon.net/item/templatera-template-manager-for-visual-composer/5195991',
+    namespaces: [],
+    assetHints: ['templatera']
+  },
+  {
+    id: 'dt-the7-core',
+    label: 'The7 Core',
+    description: 'The7 theme core plugin assets.',
+    pluginUrl: 'https://themeforest.net/item/the7-responsive-multipurpose-wordpress-theme/5556590',
+    namespaces: [],
+    assetHints: ['dt-the7-core']
+  },
+  {
+    id: 'astra-pro',
+    label: 'Astra Pro',
+    description: 'Astra theme companion endpoints.',
+    pluginUrl: 'https://wpastra.com/',
+    namespaces: ['astra/v1']
+  },
+  {
+    id: 'spectra',
+    label: 'Spectra (UAG)',
+    description: 'Ultimate Addons for Gutenberg / Spectra endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/ultimate-addons-for-gutenberg/',
+    namespaces: ['uag/v1', 'spectra/v1']
+  },
+  {
+    id: 'twentig',
+    label: 'Twentig',
+    description: 'Twentig customization plugin endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/twentig/',
+    namespaces: ['twentig/v1']
+  },
+  {
+    id: 'siteground-security',
+    label: 'SiteGround Security',
+    description: 'SiteGround Security endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/sg-security/',
+    namespaces: ['sg-security/v1']
+  },
+  {
+    id: 'siteground-optimizer',
+    label: 'SiteGround Optimizer',
+    description: 'SiteGround Optimizer caching/performance endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/sg-cachepress/',
+    namespaces: ['siteground-optimizer/v1']
+  },
+  {
+    id: 'siteground-settings',
+    label: 'SiteGround Settings',
+    description: 'SiteGround settings endpoints.',
+    namespaces: ['siteground-settings/v1']
+  },
+  {
+    id: 'ithemes-security',
+    label: 'iThemes Security',
+    description: 'iThemes Security endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/better-wp-security/',
+    namespaces: ['ithemes-security/v1', 'ithemes-security/rpc']
+  },
+  {
+    id: 'two-factor',
+    label: 'Two-Factor Authentication',
+    description: 'Two-Factor plugin endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/two-factor/',
+    namespaces: ['two-factor']
+  },
+  {
+    id: 'mapsvg',
+    label: 'MapSVG',
+    description: 'MapSVG interactive maps endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/mapsvg-lite/',
+    namespaces: ['mapsvg/v1']
+  },
+  {
+    id: 'gravitysmtp',
+    label: 'Gravity SMTP',
+    description: 'Gravity SMTP mailer endpoints.',
+    namespaces: ['gravitysmtp/v1']
+  },
+  {
+    id: 'wp-mail-smtp',
+    label: 'WP Mail SMTP',
+    description: 'WP Mail SMTP settings/diagnostics endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/wp-mail-smtp/',
+    namespaces: ['wp-mail-smtp/v1']
+  },
+  {
+    id: 'media-cleaner',
+    label: 'Media Cleaner',
+    description: 'Media Cleaner cleanup endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/media-cleaner/',
+    namespaces: ['media-cleaner/v1']
+  },
+  {
+    id: 'zipwp',
+    label: 'ZipWP',
+    description: 'ZipWP AI builder endpoints.',
+    namespaces: ['zipwp/v1', 'zipwp-images/v1']
+  },
+  {
+    id: 'wp-abilities',
+    label: 'WP Abilities',
+    description: 'WP Abilities custom endpoints.',
+    namespaces: ['wp-abilities/v1']
+  },
+  {
+    id: 'the7',
+    label: 'The7 Theme Plugin',
+    description: 'The7 companion plugin endpoints.',
+    pluginUrl: 'https://themeforest.net/item/the7-responsive-multipurpose-wordpress-theme/5556590',
+    namespaces: ['the7/v1']
+  },
+  {
     id: 'easy-digital-downloads',
     label: 'Easy Digital Downloads',
     description: 'EDD core and common extensions (recurring, software licensing) asset detection.',

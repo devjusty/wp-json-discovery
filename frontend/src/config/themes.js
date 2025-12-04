@@ -61,5 +61,19 @@ export const SUPPORTED_THEMES = [
     description: 'Child themes based on GeneratePress.',
     themeUrl: 'https://generatepress.com/',
     signals: ['/wp-content/themes/generatepress_child']
+  },
+  {
+    id: 'the7',
+    label: 'The7',
+    description: 'The7 multipurpose theme by Dream-Theme.',
+    themeUrl: 'https://themeforest.net/item/the7-responsive-multipurpose-wordpress-theme/5556590',
+    signals: ['/wp-content/themes/dt-the7']
+  },
+  {
+    id: 'the7-child',
+    label: 'The7 Child',
+    description: 'Child themes based on The7.',
+    themeUrl: 'https://themeforest.net/item/the7-responsive-multipurpose-wordpress-theme/5556590',
+    signals: ['/wp-content/themes/dt-the7-child', '/wp-content/themes/davanis']
   }
 ];
