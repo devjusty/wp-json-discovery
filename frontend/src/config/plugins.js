@@ -306,7 +306,7 @@ export const SUPPORTED_PLUGINS = [
     label: 'Popup Maker',
     description: 'Popup Maker configuration routes.',
     pluginUrl: 'https://wordpress.org/plugins/popup-maker/',
-    namespaces: ['pum/v1']
+    namespaces: ['pum/v1', 'popup-maker/v1', 'popup-maker/v2']
   },
   {
     id: 'redirection',
@@ -573,7 +573,7 @@ export const SUPPORTED_PLUGINS = [
     label: 'Analytify',
     description: 'Google Analytics dashboard plugin assets.',
     pluginUrl: 'https://wordpress.org/plugins/wp-analytify/',
-    namespaces: [],
+    namespaces: ['wp-analytify/v1'],
     assetHints: ['wp-analytify', 'wp-analytify-pro']
   },
   {
@@ -851,7 +851,7 @@ export const SUPPORTED_PLUGINS = [
     label: 'Easy Digital Downloads',
     description: 'EDD core and common extensions (recurring, software licensing) asset detection.',
     pluginUrl: 'https://wordpress.org/plugins/easy-digital-downloads/',
-    namespaces: [],
+    namespaces: ['edd/v3', 'edd/webhooks/v1'],
     assetHints: [
       'easy-digital-downloads',
       'easy-digital-downloads-pro',
@@ -865,7 +865,7 @@ export const SUPPORTED_PLUGINS = [
     label: 'AffiliateWP',
     description: 'AffiliateWP referrals and payouts assets.',
     pluginUrl: 'https://affiliatewp.com/',
-    namespaces: [],
+    namespaces: ['affwp/v1'],
     assetHints: ['affiliate-wp']
   },
   {
@@ -1032,9 +1032,122 @@ export const SUPPORTED_PLUGINS = [
       'tec/v1',
       'tec/v2/onboarding',
       'tribe/event-aggregator/v1',
+      'tribe/power-automate/v1',
+      'tribe/zapier/v1',
       'tribe/events/v1',
       'tribe/views/v2'
     ]
+  },
+  {
+    id: 'edd-reviews',
+    label: 'EDD Reviews',
+    description: 'Easy Digital Downloads Reviews extension endpoints.',
+    namespaces: ['edd-reviews/v1']
+  },
+  {
+    id: 'barn2-edd-eu-vat',
+    label: 'Barn2 EDD EU VAT',
+    description: 'Barn2 setup wizard endpoints for the EDD EU VAT plugin.',
+    namespaces: ['barn2-setup-wizard/v1/edd-eu-vat']
+  },
+  {
+    id: 'omgf',
+    label: 'OMGF',
+    description: 'Optimize My Google Fonts (OMGF) public endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/host-webfonts-local/',
+    namespaces: ['omgf/v1', 'omgf-pro/v1', 'daan/v1']
+  },
+  {
+    id: 'wp-revisions-control',
+    label: 'WP Revisions Control',
+    description: 'WP Revisions Control endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/wp-revisions-control/',
+    namespaces: ['wp-revisions-control/v1']
+  },
+  {
+    id: 'wp-rollback',
+    label: 'WP Rollback',
+    description: 'WP Rollback plugin endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/wp-rollback/',
+    namespaces: ['wp-rollback/v1']
+  },
+  {
+    id: '8b8387',
+    label: '8b8387 Namespace',
+    description: 'Unidentified vendor namespace observed in scans.',
+    namespaces: ['8b8387/v1']
+  },
+  {
+    id: 'nexcess-mapps',
+    label: 'Nexcess Managed Apps',
+    description: 'Nexcess Managed Apps installer and diagnostics endpoints.',
+    namespaces: ['nexcess-mapps/v1']
+  },
+  {
+    id: 'termly',
+    label: 'Termly',
+    description: 'Termly consent and compliance endpoints.',
+    namespaces: ['termly/v1']
+  },
+  {
+    id: 'wp-umbrella',
+    label: 'WP Umbrella',
+    description: 'WP Umbrella monitoring endpoints.',
+    namespaces: ['wp-umbrella/v1']
+  },
+  {
+    id: 'wpgmp',
+    label: 'WP Google Map Plugin',
+    description: 'WP Google Map Plugin REST endpoints.',
+    namespaces: ['wpgmp/v1']
+  },
+  {
+    id: 'mailpoet',
+    label: 'MailPoet',
+    description: 'MailPoet newsletter endpoints.',
+    namespaces: ['mailpoet/v1']
+  },
+  {
+    id: 'woocommerce-email-editor',
+    label: 'WooCommerce Email Editor',
+    description: 'WooCommerce email template editor endpoints.',
+    namespaces: ['woocommerce-email-editor/v1']
+  },
+  {
+    id: 'jolitoc',
+    label: 'Joli Table of Contents',
+    description: 'Joli Table of Contents REST endpoints.',
+    namespaces: ['jolitoc/v1']
+  },
+  {
+    id: 'simple-history',
+    label: 'Simple History',
+    description: 'Simple History activity log endpoints.',
+    namespaces: ['simple-history/v1']
+  },
+  {
+    id: 'gutenberg-templates',
+    label: 'Gutenberg Templates',
+    description: 'Gutenberg Templates library endpoints.',
+    namespaces: ['gutenberg-templates/v1']
+  },
+  {
+    id: '0d2c88054a618e329a86d0609c2f844b',
+    label: '0d2c88054a618e329a86d0609c2f844b',
+    description: 'Unidentified vendor namespace observed in scans.',
+    namespaces: ['0d2c88054a618e329a86d0609c2f844b/v1']
+  },
+  {
+    id: 'ea11y',
+    label: 'EA11y',
+    description: 'EA11y accessibility helper endpoints.',
+    namespaces: ['ea11y/v1']
+  },
+  {
+    id: 'fl-controls',
+    label: 'FL Controls',
+    description: 'FL Controls UI helper endpoints.',
+    namespaces: ['fl-controls/v1']
   },
   {
     id: 'wpml',

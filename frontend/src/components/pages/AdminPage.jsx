@@ -4,7 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import AppLayout from '../templates/AppLayout.jsx';
 import { Card, CardContent, CardHeader } from '../atoms/Card.jsx';
 import Button from '../atoms/Button.jsx';
-import { fetchDbSnapshot, pruneActivityLogs } from '../../api/admin.js';
+import { fetchDbSnapshot, pruneActivityLogs, runDbMaintenance } from '../../api/admin.js';
 import { SUPPORTED_PLUGINS } from '../../config/plugins.js';
 import { SUPPORTED_THEMES } from '../../config/themes.js';
 
@@ -20,6 +20,12 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
   });
   const pruneMutation = useMutation({
     mutationFn: pruneActivityLogs,
+    onSuccess: () => {
+      snapshotQuery.refetch();
+    }
+  });
+  const maintenanceMutation = useMutation({
+    mutationFn: runDbMaintenance,
     onSuccess: () => {
       snapshotQuery.refetch();
     }
@@ -57,6 +63,15 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
                 onClick={() => setActiveSection('db')}
               >
                 Data snapshot
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                className={`sidebar__link ${activeSection === 'maintenance' ? 'is-active' : ''}`}
+                onClick={() => setActiveSection('maintenance')}
+              >
+                DB maintenance
               </button>
             </li>
             <li>
@@ -138,10 +153,28 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
           >
             {pruneMutation.isPending ? 'Pruning…' : 'Prune activity log'}
           </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="sidebar__action"
+            onClick={() => maintenanceMutation.mutate()}
+            disabled={maintenanceMutation.isPending}
+          >
+            {maintenanceMutation.isPending ? 'Maintaining…' : 'Run DB maintenance'}
+          </Button>
         </div>
       </nav>
     );
-  }, [activeSection, onNavigate, snapshotQuery, rotateLogs, isRotatingLogs, pruneMutation.isPending]);
+  }, [
+    activeSection,
+    onNavigate,
+    snapshotQuery,
+    rotateLogs,
+    isRotatingLogs,
+    pruneMutation,
+    maintenanceMutation
+  ]);
 
   const data = snapshotQuery.data;
   const recentScans = useMemo(() => {
@@ -158,6 +191,71 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
       headerActions={headerActions}
       sidebar={sidebarNav}
     >
+      {activeSection === 'maintenance' ? (
+        <section className="section">
+          <Card>
+            <CardHeader>
+              <div>
+                <h2>Database maintenance</h2>
+                <p className="card__meta">
+                  Runs a WAL checkpoint (TRUNCATE), quick_check, and VACUUM to keep SQLite healthy.
+                </p>
+              </div>
+              <div className="card__actions">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => maintenanceMutation.mutate()}
+                  disabled={maintenanceMutation.isPending}
+                >
+                  {maintenanceMutation.isPending ? 'Maintaining…' : 'Run maintenance'}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {maintenanceMutation.isError ? (
+                <div className="card card--error">
+                  <div className="card__content">
+                    <p>{maintenanceMutation.error?.message ?? 'Maintenance failed.'}</p>
+                  </div>
+                </div>
+              ) : null}
+              {maintenanceMutation.data ? (
+                <div className="stat-grid">
+                  <div className="stat-grid__item">
+                    <dt>Size</dt>
+                    <dd>
+                      {formatBytes(maintenanceMutation.data.size?.beforeBytes)} →{' '}
+                      {formatBytes(maintenanceMutation.data.size?.afterBytes)}
+                    </dd>
+                  </div>
+                  <div className="stat-grid__item">
+                    <dt>WAL checkpoint</dt>
+                    <dd>{formatWalSummary(maintenanceMutation.data.walCheckpoint)}</dd>
+                  </div>
+                  <div className="stat-grid__item">
+                    <dt>Integrity</dt>
+                    <dd>
+                      {maintenanceMutation.data.integrity?.ok
+                        ? maintenanceMutation.data.integrity?.status ?? 'ok'
+                        : `Error: ${maintenanceMutation.data.integrity?.error ?? 'unknown'}`}
+                    </dd>
+                  </div>
+                  <div className="stat-grid__item">
+                    <dt>Vacuum</dt>
+                    <dd>{maintenanceMutation.data.vacuumRan ? 'Completed' : 'Skipped'}</dd>
+                  </div>
+                </div>
+              ) : (
+                <p className="card__meta">
+                  No maintenance run yet. Trigger it to checkpoint WAL files, verify integrity, and compact the DB.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      ) : null}
+
       {activeSection === 'db' && snapshotQuery.isLoading ? (
         <div className="card card--info">
           <div className="card__content">
@@ -644,6 +742,21 @@ function formatFullTimestamp(value) {
     minute: '2-digit',
     second: '2-digit'
   });
+}
+
+function formatWalSummary(walCheckpoint) {
+  if (!walCheckpoint) return 'Not run';
+  if (walCheckpoint.error) return `Error: ${walCheckpoint.error}`;
+  const logPages = walCheckpoint.log ?? walCheckpoint.log_pages ?? walCheckpoint.logFrames ?? walCheckpoint.log_frames;
+  const checkpointed = walCheckpoint.checkpointed ?? walCheckpoint.checkpointedFrames ?? walCheckpoint.frames;
+  const busy = walCheckpoint.busy ?? walCheckpoint.blocked;
+  return [
+    Number.isFinite(logPages) ? `${logPages} log pages` : null,
+    Number.isFinite(checkpointed) ? `${checkpointed} checkpointed` : null,
+    Number.isFinite(busy) ? `${busy} busy` : null
+  ]
+    .filter(Boolean)
+    .join(' · ') || 'Completed';
 }
 
 function deriveDomainsFromUnsupported(unsupported = []) {

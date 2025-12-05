@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { useScan } from '../hooks/useScan.js';
 import { useHomepageScan } from '../hooks/useHomepageScan.js';
 
@@ -10,7 +10,15 @@ export function ScanProvider({ children }) {
   const [autoHomepageDomain, setAutoHomepageDomain] = useState(null);
   const [autoHomepageEnabled, setAutoHomepageEnabled] = useState(true);
 
-  const scan = useScan();
+  const {
+    startScan: runScan,
+    scanResult,
+    isScanning,
+    scanError,
+    isRotatingLogs,
+    rotateLogs,
+    activeDomain: scanActiveDomain
+  } = useScan();
   const homepageScan = useHomepageScan();
   const {
     startHomepageScan,
@@ -19,31 +27,31 @@ export function ScanProvider({ children }) {
     error: homepageError
   } = homepageScan;
 
-  const handleDomainChange = (value) => {
+  const handleDomainChange = useCallback((value) => {
     setDomain(value);
-  };
+  }, []);
 
-  const handleStartScan = (value) => {
+  const handleStartScan = useCallback((value) => {
     setDomain(value);
-    scan.startScan(value);
-  };
+    runScan(value);
+  }, [runScan]);
 
-  const handleStartHomepageScan = (value) => {
+  const handleStartHomepageScan = useCallback((value) => {
     setDomain(value);
     setAutoHomepageDomain(value);
     startHomepageScan(value);
-  };
+  }, [startHomepageScan]);
 
   // Auto-run homepage scan after REST scan completes for the same domain
   useEffect(() => {
-    const scannedDomain = scan.scanResult?.domain;
+    const scannedDomain = scanResult?.domain;
     if (!scannedDomain) return;
     if (autoHomepageDomain === scannedDomain) return;
     if (autoHomepageEnabled) {
       setAutoHomepageDomain(scannedDomain);
       startHomepageScan(scannedDomain);
     }
-  }, [scan.scanResult, autoHomepageDomain, startHomepageScan, autoHomepageEnabled]);
+  }, [scanResult, autoHomepageDomain, startHomepageScan, autoHomepageEnabled]);
 
   const value = useMemo(
     () => ({
@@ -53,13 +61,13 @@ export function ScanProvider({ children }) {
       setDomain,
       autoHomepageEnabled,
       setAutoHomepageEnabled,
-      scanResult: scan.scanResult,
-      isScanning: scan.isScanning,
-      scanError: scan.scanError,
+      scanResult,
+      isScanning,
+      scanError,
       startScan: handleStartScan,
-      isRotatingLogs: scan.isRotatingLogs,
-      rotateLogs: scan.rotateLogs,
-      activeDomain: domain || scan.activeDomain,
+      isRotatingLogs,
+      rotateLogs,
+      activeDomain: domain || scanActiveDomain,
       homepageResult,
       homepageIsRunning,
       homepageError,
@@ -71,25 +79,26 @@ export function ScanProvider({ children }) {
       activePage,
       domain,
       autoHomepageEnabled,
-      scan.scanResult,
-      scan.isScanning,
-      scan.scanError,
-      scan.isRotatingLogs,
-      scan.rotateLogs,
-      scan.activeDomain,
+      scanResult,
+      isScanning,
+      scanError,
+      isRotatingLogs,
+      rotateLogs,
+      scanActiveDomain,
       homepageResult,
       homepageIsRunning,
       homepageError,
       handleStartScan,
       handleStartHomepageScan,
       handleDomainChange,
-      setAutoHomepageDomain,
+      setAutoHomepageDomain
     ]
   );
 
   return <ScanContext.Provider value={value}>{children}</ScanContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useScanContext() {
   const context = useContext(ScanContext);
   if (context === undefined) {

@@ -388,6 +388,66 @@ app.get('/api/admin/db-snapshot', wrapAsync(async (req, res) => {
   });
 }));
 
+app.post('/api/admin/db/maintenance', wrapAsync(async (_req, res) => {
+  if (process.env.ADMIN_ENABLED === 'false') {
+    throw new AppError('Admin endpoints are disabled', 403);
+  }
+
+  const db = await getDb();
+  const dbPath = db.name;
+
+  const fileSize = async () => {
+    try {
+      const stats = await stat(dbPath);
+      return stats.size;
+    } catch {
+      return null;
+    }
+  };
+
+  const sizeBefore = await fileSize();
+  let walCheckpoint = null;
+  let integrity = { ok: false, status: null, error: null };
+
+  try {
+    walCheckpoint = db.pragma('wal_checkpoint(TRUNCATE)', { simple: false })?.[0] ?? null;
+  } catch (error) {
+    walCheckpoint = { error: error.message };
+  }
+
+  try {
+    const result = db.pragma('quick_check', { simple: false })?.[0];
+    const status = result?.quick_check ?? result;
+    integrity = {
+      ok: status === 'ok',
+      status: status ?? 'unknown',
+      error: null
+    };
+  } catch (error) {
+    integrity = { ok: false, status: null, error: error.message };
+  }
+
+  let vacuumRan = false;
+  try {
+    db.exec('vacuum');
+    vacuumRan = true;
+  } catch (error) {
+    integrity = integrity.ok ? { ok: false, status: integrity.status, error: error.message } : integrity;
+  }
+
+  const sizeAfter = await fileSize();
+
+  res.json({
+    walCheckpoint,
+    integrity,
+    vacuumRan,
+    size: {
+      beforeBytes: sizeBefore,
+      afterBytes: sizeAfter
+    }
+  });
+}));
+
 app.post('/api/admin/activity/prune', wrapAsync(async (req, res) => {
   const {
     keepLatest = ACTIVITY_LOG_PRUNE_DEFAULTS.keepLatest,

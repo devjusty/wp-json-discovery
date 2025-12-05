@@ -41,6 +41,15 @@ const MIGRATIONS = [
       `,
       `create index if not exists idx_activity_logs_type on activity_logs(type);`
     ]
+  },
+  {
+    version: 2,
+    statements: [
+      `create index if not exists idx_activity_logs_timestamp on activity_logs(timestamp desc);`,
+      `create index if not exists idx_activity_logs_type_timestamp on activity_logs(type, timestamp desc);`,
+      `create index if not exists idx_unsupported_plugin_domains_domain on unsupported_plugin_domains(domain);`,
+      `create index if not exists idx_unsupported_plugins_last_detected on unsupported_plugins(last_detected_at desc);`
+    ]
   }
 ];
 

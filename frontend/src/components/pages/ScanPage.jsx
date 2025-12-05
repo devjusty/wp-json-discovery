@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { useQuery } from '@tanstack/react-query';
 import AppLayout from '../templates/AppLayout.jsx';
@@ -61,7 +61,9 @@ function ScanPage() {
     ? `Status ${homepageResult.source?.statusCode ?? '-'} / ${homepageResult.insights?.meta?.length ?? 0} meta / ${homepageResult.insights?.assets?.length ?? 0} assets`
     : 'Capture generator hints, builder clues, and asset references from the homepage HTML.';
 
-  const handleNavigateHomepage = () => setActivePage('homepage');
+  const handleNavigateHomepage = useCallback(() => {
+    setActivePage('homepage');
+  }, [setActivePage]);
 
   const unsupportedQuery = useQuery({
     queryKey: ['unsupportedPlugins'],

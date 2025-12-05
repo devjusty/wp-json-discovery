@@ -22,3 +22,15 @@ export async function pruneActivityLogs(payload = {}) {
 
   return result.data;
 }
+
+export async function runDbMaintenance() {
+  const result = await request('/api/admin/db/maintenance', {
+    method: 'POST'
+  });
+
+  if (!result.ok) {
+    throw new Error('Failed to run DB maintenance');
+  }
+
+  return result.data;
+}
