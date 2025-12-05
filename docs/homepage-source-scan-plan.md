@@ -16,14 +16,14 @@
 - **Meta tags:** `generator`, `powered-by`, `application-name`, `theme-color`, Open Graph `og:site_name`, `og:locale`, Twitter `twitter:site`, `twitter:creator`. ✅
 - **Comments:** theme markers (e.g., `<!-- This site is optimized with the Yoast SEO plugin -->`), builder hints (Elementor/Divi/Bricks), host fingerprints (WP Engine, SiteGround, Flywheel). ✅
 - **Inline scripts/data:** global variables naming (e.g., `elementorFrontendConfig`, `wpeData`, `wpmlBrowserRedirectLanguage`), JSON-ld contexts, known plugin config objects. ✅ Basic substring scan; could expand heuristics.
-- **Asset paths:** theme directory names, common plugin asset roots (`/wp-content/plugins/{plugin}/`, `/wp-content/themes/{theme}/`), CDNs (Jetpack, Elementor assets, Cloudflare Pages). ✅
+- **Asset paths:** theme directory names, common plugin asset roots (`/wp-content/plugins/{plugin}/`, `/wp-content/themes/{theme}/`), CDNs (Jetpack, Elementor assets, Cloudflare Pages). ✅ Full list now logged per scan (no longer truncated).
 - **Other hints:** presence of `xmlrpc.php` links, REST API discovery headers/scripts, hreflang tags, canonical URLs. ✅ Framework hints captured.
 
 ## Data model (server → client)
 
 - `homepageSource`: `{ fetched: boolean, statusCode, finalUrl, contentType, sizeBytes, durationMs, error, truncated, redirects }`. ✅
 - `homepageInsights`: arrays of `{ type, value, source }`, grouped by `meta`, `comment`, `script`, `asset`, `other`. ✅
-- `assetPaths`: normalized list of detected `/wp-content/plugins/*` and `/wp-content/themes/*` paths with counts. ✅
+- `assetPaths`: normalized list of detected `/wp-content/plugins/*` and `/wp-content/themes/*` paths with counts. ✅ Aggregated into Admin + CLI report.
 - `frameworks`: array of detected framework names (Next.js, Gatsby, Vite, etc.). ✅
 
 ## Server implementation sketch
@@ -39,7 +39,7 @@
   - Scan for `wp-content/plugins/` and `wp-content/themes/` path segments; count occurrences. ✅
   - Scan inline `<script>` blocks for known config variable names (simple substring search). ✅
 - Integrate results into existing scan response under `homepageSource` and `homepageInsights`. ✅
-- Log to `server/data/activity.log` with a new event type `homepage-scan` for troubleshooting. ✅
+- Log to `server/data/activity.log` with a new event type `homepage-scan` for troubleshooting. ✅ Full assets + unknown assets logged.
 
 ## Frontend integration
 
@@ -49,6 +49,7 @@
   - Status/latency, final URL, content type, size, redirect count. ✅
   - Badges for detected meta generators, builder hints, plugin/theme asset paths. ✅
   - Lists for comments, script hints, other signals, and a JSON preview for debugging. ✅ (JSON preview present)
+  - Admin tab aggregates all homepage asset paths, flags unknown matches, and surfaces them for registry updates. ✅
   - 🚧 Add summary in Overview (done) and detail drawer improvements (pending).
 - Enable CSV export of asset paths or insights if useful. 🚧 Not built.
 
@@ -69,7 +70,7 @@
   - Truncated HTML snapshot (<= cap): aids debugging and future parsers; treat as sensitive data and consider redaction before persisting. ✅ Preview stored; consider opt-out/redaction later.
 - **Framework detection:** Yes—add detection for frameworks (Next.js, Gatsby, Vite, Squarespace, Shopify, etc.) via meta names, script IDs, and asset path patterns. ✅ Basic detection present.
 - **Comment signals:** Log unusual/unknown comment markers so we can improve parsing rules over time. ✅ Logged via `homepage-scan`.
-- **Logging:** Emit `homepage-scan` entries with status, size, cap bytes, truncated flag, counts (meta/comments/scripts/assets), frameworks, and preview length for diagnostics. ✅
+- **Logging:** Emit `homepage-scan` entries with status, size, cap bytes, truncated flag, counts (meta/comments/scripts/assets), frameworks, preview length, and full asset lists for diagnostics. ✅
 - **Integration:** Auto-run homepage scan after a REST scan completes for the same domain; shared domain state keeps forms/results in sync across tabs. ✅
 - **Controls:** Toggle in the REST scan form to enable/disable automatic homepage scans after REST runs. ✅
-- 🚧 Missing: better frontend failure handling (clear pending state) and optional CSV/JSON export of signals.
+- 🚧 Missing: better frontend failure handling (clear pending state) and optional CSV/JSON export of signals; consider a bulk asset export from Admin.

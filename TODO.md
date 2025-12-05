@@ -23,6 +23,12 @@ This list tracks potential improvements and bug fixes for the `wp-json-discovery
 - [ ] **Authentication/Authorization:** Consider adding some form of rate-limiting or API key authentication to prevent abuse, if necessary.
 - [ ] **JS Doc** Implement documentation throughout source code.
 
+### Homepage Asset Signals
+
+- [x] Log full homepage asset lists (not just samples) and persist in activity logs.
+- [x] Add admin visibility for unknown/matched assets plus CLI summary (`pnpm --filter wp-json-discovery-server db:assets`).
+- [ ] Export unknown asset paths for bulk registry updates (CSV/JSON) and add quick-add UX for `plugins.js`/`themes.js`.
+
 ## Frontend (`frontend/`)
 
 ### Frontend Medium Priority

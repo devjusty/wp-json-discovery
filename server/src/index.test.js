@@ -4,9 +4,36 @@ import app from './index.js';
 import { getDb } from './db/client.js';
 
 describe('API routes', () => {
+  const originalFetch = global.fetch;
+
   beforeAll(() => {
     process.env.ADMIN_ENABLED = 'true';
     process.env.DB_PATH = ':memory:';
+    global.fetch = async (url) => {
+      const target = String(url);
+      if (target.includes('sitemap.xml')) {
+        return new Response('<urlset><url><loc>https://example.com/</loc></url></urlset>', {
+          status: 200,
+          headers: { 'content-type': 'application/xml' }
+        });
+      }
+
+      if (target.endsWith('/')) {
+        return new Response('<html><head><title>Test</title></head><body><script type="application/ld+json">{}</script></body></html>', {
+          status: 200,
+          headers: { 'content-type': 'text/html' }
+        });
+      }
+
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      });
+    };
+  });
+
+  afterAll(() => {
+    global.fetch = originalFetch;
   });
 
   it('should respond to /health', async () => {

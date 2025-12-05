@@ -20,7 +20,7 @@ Brief notes on what we can reliably surface from public WordPress endpoints and 
 - Content overview: counts for posts/pages/media/taxonomies; media MIME breakdown to spot asset-heavy sites. ✅ Live.
 - Performance snapshot: per-endpoint latency/status, redirect badge, cache/CDN header summary, external links to sitemap/robots. ✅ Live; could add gzip/Brotli/HSTS flags.
 - Crawl aids: surface discovered sitemaps, main robots rules, and handy links to common admin/login endpoints. ✅ Sitemap/robots links in performance; admin/login quick links still pending.
-- Reporting & history: export JSON/HTML summaries, copy-to-clipboard notes, recent scans list with timestamps in `server/data/activity.log`. 🚧 CSV export exists; JSON/HTML + scan history pending.
+- Reporting & history: export JSON/HTML summaries, copy-to-clipboard notes, recent scans list with timestamps in `server/data/activity.log`. 🚧 CSV export exists; JSON/HTML + scan history pending. Homepage assets are logged fully and aggregated in Admin, but bulk export for registry updates is still pending.
 - Batch/scheduled scans: queue multiple domains with throttling; store histories for comparison. 🚧 Not started.
 
 ## Implementation hooks
@@ -28,4 +28,4 @@ Brief notes on what we can reliably surface from public WordPress endpoints and 
 - `frontend/src/services/scan.js` now pulls core counts, exposure probes, performance with redirect awareness, and media breakdown. Extend with uploads probe, gzip/HSTS checks, commerce details.
 - Expand plugin namespace mapping in `frontend/src/config/plugins.js`; log unknown namespaces to the unsupported list via the server API. Ongoing task.
 - UI now has sidebar navigation with dedicated pages for Overview, Exposure, Performance, Content, Core data, Plugins, and Unsupported. Add quick links (admin/login), version/vuln hints, and batch scan UI later.
-- Keep scan logs actionable via `server/data/activity.log`; add optional history view and export pipeline (JSON/HTML) in a future iteration.
+- Keep scan logs actionable via `server/data/activity.log`; homepage asset paths are aggregated and surfaced in Admin/CLI. Add optional history view and export pipeline (JSON/HTML) in a future iteration.

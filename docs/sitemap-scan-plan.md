@@ -11,6 +11,7 @@ Goal: add a secondary scan that crawls sitemap(s), fetches page-level data, and 
 - Schema detection: ✅ JSON-LD parse; collects `@type` including `@graph`; minimal validation for common types.
 - Flags: ✅ Missing title/description, noindex, canonical mismatch, schema_invalid. (Length checks pending.)
 - UI wiring: ✅ Overview shows sitemap availability; Sitemap tab can reuse overview probe/final URL as placeholder. ✅ Summary + table exist. 🚧 No detail drawer yet; filters only cover flags.
+- Asset signals from the separate homepage scan are aggregated in Admin for plugin/theme mapping; sitemap scan stays focused on SEO/schema pages.
 
 ## Data model
 

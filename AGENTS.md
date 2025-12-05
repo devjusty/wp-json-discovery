@@ -32,4 +32,5 @@
 
 ## Logging & Operational Notes
 - Review `server/data/activity.log` after scans to spot slow endpoints or HTML fallbacks; rotate or trim the file when it approaches megabyte scale.
+- Homepage scans now log full asset paths and unknown matches; aggregate via `pnpm --filter wp-json-discovery-server db:assets` or the Admin “Homepage assets” tab to keep `plugins.js`/`themes.js` current.
 - Capture newly unsupported namespaces via the API (`/api/unsupported-plugins`) and update `frontend/src/config/plugins.js` alongside corresponding fetch/render logic to keep the persisted list actionable.

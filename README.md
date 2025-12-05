@@ -11,10 +11,10 @@ WP JSON Discovery is a Vite-powered React application backed by a lightweight Ex
 - **Plugin intelligence** – Supports dozens of high-impact plugins (WooCommerce, Jetpack, Elementor, Rank Math, WPForms, Ninja Forms, WP Recipe Maker, etc.) and reports namespace coverage gaps.
 - **Unsupported tracking** – Persists unknown namespaces to a shared list so teams can prioritize handler development.
 - **Research workflows** – Context7 queries are bundled into the docs so unsupported namespaces can be researched without leaving the terminal.
-- **Robust logging** – JSONL activity log records proxy performance, scan duration, persistence actions, and error diagnostics.
+- **Robust logging** – JSONL activity log records proxy performance, scan duration, persistence actions, homepage asset findings, and error diagnostics.
 - **Atomic design system** – UI is composed using Brad Frost’s atoms → molecules → organisms → templates → pages to encourage reuse and scalability.
-- **Homepage source scan (opt-in)** – Single GET to `/` (1 MB cap) to extract generators, builder hints, asset paths, and framework signals without crawling sub-resources.
-- **Admin views** – Built-in Admin tab to inspect SQLite persistence (unsupported plugins, recent logs) and supported plugin/theme registries.
+- **Homepage source scan (opt-in)** – Single GET to `/` (1 MB cap) to extract generators, builder hints, asset paths, and framework signals without crawling sub-resources. Full asset paths are logged for follow-up.
+- **Admin views** – Built-in Admin tab to inspect SQLite persistence (unsupported plugins, recent logs, homepage asset paths) and supported plugin/theme registries.
 
 ---
 
@@ -43,7 +43,7 @@ root/
 2. Client calls the Express proxy (`/api/proxy`) which fetches `https://domain/wp-json/...` with timeouts and logging.
 3. Scan service enumerates namespaces, triggers core collection fetches, and collects plugin route metadata.
 4. Newly detected namespaces without handlers are POSTed to `/api/unsupported-plugins` and persisted to SQLite (seeded from the legacy JSON).
-5. Results render into tables, summaries, plugin panels, and admin views; CSV exports leverage `papaparse`.
+5. Results render into tables, summaries, plugin panels, and admin views; CSV exports leverage `papaparse`. Homepage scans also capture asset paths plus matches and surface them in Admin for mapping.
 
 ---
 
@@ -53,8 +53,8 @@ The project now ships with the full WooCommerce, Rank Math, Divi, Health Check, 
 
 1. **Run a scan** via the UI or `POST /api/scan` to reproduce the unsupported namespace.
 2. **Inspect persisted state**:
-   - `server/data/unsupported-plugins.json` – list of unresolved namespaces (JSON array).
-   - `server/data/activity.log` – JSONL log with `namespaceDetected`, `unsupportedPersisted`, and error entries.
+   - SQLite: `server/data/wpjd.sqlite` holds `unsupported_plugins` and `activity_logs` (legacy JSON seeds on first run).
+   - `server/data/activity.log` – JSONL log with `namespaceDetected`, `unsupportedPersisted`, homepage asset findings, and error entries.
 3. **Research the plugin** using Context7:
    - `pnpm context7 -- "/wordpress/plugins/<namespace>"` (replace with the namespace slug) to retrieve docs, repo links, and usage details.
    - Summarize findings in the PR description so future contributors understand the plugin surface area.
@@ -71,7 +71,7 @@ Document edge cases (auth-only routes, HTML responses, rate limits) in PR notes 
 - **Core datasets**: Posts, pages, categories, tags, media (latest subsets for performance).
 - **Plugin coverage**: 25+ plugins supported (WooCommerce, Jetpack, Contact Form 7, Ninja Forms, WP Recipe Maker, Wordfence, CleanTalk, WP Engine MU suite, Elementor, WPForms, Rank Math, SEOPress, LearnDash, MemberPress, etc.).
 - **Unsupported namespaces**: Actively tracked; recent scans surfaced Rank Math sub-routes, LiteSpeed cache, Divi, Modern Events Calendar, and WooCommerce telemetry routes for future support.
-- **Logging**: Structured `activity.log` capturing scan lifecycle, proxy timings, persistence, and errors. Auto-repair for malformed JSON store implemented.
+- **Logging**: Structured `activity.log` capturing scan lifecycle, proxy timings, persistence, homepage assets, and errors. Auto-repair for malformed JSON store implemented.
 - **UI**: Atomic design refactor completed; major components reorganized by layer for maintainability.
 
 ---
@@ -102,11 +102,11 @@ pnpm --filter frontend run preview
 ### Logs & persistence
 
 - `server/data/activity.log` – JSONL event log (rotate when >1 MB).
-- `server/data/wpjd.sqlite` – SQLite database for unsupported plugins and activity logs (seeded from legacy JSON).
+- `server/data/wpjd.sqlite` – SQLite database for unsupported plugins and activity logs (seeded from legacy JSON). Use `pnpm --filter wp-json-discovery-server db:assets` to summarize homepage asset paths and unknown matches.
 - `server/data/unsupported-plugins.json` – Legacy file store (auto-seeded into SQLite on first access).
 - `frontend/src/config/plugins.js` – Source of truth for supported namespaces.
 - `frontend/src/config/themes.js` – Source of truth for supported themes and detection signals.
-- `homepage-scan` log entries include status, size, cap, truncate flag, and counts for meta/comments/scripts/assets/frameworks for debugging.
+- `homepage-scan` log entries include status, size, cap, truncate flag, and counts for meta/comments/scripts/assets/frameworks plus full asset lists for debugging.
 
 Whenever you add new namespaces, run `pnpm --filter frontend run lint` and `pnpm --filter frontend run build` before committing.
 
@@ -126,7 +126,7 @@ Planned coverage:
 2. **Service orchestration tests** around `frontend/src/services/scan.js` (multiple namespace matches, empty unsupported list).
 3. **Component interaction tests** with `@testing-library/react` for the results table and plugin panels.
 4. **End-to-end regression tests** (Playwright) to validate domain submission, tab navigation, and CSV export.
-5. **Performance checks** capturing proxy latency and render times for large payloads.
+5. **Performance checks** capturing proxy latency and render times for large payloads. Add coverage for the homepage asset aggregation and Admin asset view.
 
 When adding tests, co-locate them under `frontend/src/__tests__/` or alongside the feature directory (e.g., `components/organisms/ResultsTable/ResultsTable.test.js`).
 

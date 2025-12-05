@@ -16,6 +16,7 @@ This doc captures the core WordPress REST endpoints and common plugin routes tha
 - `GET /sitemap.xml` — Sitemap probe (status + redirects). Implemented in exposure/performance and sitemap scan tab.
 - `GET /robots.txt` — Robots probe. Implemented in exposure/performance.
 - `GET /wp-content/uploads/` — Indexability probe for directory listing. Implemented in exposure.
+- `GET /` (homepage) — Opt-in HTML fetch for generators/builders/asset paths; results logged and aggregated for plugin/theme mapping.
 
 ## Common plugin APIs (public surfaces)
 
@@ -38,7 +39,7 @@ See `frontend/src/config/plugins.js` for the authoritative namespace list. When 
 
 ## How to implement/surface in the project
 
-- Discovery: continue using `/wp-json/` to enumerate namespaces. Unknown namespaces are persisted (SQLite) via `/api/unsupported-plugins`.
+- Discovery: continue using `/wp-json/` to enumerate namespaces. Unknown namespaces are persisted (SQLite) via `/api/unsupported-plugins`. Homepage asset paths are also logged and aggregated to speed up plugin/theme registry updates.
 - Light data pulls: core collections already fetch with `per_page=1` to derive counts; reuse this pattern for plugin endpoints we decide to sample.
 - Probes vs. fetches: keep “probe-only” endpoints (sitemap, robots, uploads, settings, users) as status/metadata checks, not full crawls.
 - Plugin enrichment (future):
@@ -55,4 +56,4 @@ See `frontend/src/config/plugins.js` for the authoritative namespace list. When 
 
 - Decide 2–3 high-value plugin GETs to sample safely (e.g., WooCommerce products?per_page=1&\_fields=id,name,price; Jetpack site info), behind a user-triggered “plugin details” toggle.
 - Add a small registry to mark plugin namespaces as “probe-only” vs. “fetch-small” with the exact endpoint and fields.
-- Surface any fetched plugin data in the plugin tab cards with status codes and durations for transparency.
+- Surface any fetched plugin data in the plugin tab cards with status codes and durations for transparency. Use homepage asset aggregates (Admin → Homepage assets or `pnpm --filter wp-json-discovery-server db:assets`) to prioritize registry updates.

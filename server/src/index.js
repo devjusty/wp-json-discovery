@@ -268,8 +268,7 @@ app.post('/api/homepage-scan', wrapAsync(async (req, res) => {
     );
 
     const insights = extractHomepageInsights(html);
-    const assetSamples = insights.assets
-      .slice(0, 15)
+    const assetsForLog = insights.assets
       .map(({ path, type, count, slug, matches = [] }) => ({
         path,
         type,
@@ -282,6 +281,7 @@ app.post('/api/homepage-scan', wrapAsync(async (req, res) => {
           slug: match.slug
         }))
       }));
+    const unknownAssets = assetsForLog.filter((asset) => (asset.matches?.length ?? 0) === 0);
     const source = {
       statusCode: response.status,
       finalUrl: finalUrl ?? targetUrl,
@@ -306,7 +306,8 @@ app.post('/api/homepage-scan', wrapAsync(async (req, res) => {
       commentCount: insights.comments.length,
       scriptCount: insights.scripts.length,
       assetPaths: insights.assets.length,
-      assetSamples,
+      assets: assetsForLog,
+      unknownAssets,
       frameworks: insights.frameworks,
       htmlPreviewLength: html.slice(0, 2000).length,
       capBytes: HOMEPAGE_HTML_CAP_BYTES
@@ -378,13 +379,15 @@ app.get('/api/admin/db-snapshot', wrapAsync(async (req, res) => {
   const unsupportedPlugins = await readUnsupportedPlugins();
 
   const files = await collectStorageStats(db.name);
+  const homepageAssets = aggregateHomepageAssets(activityLogs);
 
   res.json({
     dbPath: db.name,
     totals,
     unsupportedPlugins,
     activityLogs,
-    files
+    files,
+    homepageAssets
   });
 }));
 
@@ -501,6 +504,52 @@ function safeParseJson(raw) {
   }
 }
 
+function aggregateHomepageAssets(activityLogs = []) {
+  const byPath = new Map();
+
+  activityLogs
+    .filter((log) => log.type === 'homepage-scan')
+    .forEach((log) => {
+      const assets = log.payload?.assets ?? log.payload?.assetSamples ?? [];
+      assets.forEach((asset) => {
+        const key = asset.path;
+        const matches = asset.matches ?? [];
+        const existing = byPath.get(key) ?? {
+          path: asset.path,
+          type: asset.type ?? (asset.path?.includes('/themes/') ? 'theme' : 'plugin'),
+          occurrences: 0,
+          matches: new Map()
+        };
+        existing.occurrences += asset.count ?? 1;
+        matches.forEach((match) => {
+          const matchId = match.id ?? match.slug ?? match.label ?? 'unknown';
+          if (!existing.matches.has(matchId)) {
+            existing.matches.set(matchId, match);
+          }
+        });
+        byPath.set(key, existing);
+      });
+    });
+
+  const all = Array.from(byPath.values())
+    .map((entry) => ({
+      path: entry.path,
+      type: entry.type,
+      occurrences: entry.occurrences,
+      matches: Array.from(entry.matches.values())
+    }))
+    .sort((a, b) => b.occurrences - a.occurrences);
+
+  const unknown = all.filter((asset) => (asset.matches?.length ?? 0) === 0);
+
+  return {
+    totalPaths: all.length,
+    unknownPaths: unknown.length,
+    all,
+    unknown
+  };
+}
+
 async function collectStorageStats(dbPath) {
   const stats = {
     db: {
@@ -530,11 +579,14 @@ async function collectStorageStats(dbPath) {
   return stats;
 }
 
-app.listen(PORT, () => {
-  console.log(`Server listening on http://localhost:${PORT}`);
-});
-
 app.use(errorHandler);
 
+const isTestEnv = process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID;
 
+if (!isTestEnv) {
+  app.listen(PORT, () => {
+    console.log(`Server listening on http://localhost:${PORT}`);
+  });
+}
 
+export default app;

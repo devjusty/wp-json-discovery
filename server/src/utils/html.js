@@ -209,7 +209,7 @@ function detectOtherHints($) {
   return hints.slice(0, 20);
 }
 
-function extractAssetSlug(pathValue = '') {
+export function extractAssetSlug(pathValue = '') {
   const match = pathValue.match(/\/wp-content\/(?:plugins|themes)\/([^/]+)/i);
   if (!match || !match[1]) {
     return null;

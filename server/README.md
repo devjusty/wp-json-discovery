@@ -9,6 +9,7 @@ pnpm install                 # Install dependencies for the server workspace
 pnpm dev:server              # Start the API on http://localhost:4100
 pnpm --filter server run lint   # (Future) hook for linting once introduced
 pnpm --filter server run db:inspect  # Print SQLite table counts and last log entry
+pnpm --filter server run db:assets   # Summarize homepage asset paths and unknown matches
 pnpm --filter server run db:vacuum   # Run VACUUM on the SQLite database
 pnpm --filter server run db:backup   # Copy the SQLite DB to a timestamped file
 pnpm --filter server run db:import:logs  # Import activity.log JSONL into SQLite
@@ -37,7 +38,11 @@ Values from `.env` override the bundled defaults; restart the server after chang
 | POST   | `/api/unsupported-plugins`    | Upserts a namespace/domain pair and stamps `lastDetectedAt`. |
 | POST   | `/api/logs`                   | Accepts structured log events coming from the frontend scan workflow. |
 | POST   | `/api/logs/rotate`            | Rotates the activity log file and clears the SQLite log table. |
-| GET    | `/api/admin/db-snapshot`      | Returns SQLite snapshot (counts, unsupported plugins, recent logs). |
+| POST   | `/api/sitemap-scan`           | Fetches and parses sitemap XML, then fetches page HTML for SEO/schema signals. |
+| POST   | `/api/homepage-scan`          | Single GET to `/` with size cap; extracts meta, comments, frameworks, and asset paths. |
+| GET    | `/api/admin/db-snapshot`      | Returns SQLite snapshot (counts, unsupported plugins, homepage asset aggregates, recent logs). |
+| POST   | `/api/admin/db/maintenance`   | Runs WAL checkpoint, integrity check, and VACUUM. |
+| POST   | `/api/admin/activity/prune`   | Prunes `activity_logs` by age/count. |
 
 The proxy attaches a custom user agent (`wp-json-discovery/0.0.1`) to aid vendor rate-limit debugging.
 
@@ -45,7 +50,7 @@ The proxy attaches a custom user agent (`wp-json-discovery/0.0.1`) to aid vendor
 
 - SQLite database at `server/data/wpjd.sqlite` holds `unsupported_plugins`, `unsupported_plugin_domains`, and `activity_logs`. Set `DB_PATH` to store it elsewhere. WAL/SHM files live alongside the DB and are gitignored.
 - `server/data/unsupported-plugins.json` – Legacy file store; automatically imported into SQLite on first boot when the DB table is empty.
-- `server/data/activity.log` – JSONL log containing `proxy.response`, `unsupported_plugins.upserted`, and custom events from the frontend. `/api/logs/rotate` archives this file and clears the DB table to keep storage small.
+- `server/data/activity.log` – JSONL log containing `proxy.response`, `unsupported_plugins.upserted`, `homepage-scan` (with full asset lists), and custom events from the frontend. `/api/logs/rotate` archives this file and clears the DB table to keep storage small.
 
 All file writes are protected by a simple promise queue to prevent concurrent corruption. If you encounter malformed JSON, rebuild the file from a recent commit and re-run the failing scan.
 

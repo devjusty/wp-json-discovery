@@ -11,7 +11,7 @@ pnpm --filter frontend run lint    # ESLint (React rules + import order)
 pnpm --filter frontend run preview # Serve the production build locally
 ```
 
-Launch the shared dev environment with `pnpm dev` from the repo root to boot both the proxy and this client.
+Launch the shared dev environment with `pnpm dev` from the repo root to boot both the proxy and this client. The Admin tab surfaces unsupported namespaces, recent logs, registry data, and homepage asset paths aggregated from scans.
 
 ## Environment Variables
 

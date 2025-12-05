@@ -15,6 +15,7 @@ export const SUPPORTED_PLUGINS = [
       'wc-admin-email',
       'wc-analytics',
       'wc-telemetry',
+      'payments/woopay',
       'wccom-site/v3'
     ]
   },
@@ -58,7 +59,7 @@ export const SUPPORTED_PLUGINS = [
     label: 'Ninja Forms',
     description: 'Public submission and view routes provided by Ninja Forms.',
     pluginUrl: 'https://wordpress.org/plugins/ninja-forms/',
-    namespaces: ['ninja-forms-submissions', 'ninja-forms-views']
+    namespaces: ['ninja-forms-submissions', 'ninja-forms-views', 'nf-be-data']
   },
   {
     id: 'jetpack',
@@ -100,7 +101,7 @@ export const SUPPORTED_PLUGINS = [
     id: 'gravityforms',
     label: 'Gravity Forms',
     description: 'Read-only Gravity Forms endpoints (if exposed).',
-    namespaces: ['gf/v2']
+    namespaces: ['gf/v2', 'gravityforms/v2']
   },
   {
     id: 'greenshift',
@@ -134,6 +135,12 @@ export const SUPPORTED_PLUGINS = [
     namespaces: ['elementor/v1', 'elementor/v1/documents']
   },
   {
+    id: 'elementor-hosting',
+    label: 'Elementor Hosting',
+    description: 'Elementor-managed hosting helper endpoints.',
+    namespaces: ['elementor-hosting/v1']
+  },
+  {
     id: 'elementor-ai',
     label: 'Elementor AI',
     description: 'AI assistant features exposed via Elementor cloud endpoints.',
@@ -158,19 +165,38 @@ export const SUPPORTED_PLUGINS = [
     description: 'ElementsKit widget, menu, and template helper routes.',
     pluginUrl: 'https://wordpress.org/plugins/elementskit-lite/',
     namespaces: [
+      'elementskit/v1',
       'elementskit/v1/ajaxselect2',
       'elementskit/v1/dynamic-content',
       'elementskit/v1/layout-manager-api',
       'elementskit/v1/megamenu',
       'elementskit/v1/my-template',
-      'elementskit/v1/widget/mailchimp'
+      'elementskit/v1/widget/mailchimp',
+      'elementskit/v1/widget-builder',
+      'elementskit/v1/widget/instagram-feed',
+      'elementskit/v1/widget/fb-feed',
+      'elementskit/v1/widget/fb-pg-review',
+      'elementskit/v1/widget/dribble',
+      'elementskit/v1/behance',
+      'elementskit/v1/pinterest',
+      'elementskit/v1/zoom-meeting'
     ]
   },
   {
     id: 'jet-engine',
     label: 'JetEngine',
     description: 'Crocoblock JetEngine dynamic content and custom post type endpoints.',
-    namespaces: ['jet-engine/v2']
+    namespaces: [
+      'jet-engine/v2',
+      'jet-blocks-api/v1',
+      'jet-elements-api/v1',
+      'jet-menu-api/v2',
+      'jet-tabs-api/v1',
+      'jet-theme-core-api/v2',
+      'jet-tricks-api/v1',
+      'jet-woo-builder-api/v1',
+      'jet-woo-product-gallery-api/v1'
+    ]
   },
   {
     id: 'template-kit-import',
@@ -192,6 +218,19 @@ export const SUPPORTED_PLUGINS = [
     description: 'Fluent Forms submissions and automation routes.',
     pluginUrl: 'https://wordpress.org/plugins/fluentform/',
     namespaces: ['fluentform/v1']
+  },
+  {
+    id: 'fluent-crm',
+    label: 'FluentCRM',
+    description: 'FluentCRM contact, email, and automation endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/fluent-crm/',
+    namespaces: ['fluent-crm/v2']
+  },
+  {
+    id: 'fluent-snippets',
+    label: 'Fluent Snippets',
+    description: 'Fluent Snippets code snippet management endpoints.',
+    namespaces: ['fluent-snippets']
   },
   {
     id: 'rank-math',
@@ -245,6 +284,12 @@ export const SUPPORTED_PLUGINS = [
     label: 'WP Rocket',
     description: 'WP Rocket cache control and diagnostics endpoints.',
     namespaces: ['wp-rocket/v1']
+  },
+  {
+    id: 'object-cache-pro',
+    label: 'Object Cache Pro',
+    description: 'Object Cache Pro diagnostics endpoints.',
+    namespaces: ['objectcache/v1']
   },
   {
     id: 'regenerate-thumbnails',
@@ -651,6 +696,13 @@ export const SUPPORTED_PLUGINS = [
     namespaces: ['mtphrSettings/v1']
   },
   {
+    id: 'header-footer-elementor',
+    label: 'Header Footer Elementor',
+    description: 'Header Footer Elementor template endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/header-footer-elementor/',
+    namespaces: ['hfe/v1']
+  },
+  {
     id: 'hubspot-leadin',
     label: 'HubSpot Leadin',
     description: 'HubSpot Leadin/Forms endpoints.',
@@ -692,11 +744,39 @@ export const SUPPORTED_PLUGINS = [
     namespaces: ['accordion-blocks/v1']
   },
   {
+    id: 'avada-website-builder',
+    label: 'Avada Website Builder',
+    description: 'Avada Website Builder helper endpoints.',
+    pluginUrl: 'https://avada.com/',
+    namespaces: ['awb']
+  },
+  {
+    id: 'burst-statistics',
+    label: 'Burst Statistics',
+    description: 'Burst Statistics privacy-friendly analytics endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/burst-statistics/',
+    namespaces: ['burst/v1']
+  },
+  {
     id: 'visual-portfolio',
     label: 'Visual Portfolio',
     description: 'Visual Portfolio gallery endpoints.',
     pluginUrl: 'https://wordpress.org/plugins/visual-portfolio/',
     namespaces: ['visual-portfolio/v1']
+  },
+  {
+    id: 'metaslider',
+    label: 'MetaSlider',
+    description: 'MetaSlider slideshow endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/ml-slider/',
+    namespaces: ['metaslider/v1']
+  },
+  {
+    id: 'envato-elements',
+    label: 'Envato Elements',
+    description: 'Envato Elements template and assets endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/envato-elements/',
+    namespaces: ['envato-elements/v2']
   },
   {
     id: 'gravity-pdf',
@@ -840,6 +920,12 @@ export const SUPPORTED_PLUGINS = [
     namespaces: ['wp-abilities/v1']
   },
   {
+    id: 'godaddy-mcp',
+    label: 'GoDaddy MWP MCP',
+    description: 'Managed WordPress MCP endpoints (GoDaddy).',
+    namespaces: ['gd-mcp/v1', 'gdl/v1']
+  },
+  {
     id: 'the7',
     label: 'The7 Theme Plugin',
     description: 'The7 companion plugin endpoints.',
@@ -891,6 +977,18 @@ export const SUPPORTED_PLUGINS = [
     pluginUrl: 'https://wordpress.org/plugins/plausible-analytics/',
     namespaces: [],
     assetHints: ['plausible-analytics']
+  },
+  {
+    id: 'sqlbuddy',
+    label: 'SQL Buddy',
+    description: 'SQL Buddy database helper endpoints.',
+    namespaces: ['sqlbuddy/v1']
+  },
+  {
+    id: 'site-mailer',
+    label: 'SiteMailer',
+    description: 'SiteMailer transactional email endpoints.',
+    namespaces: ['site-mailer/v1']
   },
   {
     id: 'creative-mail',
@@ -966,6 +1064,12 @@ export const SUPPORTED_PLUGINS = [
     namespaces: ['stackable/v2', 'stackable/v3']
   },
   {
+    id: 'regolith',
+    label: 'Regolith',
+    description: 'Regolith static site tooling endpoints.',
+    namespaces: ['regolith/v1']
+  },
+  {
     id: 'gravitysmtp',
     label: 'Gravity SMTP',
     description: 'Gravity SMTP mailer diagnostics.',
@@ -978,11 +1082,30 @@ export const SUPPORTED_PLUGINS = [
     namespaces: ['mapsvg/v1']
   },
   {
+    id: 'sitemap-rest',
+    label: 'XML Sitemap',
+    description: 'XML sitemap helper endpoints.',
+    namespaces: ['sitemap/v1']
+  },
+  {
+    id: 'gravity-wiz',
+    label: 'Gravity Wiz',
+    description: 'Gravity Wiz/Gravity Perks helper endpoints.',
+    namespaces: ['gwiz/v1']
+  },
+  {
     id: 'wp-mail-smtp',
     label: 'WP Mail SMTP',
     description: 'WP Mail SMTP settings and diagnostics endpoints.',
     pluginUrl: 'https://wordpress.org/plugins/wp-mail-smtp/',
     namespaces: ['wp-mail-smtp/v1']
+  },
+  {
+    id: 'antideo-email-validator',
+    label: 'Antideo Email Validator',
+    description: 'Antideo email validation endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/antideo-email-validator/',
+    namespaces: ['antideo-email-validator/v1']
   },
   {
     id: 'string-locator',
@@ -991,10 +1114,22 @@ export const SUPPORTED_PLUGINS = [
     namespaces: ['string-locator/v1']
   },
   {
+    id: 'zapier',
+    label: 'Zapier',
+    description: 'Zapier webhook helper endpoints.',
+    namespaces: ['zapier/v1']
+  },
+  {
     id: 'zipwp',
     label: 'ZipWP',
     description: 'ZipWP AI builder assets and images.',
     namespaces: ['zipwp/v1', 'zipwp-images/v1']
+  },
+  {
+    id: 'zipcheck',
+    label: 'ZipCheck',
+    description: 'ZipCheck postal validation endpoints.',
+    namespaces: ['zipcheck/v1']
   },
   {
     id: 'bsf-core',
@@ -1007,6 +1142,13 @@ export const SUPPORTED_PLUGINS = [
     label: 'Ultimate Addons for Elementor',
     description: 'UAEL widgets and helpers.',
     namespaces: ['uael/v1']
+  },
+  {
+    id: 'quadlayers-instagram',
+    label: 'Instagram Feed Gallery (QuadLayers)',
+    description: 'QuadLayers Instagram feed endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/instagram-feed-gallery/',
+    namespaces: ['quadlayers/instagram']
   },
   {
     id: 'elementskit-extras',
@@ -1039,6 +1181,18 @@ export const SUPPORTED_PLUGINS = [
     ]
   },
   {
+    id: 'wp-site-designer',
+    label: 'WP Site Designer',
+    description: 'WP Site Designer builder endpoints.',
+    namespaces: ['wp-site-designer/v1']
+  },
+  {
+    id: 'lc-api',
+    label: 'LC API',
+    description: 'LC internal/public API endpoints detected during scans.',
+    namespaces: ['lc_internal_api/v1', 'lc_public_api/v1']
+  },
+  {
     id: 'edd-reviews',
     label: 'EDD Reviews',
     description: 'Easy Digital Downloads Reviews extension endpoints.',
@@ -1058,6 +1212,12 @@ export const SUPPORTED_PLUGINS = [
     namespaces: ['omgf/v1', 'omgf-pro/v1', 'daan/v1']
   },
   {
+    id: 'location-mapping',
+    label: 'Location Mapping',
+    description: 'Location mapping and locator endpoints.',
+    namespaces: ['location-mapping/v1']
+  },
+  {
     id: 'wp-revisions-control',
     label: 'WP Revisions Control',
     description: 'WP Revisions Control endpoints.',
@@ -1072,6 +1232,13 @@ export const SUPPORTED_PLUGINS = [
     namespaces: ['wp-rollback/v1']
   },
   {
+    id: 'wp-all-import',
+    label: 'WP All Import',
+    description: 'WP All Import import/job endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/wp-all-import/',
+    namespaces: ['wp-all-import/v1']
+  },
+  {
     id: '8b8387',
     label: '8b8387 Namespace',
     description: 'Unidentified vendor namespace observed in scans.',
@@ -1084,16 +1251,48 @@ export const SUPPORTED_PLUGINS = [
     namespaces: ['nexcess-mapps/v1']
   },
   {
+    id: 'wpaas',
+    label: 'WPaaS',
+    description: 'Managed WordPress (WPaaS) provisioning endpoints.',
+    namespaces: ['wpaas/v1']
+  },
+  {
     id: 'termly',
     label: 'Termly',
     description: 'Termly consent and compliance endpoints.',
     namespaces: ['termly/v1']
   },
   {
+    id: 'df-menu-settings',
+    label: 'Divi Flash Menu',
+    description: 'Divi Flash menu settings endpoints.',
+    namespaces: ['df-menu-settings/v2']
+  },
+  {
     id: 'wp-umbrella',
     label: 'WP Umbrella',
     description: 'WP Umbrella monitoring endpoints.',
     namespaces: ['wp-umbrella/v1']
+  },
+  {
+    id: 'wpusa',
+    label: 'WPUSA',
+    description: 'WPUSA endpoints observed in scans.',
+    namespaces: ['wpusa/v2']
+  },
+  {
+    id: 'podcast-importer-secondline',
+    label: 'Podcast Importer SecondLine',
+    description: 'Podcast Importer SecondLine feed endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/podcast-importer-secondline/',
+    namespaces: ['podcast-importer-secondline/v1']
+  },
+  {
+    id: 'nextgen-gallery',
+    label: 'NextGEN Gallery',
+    description: 'NextGEN Gallery and Pro gallery endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/nextgen-gallery/',
+    namespaces: ['ngg/v1', 'nggpro/v1']
   },
   {
     id: 'wpgmp',
