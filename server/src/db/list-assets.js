@@ -33,6 +33,19 @@ function collectSlugs(item) {
       if (typeof hint === 'string' && hint.trim()) slugs.add(hint.trim());
     });
   }
+  const pathSignals = item.pathSignals ?? item.signals ?? [];
+  if (Array.isArray(pathSignals)) {
+    pathSignals.forEach((signal) => {
+      const slug = extractAssetSlug(signal) ?? normalizeSlug(signal);
+      if (slug) slugs.add(slug);
+    });
+  }
+  if (Array.isArray(item.namespaceHints)) {
+    item.namespaceHints.forEach((hint) => {
+      const slug = normalizeSlug(hint);
+      if (slug) slugs.add(slug);
+    });
+  }
   if (typeof item.pluginUrl === 'string') {
     const slug = item.pluginUrl.split('/').filter(Boolean).pop();
     if (slug) slugs.add(slug);
@@ -40,13 +53,6 @@ function collectSlugs(item) {
   if (typeof item.themeUrl === 'string') {
     const slug = item.themeUrl.split('/').filter(Boolean).pop();
     if (slug) slugs.add(slug);
-  }
-  if (Array.isArray(item.signals)) {
-    item.signals.forEach((signal) => {
-      const parts = String(signal).split('/');
-      const slug = parts[parts.length - 1];
-      if (slug) slugs.add(slug);
-    });
   }
   return slugs;
 }
@@ -134,3 +140,11 @@ main().catch((error) => {
   console.error('Failed to list assets', error);
   process.exit(1);
 });
+
+function normalizeSlug(value = '') {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const cleaned = trimmed.replace(/[^a-zA-Z0-9._-]+/g, '-').toLowerCase();
+  return cleaned || null;
+}

@@ -18,6 +18,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { apiRateLimiter } from './middleware/rateLimiter.js';
 import { wrapAsync } from './utils/route.js';
 import { getDb } from './db/client.js';
+import { loadPlugins, savePlugins, validatePlugin, sortPlugins } from './utils/pluginRegistry.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -341,8 +342,9 @@ app.post('/api/homepage-scan', wrapAsync(async (req, res) => {
 app.post('/api/logs/rotate', wrapAsync(async (_req, res) => {
   try {
     const { archiveName, rowsCleared } = await rotateLog();
-    logSilently('logs.rotated', { archive: archiveName, rowsCleared });
-    res.json({ filename: archiveName, rowsCleared });
+    const rotatedAt = new Date().toISOString();
+    logSilently('logs.rotated', { archive: archiveName, rowsCleared, rotatedAt });
+    res.json({ filename: archiveName, rowsCleared, rotatedAt });
   } catch (error) {
     logSilently('logs.rotate_error', { message: error.message });
     const rotateError = new AppError('Failed to rotate activity log', 500);
@@ -380,6 +382,7 @@ app.get('/api/admin/db-snapshot', wrapAsync(async (req, res) => {
 
   const files = await collectStorageStats(db.name);
   const homepageAssets = aggregateHomepageAssets(activityLogs);
+  const logs = summarizeLogTimestamps(db, files);
 
   res.json({
     dbPath: db.name,
@@ -387,7 +390,8 @@ app.get('/api/admin/db-snapshot', wrapAsync(async (req, res) => {
     unsupportedPlugins,
     activityLogs,
     files,
-    homepageAssets
+    homepageAssets,
+    logs
   });
 }));
 
@@ -431,6 +435,7 @@ app.post('/api/admin/db/maintenance', wrapAsync(async (_req, res) => {
   }
 
   let vacuumRan = false;
+  const maintenanceAt = new Date().toISOString();
   try {
     db.exec('vacuum');
     vacuumRan = true;
@@ -440,10 +445,22 @@ app.post('/api/admin/db/maintenance', wrapAsync(async (_req, res) => {
 
   const sizeAfter = await fileSize();
 
+  logSilently('db.maintenance', {
+    maintenanceAt,
+    walCheckpoint,
+    integrity,
+    vacuumRan,
+    size: {
+      beforeBytes: sizeBefore,
+      afterBytes: sizeAfter
+    }
+  });
+
   res.json({
     walCheckpoint,
     integrity,
     vacuumRan,
+    maintenanceAt,
     size: {
       beforeBytes: sizeBefore,
       afterBytes: sizeAfter
@@ -487,12 +504,117 @@ app.post('/api/admin/activity/prune', wrapAsync(async (req, res) => {
   }
 
   const totals = db.prepare('select count(1) as count from activity_logs').get()?.count ?? 0;
+  const prunedAt = new Date().toISOString();
+
+  logSilently('activity.pruned', {
+    prunedAt,
+    prunedByAge,
+    prunedByCount,
+    remaining: totals,
+    params: { keepLatest, olderThanDays }
+  });
 
   res.json({
     prunedByAge,
     prunedByCount,
+    prunedAt,
     remaining: totals
   });
+}));
+
+app.get('/api/admin/plugins', wrapAsync(async (_req, res) => {
+  if (process.env.ADMIN_ENABLED === 'false') {
+    throw new AppError('Admin endpoints are disabled', 403);
+  }
+
+  const plugins = await loadPlugins();
+  res.json({ plugins: sortPlugins(plugins) });
+}));
+
+app.post('/api/admin/plugins', wrapAsync(async (req, res) => {
+  if (process.env.ADMIN_ENABLED === 'false') {
+    throw new AppError('Admin endpoints are disabled', 403);
+  }
+
+  const { plugin, errors } = validatePlugin(req.body ?? {});
+  if (errors.length) {
+    throw new ValidationError(errors.join(', '));
+  }
+
+  const existing = await loadPlugins();
+  if (existing.some((p) => p.id === plugin.id)) {
+    throw new ValidationError(`Plugin with id "${plugin.id}" already exists`);
+  }
+
+  const updated = await savePlugins([...existing, plugin]);
+  logSilently('admin.plugins.updated', {
+    action: 'create',
+    pluginId: plugin.id,
+    total: updated.length
+  });
+  res.status(201).json({ plugins: updated, plugin });
+}));
+
+app.put('/api/admin/plugins/:id', wrapAsync(async (req, res) => {
+  if (process.env.ADMIN_ENABLED === 'false') {
+    throw new AppError('Admin endpoints are disabled', 403);
+  }
+
+  const pluginId = req.params.id;
+  const existing = await loadPlugins();
+  const index = existing.findIndex((p) => p.id === pluginId);
+  if (index === -1) {
+    throw new AppError(`Plugin with id "${pluginId}" not found`, 404);
+  }
+
+  const { plugin, errors } = validatePlugin({ ...existing[index], ...req.body, id: pluginId }, { requireId: false });
+  if (errors.length) {
+    throw new ValidationError(errors.join(', '));
+  }
+
+  const next = [...existing];
+  next[index] = { ...existing[index], ...plugin, id: pluginId };
+  const updated = await savePlugins(next);
+  logSilently('admin.plugins.updated', {
+    action: 'update',
+    pluginId,
+    total: updated.length
+  });
+  res.json({ plugins: updated, plugin: next[index] });
+}));
+
+app.delete('/api/admin/plugins/:id', wrapAsync(async (req, res) => {
+  if (process.env.ADMIN_ENABLED === 'false') {
+    throw new AppError('Admin endpoints are disabled', 403);
+  }
+
+  const pluginId = req.params.id;
+  const existing = await loadPlugins();
+  const next = existing.filter((p) => p.id !== pluginId);
+  if (next.length === existing.length) {
+    throw new AppError(`Plugin with id "${pluginId}" not found`, 404);
+  }
+
+  const updated = await savePlugins(next);
+  logSilently('admin.plugins.updated', {
+    action: 'delete',
+    pluginId,
+    total: updated.length
+  });
+  res.status(204).json({});
+}));
+
+app.post('/api/admin/plugins/sort', wrapAsync(async (_req, res) => {
+  if (process.env.ADMIN_ENABLED === 'false') {
+    throw new AppError('Admin endpoints are disabled', 403);
+  }
+  const plugins = await loadPlugins();
+  const updated = await savePlugins(plugins);
+  logSilently('admin.plugins.updated', {
+    action: 'sort',
+    total: updated.length
+  });
+  res.json({ plugins: updated });
 }));
 
 function safeParseJson(raw) {
@@ -547,6 +669,26 @@ function aggregateHomepageAssets(activityLogs = []) {
     unknownPaths: unknown.length,
     all,
     unknown
+  };
+}
+
+function summarizeLogTimestamps(db, files) {
+  const lastRotation = db
+    .prepare("select timestamp, payload_json from activity_logs where type = 'logs.rotated' order by id desc limit 1")
+    .get();
+  const lastPrune = db
+    .prepare("select timestamp, payload_json from activity_logs where type = 'activity.pruned' order by id desc limit 1")
+    .get();
+  const lastMaintenance = db
+    .prepare("select timestamp, payload_json from activity_logs where type = 'db.maintenance' order by id desc limit 1")
+    .get();
+
+  return {
+    lastRotatedAt: lastRotation?.payload_json ? safeParseJson(lastRotation.payload_json)?.rotatedAt ?? lastRotation.timestamp : null,
+    lastPrunedAt: lastPrune?.timestamp ?? null,
+    lastMaintenanceAt: lastMaintenance?.payload_json ? safeParseJson(lastMaintenance.payload_json)?.maintenanceAt ?? lastMaintenance.timestamp : null,
+    activityLogSize: files?.activityLog?.sizeBytes ?? null,
+    dbSize: files?.db?.sizeBytes ?? null
   };
 }
 

@@ -38,7 +38,7 @@ export const SUPPORTED_PLUGINS = [
     label: 'Yoast SEO',
     description: 'Metadata and analysis endpoints from Yoast SEO.',
     pluginUrl: 'https://wordpress.org/plugins/wordpress-seo/',
-    namespaces: ['yoast/v1', 'yoast/v2']
+    namespaces: ['yoast/v1', 'yoast/v1/myyoast', 'yoast/v2']
   },
   {
     id: 'cookieyes',
@@ -570,6 +570,13 @@ export const SUPPORTED_PLUGINS = [
     namespaces: ['frm-admin/v1']
   },
   {
+    id: 'fl-controls',
+    label: 'Beaver Builder Controls',
+    description: 'Beaver Builder control endpoints.',
+    namespaces: ['fl-controls/v1'],
+    assetHints: ['bb-plugin', 'bb-theme-builder']
+  },
+  {
     id: 'divitorque-lite',
     label: 'Divi Torque Lite',
     description: 'Divi Torque Lite REST endpoints.',
@@ -626,7 +633,7 @@ export const SUPPORTED_PLUGINS = [
     label: 'Accessibility by Pojo',
     description: 'Accessibility toolbox assets by Pojo.',
     pluginUrl: 'https://wordpress.org/plugins/pojo-accessibility/',
-    namespaces: [],
+    namespaces: ['ea11y/v1'],
     assetHints: ['pojo-accessibility']
   },
   {
@@ -1316,13 +1323,75 @@ export const SUPPORTED_PLUGINS = [
     id: 'jolitoc',
     label: 'Joli Table of Contents',
     description: 'Joli Table of Contents REST endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/joli-table-of-contents/',
     namespaces: ['jolitoc/v1']
   },
   {
     id: 'simple-history',
     label: 'Simple History',
     description: 'Simple History activity log endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/simple-history/',
     namespaces: ['simple-history/v1']
+  },
+  {
+    id: 'ccb-gutenberg',
+    label: 'CCB Gutenberg Blocks',
+    description: 'CCB Gutenberg block endpoints.',
+    namespaces: ['ccb-gutenberg/v1']
+  },
+  {
+    id: 'ninja-tables',
+    label: 'Ninja Tables',
+    description: 'Ninja Tables REST endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/ninja-tables/',
+    namespaces: ['ninjatables/v2']
+  },
+  {
+    id: 'post-smtp',
+    label: 'Post SMTP',
+    description: 'Post SMTP mailer endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/post-smtp/',
+    namespaces: ['post-smtp/v1', 'post-smtp/v2']
+  },
+  {
+    id: 'postmatic',
+    label: 'Postmatic',
+    description: 'Postmatic email subscription endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/postmatic/',
+    namespaces: ['postmatic/v1']
+  },
+  {
+    id: 'psd',
+    label: 'PSD',
+    description: 'PSD helper endpoints observed in scans.',
+    namespaces: ['psd/v1']
+  },
+  {
+    id: 'search-exclude',
+    label: 'Search Exclude (QuadLayers)',
+    description: 'QuadLayers search exclude endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/search-exclude/',
+    namespaces: ['quadlayers/search-exclude']
+  },
+  {
+    id: 'ssp',
+    label: 'SSP',
+    description: 'SSP endpoints observed in scans.',
+    namespaces: ['ssp/v1']
+  },
+  {
+    id: 'ultimate-blocks',
+    label: 'Ultimate Blocks',
+    description: 'Ultimate Blocks Gutenberg add-ons.',
+    pluginUrl: 'https://wordpress.org/plugins/ultimate-blocks/',
+    namespaces: ['ultimate-blocks/v1']
+  },
+  {
+    id: 'wptelegram',
+    label: 'WP Telegram',
+    description: 'WP Telegram integrations and bot endpoints.',
+    pluginUrl: 'https://wordpress.org/plugins/wptelegram/',
+    namespaces: ['wptelegram/v1', 'wptelegram-bot/v1']
   },
   {
     id: 'gutenberg-templates',
@@ -1335,18 +1404,6 @@ export const SUPPORTED_PLUGINS = [
     label: '0d2c88054a618e329a86d0609c2f844b',
     description: 'Unidentified vendor namespace observed in scans.',
     namespaces: ['0d2c88054a618e329a86d0609c2f844b/v1']
-  },
-  {
-    id: 'ea11y',
-    label: 'EA11y',
-    description: 'EA11y accessibility helper endpoints.',
-    namespaces: ['ea11y/v1']
-  },
-  {
-    id: 'fl-controls',
-    label: 'FL Controls',
-    description: 'FL Controls UI helper endpoints.',
-    namespaces: ['fl-controls/v1']
   },
   {
     id: 'wpml',

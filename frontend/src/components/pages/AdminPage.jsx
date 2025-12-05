@@ -1,10 +1,19 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import AppLayout from '../templates/AppLayout.jsx';
 import { Card, CardContent, CardHeader } from '../atoms/Card.jsx';
 import Button from '../atoms/Button.jsx';
-import { fetchDbSnapshot, pruneActivityLogs, runDbMaintenance } from '../../api/admin.js';
+import {
+  fetchDbSnapshot,
+  pruneActivityLogs,
+  runDbMaintenance,
+  fetchPlugins,
+  createPlugin,
+  updatePlugin,
+  deletePlugin,
+  sortPlugins as sortPluginsApi
+} from '../../api/admin.js';
 import { SUPPORTED_PLUGINS } from '../../config/plugins.js';
 import { SUPPORTED_THEMES } from '../../config/themes.js';
 
@@ -13,6 +22,15 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
   const [expandedPluginId, setExpandedPluginId] = useState(null);
   const [expandedThemeId, setExpandedThemeId] = useState(null);
   const [expandedScanIds, setExpandedScanIds] = useState(new Set());
+  const [pluginDraft, setPluginDraft] = useState({
+    id: '',
+    label: '',
+    description: '',
+    pluginUrl: '',
+    namespaces: '',
+    assetHints: ''
+  });
+  const [editingPluginId, setEditingPluginId] = useState(null);
   const snapshotQuery = useQuery({
     queryKey: ['dbSnapshot'],
     queryFn: () => fetchDbSnapshot(75),
@@ -30,6 +48,86 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
       snapshotQuery.refetch();
     }
   });
+  const pluginsQuery = useQuery({
+    queryKey: ['adminPlugins'],
+    queryFn: fetchPlugins,
+    enabled: activeSection === 'plugin-manager',
+    refetchOnWindowFocus: false
+  });
+  const createPluginMutation = useMutation({
+    mutationFn: createPlugin,
+    onSuccess: () => {
+      pluginsQuery.refetch();
+      resetPluginDraft();
+    }
+  });
+  const updatePluginMutation = useMutation({
+    mutationFn: ({ id, payload }) => updatePlugin(id, payload),
+    onSuccess: () => {
+      pluginsQuery.refetch();
+      resetPluginDraft();
+    }
+  });
+  const deletePluginMutation = useMutation({
+    mutationFn: deletePlugin,
+    onSuccess: () => {
+      pluginsQuery.refetch();
+      resetPluginDraft();
+    }
+  });
+  const sortPluginsMutation = useMutation({
+    mutationFn: sortPluginsApi,
+    onSuccess: () => {
+      pluginsQuery.refetch();
+    }
+  });
+
+  const parseList = useCallback((value) => {
+    return value
+      .split(/[\n,]/)
+      .map((v) => v.trim())
+      .filter((v) => v.length > 0);
+  }, []);
+
+  const resetPluginDraft = useCallback(() => {
+    setPluginDraft({
+      id: '',
+      label: '',
+      description: '',
+      pluginUrl: '',
+      namespaces: '',
+      assetHints: ''
+    });
+  }, []);
+
+  const startEditing = useCallback((plugin) => {
+    setEditingPluginId(plugin.id);
+    setPluginDraft({
+      id: plugin.id ?? '',
+      label: plugin.label ?? '',
+      description: plugin.description ?? '',
+      pluginUrl: plugin.pluginUrl ?? '',
+      namespaces: (plugin.namespaces ?? []).join('\n'),
+      assetHints: (plugin.assetHints ?? []).join('\n')
+    });
+  }, []);
+
+  const handlePluginSave = useCallback(() => {
+    const payload = {
+      id: pluginDraft.id.trim(),
+      label: pluginDraft.label.trim(),
+      description: pluginDraft.description.trim(),
+      pluginUrl: pluginDraft.pluginUrl.trim(),
+      namespaces: parseList(pluginDraft.namespaces),
+      assetHints: parseList(pluginDraft.assetHints)
+    };
+
+    if (editingPluginId) {
+      updatePluginMutation.mutate({ id: editingPluginId, payload });
+    } else {
+      createPluginMutation.mutate(payload);
+    }
+  }, [pluginDraft, editingPluginId, parseList, updatePluginMutation, createPluginMutation]);
 
   const sidebarNav = useMemo(() => {
     return (
@@ -113,6 +211,15 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
             <li>
               <button
                 type="button"
+                className={`sidebar__link ${activeSection === 'plugin-manager' ? 'is-active' : ''}`}
+                onClick={() => setActiveSection('plugin-manager')}
+              >
+                Plugin manager
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
                 className={`sidebar__link ${activeSection === 'themes' ? 'is-active' : ''}`}
                 onClick={() => setActiveSection('themes')}
               >
@@ -172,7 +279,102 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
           >
             {maintenanceMutation.isPending ? 'Maintaining…' : 'Run DB maintenance'}
           </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="sidebar__action"
+            onClick={() => sortPluginsMutation.mutate()}
+            disabled={sortPluginsMutation.isPending || activeSection !== 'plugin-manager'}
+          >
+            {sortPluginsMutation.isPending ? 'Sorting…' : 'Sort plugins'}
+          </Button>
         </div>
+        {activeSection === 'plugin-manager' ? (
+          <div className="sidebar__section">
+            <p className="sidebar__title">{editingPluginId ? `Edit ${editingPluginId}` : 'Add plugin'}</p>
+            <form
+              className="stacked-form stacked-form--sidebar"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handlePluginSave();
+              }}
+            >
+              <label className="stacked-form__label">
+                ID
+                <input
+                  type="text"
+                  value={pluginDraft.id}
+                  onChange={(e) => setPluginDraft((prev) => ({ ...prev, id: e.target.value }))}
+                  disabled={Boolean(editingPluginId)}
+                  required
+                />
+              </label>
+              <label className="stacked-form__label">
+                Label
+                <input
+                  type="text"
+                  value={pluginDraft.label}
+                  onChange={(e) => setPluginDraft((prev) => ({ ...prev, label: e.target.value }))}
+                  required
+                />
+              </label>
+              <label className="stacked-form__label">
+                Description
+                <textarea
+                  value={pluginDraft.description}
+                  onChange={(e) => setPluginDraft((prev) => ({ ...prev, description: e.target.value }))}
+                />
+              </label>
+              <label className="stacked-form__label">
+                Plugin URL
+                <input
+                  type="url"
+                  value={pluginDraft.pluginUrl}
+                  onChange={(e) => setPluginDraft((prev) => ({ ...prev, pluginUrl: e.target.value }))}
+                  placeholder="https://wordpress.org/plugins/…"
+                />
+              </label>
+              <label className="stacked-form__label">
+                Namespaces (comma or newline separated)
+                <textarea
+                  value={pluginDraft.namespaces}
+                  onChange={(e) => setPluginDraft((prev) => ({ ...prev, namespaces: e.target.value }))}
+                  placeholder="wc/v3\nwc/store/v1"
+                />
+              </label>
+              <label className="stacked-form__label">
+                Asset hints (comma or newline separated)
+                <textarea
+                  value={pluginDraft.assetHints}
+                  onChange={(e) => setPluginDraft((prev) => ({ ...prev, assetHints: e.target.value }))}
+                  placeholder="woocommerce\nwc-analytics"
+                />
+              </label>
+              <div className="button-group" style={{ marginTop: '8px' }}>
+                <Button type="submit" size="sm" variant="primary" disabled={createPluginMutation.isPending || updatePluginMutation.isPending}>
+                  {editingPluginId ? 'Save changes' : 'Add plugin'}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    resetPluginDraft();
+                    setEditingPluginId(null);
+                  }}
+                >
+                  Reset
+                </Button>
+              </div>
+              {(createPluginMutation.isError || updatePluginMutation.isError) ? (
+                <p className="card__meta">
+                  {createPluginMutation.error?.message || updatePluginMutation.error?.message || 'Save failed.'}
+                </p>
+              ) : null}
+            </form>
+          </div>
+        ) : null}
       </nav>
     );
   }, [
@@ -182,7 +384,14 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
     rotateLogs,
     isRotatingLogs,
     pruneMutation,
-    maintenanceMutation
+    maintenanceMutation,
+    sortPluginsMutation,
+    editingPluginId,
+    pluginDraft,
+    createPluginMutation,
+    updatePluginMutation,
+    resetPluginDraft,
+    handlePluginSave
   ]);
 
   const data = snapshotQuery.data;
@@ -207,7 +416,7 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
               <div>
                 <h2>Database maintenance</h2>
                 <p className="card__meta">
-                  Runs a WAL checkpoint (TRUNCATE), quick_check, and VACUUM to keep SQLite healthy.
+                  Runs a WAL checkpoint (TRUNCATE), quick_check, and VACUUM to keep SQLite healthy. Includes last rotation/prune/maintenance markers when available.
                 </p>
               </div>
               <div className="card__actions">
@@ -222,6 +431,21 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
               </div>
             </CardHeader>
             <CardContent>
+              <div className="stat-grid">
+                <div className="stat-grid__item">
+                  <dt>Last log rotation</dt>
+                  <dd>{data?.logs?.lastRotatedAt || '—'}</dd>
+                </div>
+                <div className="stat-grid__item">
+                  <dt>Last maintenance</dt>
+                  <dd>{data?.logs?.lastMaintenanceAt || '—'}</dd>
+                </div>
+                <div className="stat-grid__item">
+                  <dt>Last prune</dt>
+                  <dd>{data?.logs?.lastPrunedAt || '—'}</dd>
+                </div>
+              </div>
+
               {maintenanceMutation.isError ? (
                 <div className="card card--error">
                   <div className="card__content">
@@ -253,6 +477,10 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
                   <div className="stat-grid__item">
                     <dt>Vacuum</dt>
                     <dd>{maintenanceMutation.data.vacuumRan ? 'Completed' : 'Skipped'}</dd>
+                  </div>
+                  <div className="stat-grid__item">
+                    <dt>Run at</dt>
+                    <dd>{maintenanceMutation.data.maintenanceAt || '—'}</dd>
                   </div>
                 </div>
               ) : (
@@ -449,6 +677,84 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
             </Card>
           </section>
         </>
+      ) : null}
+
+      {activeSection === 'plugin-manager' ? (
+        <section className="section">
+          <Card>
+            <CardHeader>
+              <div>
+                <h2>Plugin manager</h2>
+                <p className="card__meta">
+                  Add, edit, or remove plugins in the registry. Changes write directly to `frontend/src/config/plugins.js`.
+                </p>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {pluginsQuery.isLoading ? (
+                <p className="card__meta">Loading plugins…</p>
+              ) : pluginsQuery.isError ? (
+                <div className="card card--error">
+                  <div className="card__content">
+                    <p>{pluginsQuery.error?.message ?? 'Failed to load plugins.'}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="admin-table admin-table--plugins">
+                  <div className="admin-table__header">
+                    <span>Plugin</span>
+                    <span>Namespaces</span>
+                    <span>Asset hints</span>
+                    <span>Actions</span>
+                  </div>
+                  {pluginsQuery.data?.plugins?.map((plugin) => (
+                    <div key={plugin.id} className="admin-table__row">
+                      <span className="admin-table__cell admin-table__cell--expand">
+                        <strong>{plugin.label}</strong>
+                        <div className="muted">{plugin.id}</div>
+                        {plugin.pluginUrl ? (
+                          <div>
+                            <a href={plugin.pluginUrl} target="_blank" rel="noreferrer">
+                              Docs
+                            </a>
+                          </div>
+                        ) : null}
+                        <div className="muted">{plugin.description || 'No description'}</div>
+                      </span>
+                      <span>{plugin.namespaces?.length ?? 0}</span>
+                      <span>{plugin.assetHints?.length ?? 0}</span>
+                      <span>
+                        <div className="button-group">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => startEditing(plugin)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              if (window.confirm(`Delete plugin "${plugin.label}"?`)) {
+                                deletePluginMutation.mutate(plugin.id);
+                              }
+                            }}
+                            disabled={deletePluginMutation.isPending}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
       ) : null}
 
       {activeSection === 'domains' ? (
@@ -731,7 +1037,8 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
                 <div className="admin-table admin-table--themes">
                   <div className="admin-table__header">
                     <span>Theme</span>
-                    <span>Signals</span>
+                    <span>Paths</span>
+                    <span>Namespaces</span>
                     <span>Docs</span>
                     <span>Description</span>
                   </div>
@@ -747,7 +1054,8 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
                         >
                           {theme.label}
                         </button>
-                        <span>{theme.signals?.length ?? 0}</span>
+                        <span>{theme.pathSignals?.length ?? 0}</span>
+                        <span>{theme.namespaceHints?.length ?? 0}</span>
                         <span>
                           {theme.themeUrl ? (
                             <a href={theme.themeUrl} target="_blank" rel="noreferrer">
@@ -760,7 +1068,8 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
                         <span>{theme.description}</span>
                         {isExpanded ? (
                           <div className="admin-table__details">
-                            <p><strong>Signals:</strong> {theme.signals?.length ? theme.signals.join(', ') : 'None'}</p>
+                            <p><strong>Path signals:</strong> {theme.pathSignals?.length ? theme.pathSignals.join(', ') : 'None'}</p>
+                            <p><strong>Namespace hints:</strong> {theme.namespaceHints?.length ? theme.namespaceHints.join(', ') : 'None'}</p>
                             {theme.themeUrl ? (
                               <p><strong>Docs:</strong> <a href={theme.themeUrl} target="_blank" rel="noreferrer">{theme.themeUrl}</a></p>
                             ) : null}

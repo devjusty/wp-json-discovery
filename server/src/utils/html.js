@@ -274,11 +274,22 @@ function collectAssetSlugs(item) {
     }
   }
 
-  if (Array.isArray(item.signals)) {
-    item.signals.forEach((signal) => {
-      const signalSlug = extractAssetSlug(signal);
+  const pathSignals = item.pathSignals ?? item.signals ?? [];
+  if (Array.isArray(pathSignals)) {
+    pathSignals.forEach((signal) => {
+      const signalSlug = extractAssetSlug(signal) ?? normalizeSlug(signal);
       if (signalSlug) {
         slugs.add(signalSlug);
+      }
+    });
+  }
+
+  const namespaceHints = item.namespaceHints ?? [];
+  if (Array.isArray(namespaceHints)) {
+    namespaceHints.forEach((hint) => {
+      const hintSlug = normalizeSlug(hint);
+      if (hintSlug) {
+        slugs.add(hintSlug);
       }
     });
   }
@@ -303,4 +314,12 @@ function extractSlugFromUrl(url = '') {
     const match = String(url).match(/\/([^/]+)\/?$/);
     return match ? match[1] : null;
   }
+}
+
+function normalizeSlug(value = '') {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const cleaned = trimmed.replace(/[^a-zA-Z0-9._-]+/g, '-').toLowerCase();
+  return cleaned || null;
 }
