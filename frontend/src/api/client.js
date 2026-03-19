@@ -109,3 +109,47 @@ export async function runSitemapScan(payload) {
 
   return result.data;
 }
+
+export async function fetchScanHistory(options = {}) {
+  const {
+    includeFailed = false,
+    q = '',
+    sort = 'recent',
+    limit = 50,
+    offset = 0
+  } = options;
+
+  const params = new URLSearchParams();
+  params.set('includeFailed', includeFailed ? 'true' : 'false');
+  params.set('sort', sort);
+  params.set('limit', String(limit));
+  params.set('offset', String(offset));
+  if (q) {
+    params.set('q', q);
+  }
+
+  const result = await request(`/api/scan-history?${params.toString()}`);
+  if (!result.ok) {
+    throw new Error('Failed to load scan history');
+  }
+
+  return result.data;
+}
+
+export async function fetchDomainScanHistory(domain, options = {}) {
+  const { includeFailed = false, limit = 25 } = options;
+  const params = new URLSearchParams({
+    includeFailed: includeFailed ? 'true' : 'false',
+    limit: String(limit)
+  });
+
+  const result = await request(
+    `/api/scan-history/${encodeURIComponent(domain)}?${params.toString()}`
+  );
+
+  if (!result.ok) {
+    throw new Error('Failed to load domain scan history');
+  }
+
+  return result.data;
+}

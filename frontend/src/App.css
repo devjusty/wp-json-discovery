@@ -1634,6 +1634,129 @@ th.sortable .table__sort:hover {
   gap: 0.75rem;
 }
 
+.history-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.history-controls__field {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.92rem;
+  color: var(--color-ink-soft);
+}
+
+.history-controls__field select {
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: 0.7rem 0.85rem;
+  background: var(--color-surface-tint);
+}
+
+.history-controls__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
+}
+
+.history-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.85rem;
+}
+
+.history-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: 0.95rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.history-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.history-card__header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  word-break: break-word;
+}
+
+.history-card__meta {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.history-card__meta dt {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-ink-soft);
+}
+
+.history-card__meta dd {
+  margin: 0.2rem 0 0;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.history-card__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.recent-domains-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.recent-domains-list__item {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-muted);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  cursor: pointer;
+}
+
+.recent-domains-list__item:hover:not(:disabled) {
+  background: var(--color-info-bg);
+  border-color: var(--color-info-border);
+}
+
+.recent-domains-list__item:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.recent-domains-list__domain {
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.recent-domains-list__meta {
+  color: var(--color-ink-soft);
+  font-size: 0.86rem;
+  text-align: right;
+}
+
 .trend-badge {
   border-radius: 10px;
   border: 1px solid var(--color-border);

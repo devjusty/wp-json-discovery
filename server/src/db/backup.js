@@ -4,11 +4,14 @@ import { getDb } from './client.js';
 
 async function main() {
   const db = await getDb();
-  if (db.name === ':memory:') {
-    throw new Error('Cannot back up an in-memory database');
+  if (db.__meta?.isRemote !== false) {
+    throw new Error('Local backup is not supported for Turso remote databases. Use Turso backup tooling instead.');
   }
 
-  const sourcePath = db.name;
+  const sourcePath = db.__meta?.url?.replace(/^file:/, '');
+  if (!sourcePath) {
+    throw new Error('Unable to determine local database file path');
+  }
   const dir = path.dirname(sourcePath);
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const targetPath = path.join(dir, `wpjd-backup-${timestamp}.sqlite`);

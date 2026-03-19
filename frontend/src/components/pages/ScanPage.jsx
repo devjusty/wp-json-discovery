@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { useQuery } from '@tanstack/react-query';
+import Button from '../atoms/Button.jsx';
 import AppLayout from '../templates/AppLayout.jsx';
 import DomainForm from '../molecules/forms/DomainForm.jsx';
 import ScanSummary from '../organisms/summary/ScanSummary.jsx';
@@ -16,7 +17,7 @@ import SitemapPagesTable from '../organisms/panels/SitemapPagesTable.jsx';
 import PluginSummaryPanel from '../organisms/panels/PluginSummaryPanel.jsx';
 import HomepageSourcePanel from '../organisms/panels/HomepageSourcePanel.jsx';
 import HomepageInsightsPanel from '../organisms/panels/HomepageInsightsPanel.jsx';
-import { fetchUnsupportedPlugins } from '../../api/client.js';
+import { fetchScanHistory, fetchUnsupportedPlugins } from '../../api/client.js';
 import { useSitemapScan } from '../../hooks/useSitemapScan.js';
 import { useScanContext } from '../../context/ScanContext.jsx';
 
@@ -72,6 +73,13 @@ function ScanPage({ headerActions }) {
     initialData: []
   });
 
+  const recentHistoryQuery = useQuery({
+    queryKey: ['scanHistoryRecent'],
+    queryFn: () => fetchScanHistory({ limit: 8, includeFailed: false }),
+    staleTime: 30000
+  });
+  const recentItems = recentHistoryQuery.data?.items ?? [];
+
   useEffect(() => {
     if (scanResult) {
       setActiveSection('overview');
@@ -108,6 +116,15 @@ function ScanPage({ headerActions }) {
                 </li>
               );
             })}
+            <li>
+              <button
+                type="button"
+                className="sidebar__link"
+                onClick={() => setActivePage('history')}
+              >
+                History view
+              </button>
+            </li>
             <li>
               <button
                 type="button"
@@ -327,6 +344,45 @@ function ScanPage({ headerActions }) {
         domain={domain}
         onDomainChange={onDomainChange}
       />
+
+      <div className="card">
+        <div className="card__content card__content--cta">
+          <div>
+            <h3 className="cta-title">Recent scanned domains</h3>
+            <p className="card__meta">
+              Re-run a previous successful scan instantly, or open full history for filters.
+            </p>
+          </div>
+          <div className="cta-actions">
+            <Button type="button" variant="ghost" size="sm" onClick={() => setActivePage('history')}>
+              Open history
+            </Button>
+          </div>
+        </div>
+        <div className="card__content">
+          {recentHistoryQuery.isLoading ? (
+            <p className="card__meta">Loading recent domains…</p>
+          ) : recentItems.length === 0 ? (
+            <p className="card__meta">No successful scans recorded yet.</p>
+          ) : (
+            <ul className="recent-domains-list">
+              {recentItems.map((item) => (
+                <li key={item.domain}>
+                  <button
+                    type="button"
+                    className="recent-domains-list__item"
+                    onClick={() => startScan(item.domain)}
+                    disabled={isScanning}
+                  >
+                    <span className="recent-domains-list__domain">{item.domain}</span>
+                    <span className="recent-domains-list__meta">{item.lastScannedAt ? new Date(item.lastScannedAt).toLocaleString() : '—'}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
 
       {isScanning ? (
         <div className="card card--info">

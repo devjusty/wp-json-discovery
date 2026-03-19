@@ -2,7 +2,7 @@ import { appendFile, mkdir, rename, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getDb } from './db/client.js';
+import { execute, queryAll, queryOne } from './db/client.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -166,17 +166,16 @@ async function ensureHeartbeatBootstrapped(currentTimestamp) {
 }
 
 async function bootstrapHeartbeatState(currentTimestamp) {
-  const db = await getDb();
-  const latestHeartbeat = db
-    .prepare("select id, timestamp from activity_logs where type = 'metrics.heartbeat' order by id desc limit 1")
-    .get();
+  const latestHeartbeat = await queryOne(
+    "select id, timestamp from activity_logs where type = 'metrics.heartbeat' order by id desc limit 1"
+  );
 
   const lastHeartbeatId = latestHeartbeat?.id ?? 0;
   const windowStart = latestHeartbeat?.timestamp ?? currentTimestamp;
   heartbeatState = createHeartbeatState(windowStart);
 
-  const rows = db
-    .prepare(`
+  const rows = await queryAll(
+    `
       select timestamp, type, payload_json
       from activity_logs
       where id > ?
@@ -194,8 +193,9 @@ async function bootstrapHeartbeatState(currentTimestamp) {
         )
       order by id asc
       limit 5000
-    `)
-    .all(lastHeartbeatId, currentTimestamp);
+    `,
+    [lastHeartbeatId, currentTimestamp]
+  );
 
   for (const row of rows) {
     updateHeartbeatState({
@@ -683,13 +683,14 @@ function compactMeta(meta) {
 
 async function writeToDb(entry) {
   try {
-    const db = await getDb();
-    db.prepare(
+    await execute(
       `
       insert into activity_logs (timestamp, type, payload_json)
       values (?, ?, ?)
-    `
-    ).run(entry.timestamp, entry.type, JSON.stringify(entry.payload ?? {}));
+    `,
+      [entry.timestamp, entry.type, JSON.stringify(entry.payload ?? {})]
+    );
+    await persistScanHistoryFromLog(entry);
   } catch (error) {
     console.error('[log:db:error]', error.message);
   }
@@ -712,9 +713,8 @@ export async function rotateLog() {
 
   let rowsCleared = 0;
   try {
-    const db = await getDb();
-    const result = db.prepare('delete from activity_logs').run();
-    rowsCleared = result?.changes ?? 0;
+    const result = await execute('delete from activity_logs');
+    rowsCleared = result?.rowsAffected ?? 0;
   } catch (error) {
     console.error('[log:db:rotate_error]', error.message);
   }
@@ -724,4 +724,115 @@ export async function rotateLog() {
     archiveName,
     rowsCleared
   };
+}
+
+async function persistScanHistoryFromLog(entry) {
+  if (!entry || (entry.type !== 'scan.complete' && entry.type !== 'scan.error')) {
+    return;
+  }
+
+  const payload = entry.payload ?? {};
+  const domain = normalizeDomain(payload.domain);
+  if (!domain) {
+    return;
+  }
+
+  const scannedAt = entry.timestamp ?? new Date().toISOString();
+  const status = entry.type === 'scan.complete' ? 'success' : 'failed';
+  const durationMs = Number.isFinite(payload?.metrics?.durationMs)
+    ? payload.metrics.durationMs
+    : null;
+  const unsupportedCount = Array.isArray(payload.unsupportedNamespaces)
+    ? payload.unsupportedNamespaces.length
+    : 0;
+  const errorCategory =
+    typeof payload.failureCategory === 'string' && payload.failureCategory.trim().length > 0
+      ? payload.failureCategory.trim()
+      : null;
+  const errorMessage =
+    typeof payload.message === 'string' && payload.message.trim().length > 0
+      ? payload.message.trim()
+      : null;
+
+  const summary = {
+    metrics: payload.metrics ?? null,
+    unsupportedNamespaces: payload.unsupportedNamespaces ?? [],
+    matchedPlugins: payload.matchedPlugins ?? [],
+    coreSummary: payload.coreSummary ?? []
+  };
+
+  const existing = await queryOne('select domain from scan_domains where domain = ?', [domain]);
+  if (!existing) {
+    await execute(
+      `
+        insert into scan_domains (
+          domain,
+          first_scanned_at,
+          last_scanned_at,
+          last_status,
+          last_duration_ms,
+          last_error_category,
+          last_unsupported_count
+        )
+        values (?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        domain,
+        scannedAt,
+        scannedAt,
+        status,
+        durationMs,
+        errorCategory,
+        unsupportedCount
+      ]
+    );
+    return;
+  }
+
+  await execute(
+    `
+      update scan_domains
+      set
+        last_scanned_at = ?,
+        last_status = ?,
+        last_duration_ms = ?,
+        last_error_category = ?,
+        last_unsupported_count = ?
+      where domain = ?
+    `,
+    [
+      scannedAt,
+      status,
+      durationMs,
+      errorCategory,
+      unsupportedCount,
+      domain
+    ]
+  );
+
+  await execute(
+    `
+      insert into scan_runs (
+        domain,
+        scanned_at,
+        status,
+        duration_ms,
+        unsupported_count,
+        error_category,
+        error_message,
+        summary_json
+      )
+      values (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    [
+      domain,
+      scannedAt,
+      status,
+      durationMs,
+      unsupportedCount,
+      errorCategory,
+      errorMessage,
+      JSON.stringify(summary)
+    ]
+  );
 }

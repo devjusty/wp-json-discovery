@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { getDb } from './client.js';
+import { queryAll } from './client.js';
 import { extractAssetSlug } from '../utils/html.js';
 import { SUPPORTED_PLUGINS } from '../../../frontend/src/config/plugins.js';
 import { SUPPORTED_THEMES } from '../../../frontend/src/config/themes.js';
@@ -65,10 +65,10 @@ function matchAsset(slug, type, pluginLookup, themeLookup) {
 
 async function main() {
   const limit = Number.parseInt(process.argv[2] ?? '200', 10);
-  const db = await getDb();
-  const rows = db
-    .prepare('select id, timestamp, payload_json from activity_logs where type = ? order by id desc limit ?')
-    .all('homepage-scan', Number.isFinite(limit) ? limit : 200);
+  const rows = await queryAll(
+    'select id, timestamp, payload_json from activity_logs where type = ? order by id desc limit ?',
+    ['homepage-scan', Number.isFinite(limit) ? limit : 200]
+  );
 
   const pluginLookup = buildAssetLookup(SUPPORTED_PLUGINS, 'plugin');
   const themeLookup = buildAssetLookup(SUPPORTED_THEMES, 'theme');

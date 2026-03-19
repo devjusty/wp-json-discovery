@@ -6,13 +6,13 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
   globalIgnores(['dist']),
+  js.configs.recommended,
   {
     files: ['**/*.{js,jsx}'],
-    extends: [
-      js.configs.recommended,
-      reactHooks.configs['recommended-latest'],
-      reactRefresh.configs.vite,
-    ],
+    plugins: {
+      'react-hooks': reactHooks,
+      'react-refresh': reactRefresh,
+    },
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
@@ -23,6 +23,9 @@ export default defineConfig([
       },
     },
     rules: {
+      ...reactHooks.configs.recommended.rules,
+      'react-hooks/set-state-in-effect': 'off',
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },

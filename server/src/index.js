@@ -17,7 +17,7 @@ import { REQUEST_TIMEOUT_MS, HOMEPAGE_HTML_CAP_BYTES, DEFAULT_USER_AGENT, MAX_SI
 import { errorHandler } from './middleware/errorHandler.js';
 import { apiRateLimiter } from './middleware/rateLimiter.js';
 import { wrapAsync } from './utils/route.js';
-import { getDb } from './db/client.js';
+import { execute, getDb, queryAll, queryOne } from './db/client.js';
 import { assertPluginRegistryReady, loadPlugins, savePlugins, validatePlugin, sortPlugins } from './utils/pluginRegistry.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -288,6 +288,159 @@ app.post('/api/logs', wrapAsync(async (req, res) => {
   }
 }));
 
+app.get('/api/scan-history', wrapAsync(async (req, res) => {
+  const includeFailed = parseBooleanQuery(req.query.includeFailed, false);
+  const q = typeof req.query.q === 'string' ? req.query.q.trim().toLowerCase() : '';
+  const sort = typeof req.query.sort === 'string' ? req.query.sort : 'recent';
+  const limitRaw = Number.parseInt(req.query.limit ?? '50', 10);
+  const offsetRaw = Number.parseInt(req.query.offset ?? '0', 10);
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 200) : 50;
+  const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
+
+  const whereClauses = [];
+  const args = [];
+
+  if (!includeFailed) {
+    whereClauses.push('last_status != ?');
+    args.push('failed');
+  }
+
+  if (q.length > 0) {
+    whereClauses.push('lower(domain) like ?');
+    args.push(`%${q}%`);
+  }
+
+  const whereSql = whereClauses.length ? `where ${whereClauses.join(' and ')}` : '';
+  const orderSql =
+    sort === 'domain'
+      ? 'order by domain asc'
+      : sort === 'duration'
+        ? 'order by coalesce(last_duration_ms, 0) desc, last_scanned_at desc'
+        : 'order by last_scanned_at desc';
+
+  const totalRow = await queryOne(
+    `select count(1) as count from scan_domains ${whereSql}`,
+    args
+  );
+
+  const rows = await queryAll(
+    `
+      select
+        domain,
+        first_scanned_at,
+        last_scanned_at,
+        last_status,
+        last_duration_ms,
+        last_error_category,
+        last_unsupported_count
+      from scan_domains
+      ${whereSql}
+      ${orderSql}
+      limit ? offset ?
+    `,
+    [...args, limit, offset]
+  );
+
+  res.json({
+    items: rows.map((row) => ({
+      domain: row.domain,
+      firstScannedAt: row.first_scanned_at,
+      lastScannedAt: row.last_scanned_at,
+      lastStatus: row.last_status,
+      lastDurationMs: row.last_duration_ms,
+      lastErrorCategory: row.last_error_category,
+      lastUnsupportedCount: row.last_unsupported_count
+    })),
+    pagination: {
+      total: Number(totalRow?.count ?? 0),
+      limit,
+      offset
+    },
+    filters: {
+      includeFailed,
+      q,
+      sort
+    }
+  });
+}));
+
+app.get('/api/scan-history/:domain', wrapAsync(async (req, res) => {
+  const domain = sanitizeDomain(req.params.domain ?? '');
+  if (!domain) {
+    throw new ValidationError('Invalid domain provided');
+  }
+
+  const includeFailed = parseBooleanQuery(req.query.includeFailed, false);
+  const limitRaw = Number.parseInt(req.query.limit ?? '25', 10);
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 200) : 25;
+
+  const domainRow = await queryOne(
+    `
+      select
+        domain,
+        first_scanned_at,
+        last_scanned_at,
+        last_status,
+        last_duration_ms,
+        last_error_category,
+        last_unsupported_count
+      from scan_domains
+      where domain = ?
+      limit 1
+    `,
+    [domain]
+  );
+
+  if (!domainRow) {
+    throw new AppError('No scan history found for this domain', 404);
+  }
+
+  const runs = await queryAll(
+    `
+      select
+        id,
+        scanned_at,
+        status,
+        duration_ms,
+        unsupported_count,
+        error_category,
+        error_message,
+        summary_json
+      from scan_runs
+      where domain = ?
+        ${includeFailed ? '' : 'and status != ?'}
+      order by scanned_at desc
+      limit ?
+    `,
+    includeFailed ? [domain, limit] : [domain, 'failed', limit]
+  );
+
+  res.json({
+    domain: {
+      domain: domainRow.domain,
+      firstScannedAt: domainRow.first_scanned_at,
+      lastScannedAt: domainRow.last_scanned_at,
+      lastStatus: domainRow.last_status,
+      lastDurationMs: domainRow.last_duration_ms,
+      lastErrorCategory: domainRow.last_error_category,
+      lastUnsupportedCount: domainRow.last_unsupported_count
+    },
+    runs: runs.map((run) => ({
+      id: run.id,
+      scannedAt: run.scanned_at,
+      status: run.status,
+      durationMs: run.duration_ms,
+      unsupportedCount: run.unsupported_count,
+      errorCategory: run.error_category,
+      errorMessage: run.error_message,
+      summary: safeParseJson(run.summary_json)
+    })),
+    filters: {
+      includeFailed
+    }
+  });
+}));
+
 app.post('/api/sitemap-scan', wrapAsync(async (req, res) => {
   const { domain, sitemapUrl, maxPages = MAX_SITEMAP_PAGES } = req.body ?? {};
 
@@ -465,45 +618,52 @@ app.get('/api/admin/db-snapshot', wrapAsync(async (req, res) => {
 
   const db = await getDb();
 
+  const [unsupportedPluginsTotal, unsupportedDomainsTotal, activityLogsTotal] = await Promise.all([
+    queryOne('select count(1) as count from unsupported_plugins'),
+    queryOne('select count(1) as count from unsupported_plugin_domains'),
+    queryOne('select count(1) as count from activity_logs')
+  ]);
+
   const totals = {
-    unsupportedPlugins: db.prepare('select count(1) as count from unsupported_plugins').get()?.count ?? 0,
-    unsupportedPluginDomains: db.prepare('select count(1) as count from unsupported_plugin_domains').get()?.count ?? 0,
-    activityLogs: db.prepare('select count(1) as count from activity_logs').get()?.count ?? 0
+    unsupportedPlugins: Number(unsupportedPluginsTotal?.count ?? 0),
+    unsupportedPluginDomains: Number(unsupportedDomainsTotal?.count ?? 0),
+    activityLogs: Number(activityLogsTotal?.count ?? 0)
   };
 
-  const activityLogs = db
-    .prepare('select id, timestamp, type, payload_json from activity_logs order by id desc limit ?')
-    .all(limit)
-    .map((row) => ({
-      id: row.id,
-      timestamp: row.timestamp,
-      type: row.type,
-      payload: safeParseJson(row.payload_json)
-    }));
-  const heartbeatLogs = db
-    .prepare(`
+  const activityLogs = (await queryAll(
+    'select id, timestamp, type, payload_json from activity_logs order by id desc limit ?',
+    [limit]
+  )).map((row) => ({
+    id: row.id,
+    timestamp: row.timestamp,
+    type: row.type,
+    payload: safeParseJson(row.payload_json)
+  }));
+
+  const heartbeatLogs = (await queryAll(
+    `
       select id, timestamp, type, payload_json
       from activity_logs
       where type = 'metrics.heartbeat'
       order by id desc
       limit 10
-    `)
-    .all()
-    .map((row) => ({
-      id: row.id,
-      timestamp: row.timestamp,
-      type: row.type,
-      payload: safeParseJson(row.payload_json)
-    }));
+    `
+  )).map((row) => ({
+    id: row.id,
+    timestamp: row.timestamp,
+    type: row.type,
+    payload: safeParseJson(row.payload_json)
+  }));
 
   const unsupportedPlugins = await readUnsupportedPlugins();
 
-  const files = await collectStorageStats(db.name);
+  const dbUrl = db.__meta?.url ?? process.env.TURSO_DATABASE_URL ?? 'unknown';
+  const files = await collectStorageStats(dbUrl, db.__meta?.isRemote !== false);
   const homepageAssets = aggregateHomepageAssets(activityLogs);
-  const logs = summarizeLogTimestamps(db, files);
+  const logs = await summarizeLogTimestamps(files);
 
   res.json({
-    dbPath: db.name,
+    dbPath: dbUrl,
     totals,
     unsupportedPlugins,
     activityLogs,
@@ -523,59 +683,37 @@ app.post('/api/admin/db/maintenance', wrapAsync(async (_req, res) => {
   }
 
   const db = await getDb();
-  const dbPath = db.name;
 
-  const fileSize = async () => {
-    try {
-      const stats = await stat(dbPath);
-      return stats.size;
-    } catch {
-      return null;
-    }
-  };
-
-  const sizeBefore = await fileSize();
-  let walCheckpoint = null;
   let integrity = { ok: false, status: null, error: null };
+  let vacuumRan = false;
+  let walCheckpoint = {
+    skipped: true,
+    reason: 'not_applicable_for_turso'
+  };
+  const maintenanceAt = new Date().toISOString();
 
   try {
-    walCheckpoint = db.pragma('wal_checkpoint(TRUNCATE)', { simple: false })?.[0] ?? null;
-  } catch (error) {
-    walCheckpoint = { error: error.message };
-  }
-
-  try {
-    const result = db.pragma('quick_check', { simple: false })?.[0];
-    const status = result?.quick_check ?? result;
+    await queryOne('select 1 as ok');
     integrity = {
-      ok: status === 'ok',
-      status: status ?? 'unknown',
+      ok: true,
+      status: 'ok',
       error: null
     };
   } catch (error) {
-    integrity = { ok: false, status: null, error: error.message };
+    integrity = {
+      ok: false,
+      status: 'error',
+      error: error.message
+    };
   }
-
-  let vacuumRan = false;
-  const maintenanceAt = new Date().toISOString();
-  try {
-    db.exec('vacuum');
-    vacuumRan = true;
-  } catch (error) {
-    integrity = integrity.ok ? { ok: false, status: integrity.status, error: error.message } : integrity;
-  }
-
-  const sizeAfter = await fileSize();
 
   logSilently('db.maintenance', {
     maintenanceAt,
     walCheckpoint,
     integrity,
     vacuumRan,
-    size: {
-      beforeBytes: sizeBefore,
-      afterBytes: sizeAfter
-    }
+    size: null,
+    mode: db.__meta?.isRemote !== false ? 'turso' : 'local'
   });
 
   res.json({
@@ -583,10 +721,8 @@ app.post('/api/admin/db/maintenance', wrapAsync(async (_req, res) => {
     integrity,
     vacuumRan,
     maintenanceAt,
-    size: {
-      beforeBytes: sizeBefore,
-      afterBytes: sizeAfter
-    }
+    size: null,
+    mode: db.__meta?.isRemote !== false ? 'turso' : 'local'
   });
 }));
 
@@ -600,32 +736,29 @@ app.post('/api/admin/activity/prune', wrapAsync(async (req, res) => {
     throw new AppError('Admin endpoints are disabled', 403);
   }
 
-  const db = await getDb();
-
   let prunedByAge = 0;
   let prunedByCount = 0;
 
   if (Number.isFinite(olderThanDays) && olderThanDays > 0) {
     const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000).toISOString();
-    const result = db
-      .prepare('delete from activity_logs where timestamp < ?')
-      .run(cutoff);
-    prunedByAge = result?.changes ?? 0;
+    const result = await execute('delete from activity_logs where timestamp < ?', [cutoff]);
+    prunedByAge = result?.rowsAffected ?? 0;
   }
 
   if (Number.isFinite(keepLatest) && keepLatest > 0) {
-    const result = db
-      .prepare(`
+    const result = await execute(
+      `
         delete from activity_logs
         where id not in (
           select id from activity_logs order by id desc limit ?
         )
-      `)
-      .run(keepLatest);
-    prunedByCount = result?.changes ?? 0;
+      `,
+      [keepLatest]
+    );
+    prunedByCount = result?.rowsAffected ?? 0;
   }
 
-  const totals = db.prepare('select count(1) as count from activity_logs').get()?.count ?? 0;
+  const totals = Number((await queryOne('select count(1) as count from activity_logs'))?.count ?? 0);
   const prunedAt = new Date().toISOString();
 
   logSilently('activity.pruned', {
@@ -748,6 +881,22 @@ function safeParseJson(raw) {
   }
 }
 
+function parseBooleanQuery(value, defaultValue = false) {
+  if (typeof value !== 'string') {
+    return defaultValue;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+    return true;
+  }
+  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+    return false;
+  }
+
+  return defaultValue;
+}
+
 function aggregateHomepageAssets(activityLogs = []) {
   const byPath = new Map();
 
@@ -794,16 +943,12 @@ function aggregateHomepageAssets(activityLogs = []) {
   };
 }
 
-function summarizeLogTimestamps(db, files) {
-  const lastRotation = db
-    .prepare("select timestamp, payload_json from activity_logs where type = 'logs.rotated' order by id desc limit 1")
-    .get();
-  const lastPrune = db
-    .prepare("select timestamp, payload_json from activity_logs where type = 'activity.pruned' order by id desc limit 1")
-    .get();
-  const lastMaintenance = db
-    .prepare("select timestamp, payload_json from activity_logs where type = 'db.maintenance' order by id desc limit 1")
-    .get();
+async function summarizeLogTimestamps(files) {
+  const [lastRotation, lastPrune, lastMaintenance] = await Promise.all([
+    queryOne("select timestamp, payload_json from activity_logs where type = 'logs.rotated' order by id desc limit 1"),
+    queryOne("select timestamp, payload_json from activity_logs where type = 'activity.pruned' order by id desc limit 1"),
+    queryOne("select timestamp, payload_json from activity_logs where type = 'db.maintenance' order by id desc limit 1")
+  ]);
 
   return {
     lastRotatedAt: lastRotation?.payload_json ? safeParseJson(lastRotation.payload_json)?.rotatedAt ?? lastRotation.timestamp : null,
@@ -816,25 +961,24 @@ function summarizeLogTimestamps(db, files) {
   };
 }
 
-async function collectStorageStats(dbPath) {
+async function collectStorageStats(dbPath, isRemote = true) {
   const stats = {
     db: {
       path: dbPath,
-      sizeBytes: null
+      sizeBytes: null,
+      remote: isRemote
     },
     activityLog: {
       path: path.join(__dirname, 'data', 'activity.log'),
       sizeBytes: null
     },
-    wal: {
-      path: `${dbPath}-wal`,
-      sizeBytes: null
-    },
-    shm: {
-      path: `${dbPath}-shm`,
-      sizeBytes: null
-    }
+    wal: null,
+    shm: null
   };
+
+  if (isRemote) {
+    return stats;
+  }
 
   try {
     const dbStats = await stat(dbPath);
@@ -848,20 +992,6 @@ async function collectStorageStats(dbPath) {
     stats.activityLog.sizeBytes = logStats.size;
   } catch {
     stats.activityLog.sizeBytes = null;
-  }
-
-  try {
-    const walStats = await stat(stats.wal.path);
-    stats.wal.sizeBytes = walStats.size;
-  } catch {
-    stats.wal.sizeBytes = null;
-  }
-
-  try {
-    const shmStats = await stat(stats.shm.path);
-    stats.shm.sizeBytes = shmStats.size;
-  } catch {
-    stats.shm.sizeBytes = null;
   }
 
   return stats;

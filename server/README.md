@@ -23,7 +23,8 @@ Copy `.env.example` to `.env` in this directory to customize defaults:
 
 - `PORT` – Express listen port (defaults to `4100` if unset).
 - (Optional) `LOG_LEVEL` – Reserved for future logger controls.
-- (Optional) `DB_PATH` – Override the SQLite database path (defaults to `server/data/wpjd.sqlite`).
+- `TURSO_DATABASE_URL` – Turso database URL (for example `libsql://<db>-<org>.turso.io`).
+- `TURSO_AUTH_TOKEN` – Turso auth token for the database.
 - (Optional) `ADMIN_ENABLED` – Set to `false` to disable `/api/admin/*` endpoints when exposing the server beyond local dev.
 
 Values from `.env` override the bundled defaults; restart the server after changes.
@@ -38,6 +39,8 @@ Values from `.env` override the bundled defaults; restart the server after chang
 | POST   | `/api/unsupported-plugins`    | Upserts a namespace/domain pair and stamps `lastDetectedAt`. |
 | POST   | `/api/logs`                   | Accepts structured log events coming from the frontend scan workflow. |
 | POST   | `/api/logs/rotate`            | Rotates the activity log file and clears the SQLite log table. |
+| GET    | `/api/scan-history`           | Returns previously scanned domains (failed scans hidden by default unless `includeFailed=true`). |
+| GET    | `/api/scan-history/:domain`   | Returns recent scan runs for a domain (failed runs hidden by default unless `includeFailed=true`). |
 | POST   | `/api/sitemap-scan`           | Fetches and parses sitemap XML, then fetches page HTML for SEO/schema signals. |
 | POST   | `/api/homepage-scan`          | Single GET to `/` with size cap; extracts meta, comments, frameworks, and asset paths. |
 | GET    | `/api/admin/db-snapshot`      | Returns SQLite snapshot (counts, unsupported plugins, homepage asset aggregates, recent logs). |
@@ -48,7 +51,7 @@ The proxy attaches a custom user agent (`wp-json-discovery/0.0.1`) to aid vendor
 
 ## Persistence & Logging
 
-- SQLite database at `server/data/wpjd.sqlite` holds `unsupported_plugins`, `unsupported_plugin_domains`, and `activity_logs`. Set `DB_PATH` to store it elsewhere. WAL/SHM files live alongside the DB and are gitignored.
+- Turso (libSQL) holds `unsupported_plugins`, `unsupported_plugin_domains`, `activity_logs`, plus scan-history tables (`scan_domains`, `scan_runs`).
 - `server/data/unsupported-plugins.json` – Legacy file store; automatically imported into SQLite on first boot when the DB table is empty.
 - `server/data/activity.log` – JSONL log containing `proxy.response`, `unsupported_plugins.upserted`, `homepage-scan` (with full asset lists), and custom events from the frontend. `/api/logs/rotate` archives this file and clears the DB table to keep storage small.
 

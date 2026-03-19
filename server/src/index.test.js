@@ -1,14 +1,14 @@
 process.env.NODE_ENV = 'test';
 import request from 'supertest';
 import app from './index.js';
-import { getDb } from './db/client.js';
+import { execute, getDb } from './db/client.js';
 
 describe('API routes', () => {
   const originalFetch = global.fetch;
 
   beforeAll(() => {
     process.env.ADMIN_ENABLED = 'true';
-    process.env.DB_PATH = ':memory:';
+    process.env.TURSO_DATABASE_URL = 'file::memory:';
     global.fetch = async (url) => {
       const target = String(url);
       if (target.includes('sitemap.xml')) {
@@ -77,13 +77,41 @@ describe('API routes', () => {
     expect(res.statusCode).not.toEqual(404);
   });
 
+  it('hides failed scans from history by default', async () => {
+    await request(app).post('/api/logs').send({
+      type: 'scan.complete',
+      payload: {
+        domain: 'example.com',
+        metrics: { durationMs: 800 },
+        unsupportedNamespaces: []
+      }
+    });
+
+    await request(app).post('/api/logs').send({
+      type: 'scan.error',
+      payload: {
+        domain: 'failed-example.com',
+        message: 'Timeout'
+      }
+    });
+
+    const hiddenFailed = await request(app).get('/api/scan-history');
+    expect(hiddenFailed.statusCode).toEqual(200);
+    expect(hiddenFailed.body.items.some((item) => item.domain === 'failed-example.com')).toBe(false);
+
+    const includeFailed = await request(app).get('/api/scan-history?includeFailed=true');
+    expect(includeFailed.statusCode).toEqual(200);
+    expect(includeFailed.body.items.some((item) => item.domain === 'failed-example.com')).toBe(true);
+  });
+
   it('returns admin db snapshot when enabled', async () => {
     process.env.ADMIN_ENABLED = 'true';
-    const db = await getDb();
+    await getDb();
     // seed a log entry
-    db.prepare(
-      'insert into activity_logs (timestamp, type, payload_json) values (?, ?, ?)'
-    ).run(new Date().toISOString(), 'test.admin', '{"ok":true}');
+    await execute(
+      'insert into activity_logs (timestamp, type, payload_json) values (?, ?, ?)',
+      [new Date().toISOString(), 'test.admin', '{"ok":true}']
+    );
 
     const res = await request(app).get('/api/admin/db-snapshot?limit=5');
     expect(res.statusCode).toEqual(200);

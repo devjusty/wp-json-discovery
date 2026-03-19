@@ -1,13 +1,7 @@
-import Database from 'better-sqlite3';
-import { mkdir } from 'node:fs/promises';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { createClient } from '@libsql/client';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const DEFAULT_DB_PATH = path.join(__dirname, '..', '..', 'data', 'wpjd.sqlite');
-
-let dbInstance = null;
+let clientInstance = null;
+let migrationsPromise = null;
 
 const MIGRATIONS = [
   {
@@ -50,45 +44,168 @@ const MIGRATIONS = [
       `create index if not exists idx_unsupported_plugin_domains_domain on unsupported_plugin_domains(domain);`,
       `create index if not exists idx_unsupported_plugins_last_detected on unsupported_plugins(last_detected_at desc);`
     ]
+  },
+  {
+    version: 3,
+    statements: [
+      `
+      create table if not exists scan_domains (
+        domain text primary key,
+        first_scanned_at text not null,
+        last_scanned_at text not null,
+        last_status text not null,
+        last_duration_ms integer,
+        last_error_category text,
+        last_unsupported_count integer not null default 0
+      );
+      `,
+      `
+      create table if not exists scan_runs (
+        id integer primary key autoincrement,
+        domain text not null,
+        scanned_at text not null,
+        status text not null,
+        duration_ms integer,
+        unsupported_count integer not null default 0,
+        error_category text,
+        error_message text,
+        summary_json text,
+        foreign key(domain) references scan_domains(domain) on delete cascade
+      );
+      `,
+      `create index if not exists idx_scan_runs_domain on scan_runs(domain);`,
+      `create index if not exists idx_scan_runs_scanned_at on scan_runs(scanned_at desc);`,
+      `create index if not exists idx_scan_runs_status on scan_runs(status);`,
+      `create index if not exists idx_scan_domains_last_scanned on scan_domains(last_scanned_at desc);`
+    ]
   }
 ];
 
-function applyMigrations(db) {
-  const [{ user_version: currentVersion }] = db.pragma('user_version', { simple: false });
-  const pending = MIGRATIONS.filter((migration) => migration.version > currentVersion).sort(
-    (a, b) => a.version - b.version
-  );
+function resolveConnectionConfig() {
+  const isTestEnv = process.env.NODE_ENV === 'test' || Boolean(process.env.JEST_WORKER_ID);
+  const url = process.env.TURSO_DATABASE_URL || (isTestEnv ? 'file::memory:' : null);
+  const authToken = process.env.TURSO_AUTH_TOKEN;
 
-  for (const migration of pending) {
-    db.transaction(() => {
-      migration.statements.forEach((statement) => {
-        db.exec(statement);
-      });
-      db.pragma(`user_version = ${migration.version}`);
-    })();
+  if (!url) {
+    throw new Error('TURSO_DATABASE_URL is required');
   }
+
+  return {
+    url,
+    authToken,
+    isRemote: !url.startsWith('file:')
+  };
 }
 
-async function ensureDbDir(dbPath) {
-  const dir = path.dirname(dbPath);
-  await mkdir(dir, { recursive: true });
+function toRowObject(row) {
+  if (!row || typeof row !== 'object') {
+    return row;
+  }
+
+  const normalized = {};
+  for (const [key, value] of Object.entries(row)) {
+    normalized[key] = typeof value === 'bigint' ? Number(value) : value;
+  }
+  return normalized;
+}
+
+async function getCurrentVersion(client) {
+  await client.execute(`
+    create table if not exists app_meta (
+      key text primary key,
+      value text not null
+    )
+  `);
+
+  const result = await client.execute({
+    sql: 'select value from app_meta where key = ?',
+    args: ['schema_version']
+  });
+
+  const versionValue = result.rows?.[0]?.value;
+  const parsed = Number.parseInt(String(versionValue ?? '0'), 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+async function setCurrentVersion(client, version) {
+  await client.execute({
+    sql: `
+      insert into app_meta (key, value)
+      values ('schema_version', ?)
+      on conflict(key) do update set value = excluded.value
+    `,
+    args: [String(version)]
+  });
+}
+
+async function applyMigrations(client) {
+  const currentVersion = await getCurrentVersion(client);
+  const pending = MIGRATIONS
+    .filter((migration) => migration.version > currentVersion)
+    .sort((a, b) => a.version - b.version);
+
+  for (const migration of pending) {
+    const statements = migration.statements.map((sql) => ({ sql }));
+    await client.batch(statements, 'write');
+    await setCurrentVersion(client, migration.version);
+  }
 }
 
 export async function getDb() {
-  if (dbInstance) {
-    return dbInstance;
+  if (clientInstance) {
+    return clientInstance;
   }
 
-  const dbPath =
-    process.env.DB_PATH ||
-    (process.env.NODE_ENV === 'test' ? ':memory:' : DEFAULT_DB_PATH);
-  await ensureDbDir(dbPath);
+  const config = resolveConnectionConfig();
+  clientInstance = createClient({
+    url: config.url,
+    authToken: config.authToken
+  });
+  clientInstance.__meta = {
+    url: config.url,
+    isRemote: config.isRemote
+  };
 
-  dbInstance = new Database(dbPath);
-  dbInstance.pragma('journal_mode = WAL');
-  dbInstance.pragma('foreign_keys = ON');
+  if (!migrationsPromise) {
+    migrationsPromise = applyMigrations(clientInstance);
+  }
+  await migrationsPromise;
 
-  applyMigrations(dbInstance);
+  return clientInstance;
+}
 
-  return dbInstance;
+export async function queryAll(sql, args = []) {
+  const db = await getDb();
+  const result = await db.execute({ sql, args });
+  return (result.rows ?? []).map((row) => toRowObject(row));
+}
+
+export async function queryOne(sql, args = []) {
+  const rows = await queryAll(sql, args);
+  return rows[0] ?? null;
+}
+
+export async function execute(sql, args = []) {
+  const db = await getDb();
+  const result = await db.execute({ sql, args });
+  return {
+    rowsAffected: Number(result.rowsAffected ?? 0),
+    lastInsertRowid:
+      result.lastInsertRowid === undefined || result.lastInsertRowid === null
+        ? null
+        : Number(result.lastInsertRowid)
+  };
+}
+
+export async function executeBatch(statements = []) {
+  const db = await getDb();
+  return db.batch(
+    statements.map((statement) => {
+      if (typeof statement === 'string') {
+        return { sql: statement };
+      }
+      return statement;
+    }),
+    'write'
+  );
 }
