@@ -19,6 +19,7 @@ export function errorHandler(err, req, res, next) {
   logSilently('unhandled_error', {
     name: errorName,
     message: errorMessage,
+    statusCode,
     stack: errorDetails,
     url: req.originalUrl,
     method: req.method,

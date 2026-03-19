@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { useQuery } from '@tanstack/react-query';
 import AppLayout from '../templates/AppLayout.jsx';
@@ -14,7 +14,8 @@ import VersionPanel from '../organisms/panels/VersionPanel.jsx';
 import SitemapScanPanel from '../organisms/panels/SitemapScanPanel.jsx';
 import SitemapPagesTable from '../organisms/panels/SitemapPagesTable.jsx';
 import PluginSummaryPanel from '../organisms/panels/PluginSummaryPanel.jsx';
-import Button from '../atoms/Button.jsx';
+import HomepageSourcePanel from '../organisms/panels/HomepageSourcePanel.jsx';
+import HomepageInsightsPanel from '../organisms/panels/HomepageInsightsPanel.jsx';
 import { fetchUnsupportedPlugins } from '../../api/client.js';
 import { useSitemapScan } from '../../hooks/useSitemapScan.js';
 import { useScanContext } from '../../context/ScanContext.jsx';
@@ -25,15 +26,15 @@ const SECTIONS = [
   { id: 'performance', label: 'Performance', requiresScan: true },
   { id: 'content', label: 'Content footprint', requiresScan: true },
   { id: 'versions', label: 'Versions', requiresScan: true },
+  { id: 'homepage', label: 'Homepage source', requiresScan: true },
   { id: 'sitemap', label: 'Sitemap scan', requiresScan: true },
   { id: 'core', label: 'Core data', requiresScan: true },
   { id: 'plugins', label: 'Plugins', requiresScan: true },
   { id: 'unsupported', label: 'Unsupported', requiresScan: false }
 ];
 
-function ScanPage() {
+function ScanPage({ headerActions }) {
   const {
-    headerActions,
     domain,
     handleDomainChange: onDomainChange,
     setActivePage,
@@ -44,9 +45,7 @@ function ScanPage() {
     activeDomain,
     homepageResult,
     homepageIsRunning,
-    startHomepageScan: onRunHomepage,
-    autoHomepageEnabled: homepageAutoEnabled,
-    setAutoHomepageEnabled: onToggleHomepageAuto
+    homepageError
   } = useScanContext();
   const {
     startSitemapScan,
@@ -57,13 +56,15 @@ function ScanPage() {
 
   const [activeSection, setActiveSection] = useState('overview');
   const homepageDomain = domain || activeDomain;
-  const homepageSummary = homepageResult
-    ? `Status ${homepageResult.source?.statusCode ?? '-'} / ${homepageResult.insights?.meta?.length ?? 0} meta / ${homepageResult.insights?.assets?.length ?? 0} assets`
-    : 'Capture generator hints, builder clues, and asset references from the homepage HTML.';
-
-  const handleNavigateHomepage = useCallback(() => {
-    setActivePage('homepage');
-  }, [setActivePage]);
+  const homepageNavSummary = useMemo(() => {
+    if (homepageIsRunning) {
+      return 'Analyzing…';
+    }
+    if (!homepageResult) {
+      return 'No signals yet';
+    }
+    return `S${homepageResult.source?.statusCode ?? '—'} · M${homepageResult.insights?.meta?.length ?? 0} · A${homepageResult.insights?.assets?.length ?? 0} · F${homepageResult.insights?.frameworks?.length ?? 0}`;
+  }, [homepageIsRunning, homepageResult]);
 
   const unsupportedQuery = useQuery({
     queryKey: ['unsupportedPlugins'],
@@ -95,7 +96,14 @@ function ScanPage() {
                     onClick={() => !disabled && setActiveSection(item.id)}
                     disabled={disabled}
                   >
-                    {item.label}
+                    {item.id === 'homepage' ? (
+                      <span className="sidebar__link-content">
+                        <span>{item.label}</span>
+                        <span className="sidebar__link-meta">{homepageNavSummary}</span>
+                      </span>
+                    ) : (
+                      item.label
+                    )}
                   </button>
                 </li>
               );
@@ -111,40 +119,13 @@ function ScanPage() {
             </li>
           </ul>
         </div>
-        <div className="sidebar__section">
-          <p className="sidebar__title">Homepage scan</p>
-          <p className="card__meta">{homepageSummary}</p>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            className="sidebar__action"
-            onClick={() => homepageDomain && onRunHomepage(homepageDomain)}
-            disabled={!homepageDomain || homepageIsRunning}
-          >
-            {homepageIsRunning ? 'Running homepage scan.' : 'Run homepage scan'}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="sidebar__action"
-            onClick={handleNavigateHomepage}
-          >
-            View scan details
-          </Button>
-        </div>
       </nav>
     );
   }, [
     activeSection,
+    homepageNavSummary,
     scanResult,
-    setActivePage,
-    homepageSummary,
-    homepageDomain,
-    onRunHomepage,
-    homepageIsRunning,
-    handleNavigateHomepage
+    setActivePage
   ]);
 
   const renderSectionContent = () => {
@@ -177,9 +158,6 @@ function ScanPage() {
             <HomepageOverviewCard
               domain={homepageDomain}
               result={homepageResult}
-              isRunning={homepageIsRunning}
-              onRunHomepage={() => onRunHomepage(homepageDomain)}
-              onNavigateHomepage={handleNavigateHomepage}
             />
             <section className="section">
               <div className="grid">
@@ -237,6 +215,30 @@ function ScanPage() {
           </section>
         );
       }
+      case 'homepage':
+        return (
+          <section className="section">
+            <div className="grid">
+              <HomepageSourcePanel source={homepageResult?.source} />
+              <HomepageJsonPreview data={homepageResult} />
+            </div>
+            {homepageResult ? (
+              <HomepageInsightsPanel
+                insights={homepageResult.insights}
+                htmlPreview={homepageResult.htmlPreview}
+              />
+            ) : (
+              <div className="card card--info">
+                <div className="card__content">
+                  <p>
+                    Homepage source signals appear here after a scan completes for{' '}
+                    {homepageDomain || 'the selected domain'}.
+                  </p>
+                </div>
+              </div>
+            )}
+          </section>
+        );
       case 'core':
         return (
           <section className="section">
@@ -314,7 +316,7 @@ function ScanPage() {
   return (
     <AppLayout
       title="WP JSON Discovery"
-      subtitle="Scan a WordPress site and explore publicly accessible REST data."
+      subtitle="Scan a WordPress site and review REST exposure plus homepage source signals."
       headerActions={headerActions}
       sidebar={sidebarNav}
     >
@@ -324,15 +326,20 @@ function ScanPage() {
         initialDomain={scanResult?.domain ?? activeDomain}
         domain={domain}
         onDomainChange={onDomainChange}
-        showHomepageToggle
-        homepageEnabled={homepageAutoEnabled}
-    onToggleHomepage={onToggleHomepageAuto}
-  />
+      />
 
       {isScanning ? (
         <div className="card card--info">
           <div className="card__content">
             <p>Scanning {activeDomain}…</p>
+          </div>
+        </div>
+      ) : null}
+
+      {homepageIsRunning ? (
+        <div className="card card--info">
+          <div className="card__content">
+            <p>Analyzing homepage source signals for {activeDomain}…</p>
           </div>
         </div>
       ) : null}
@@ -358,6 +365,14 @@ function ScanPage() {
         </div>
       ) : null}
 
+      {homepageError ? (
+        <div className="card card--error">
+          <div className="card__content">
+            <p>{homepageError?.message ?? 'Homepage source analysis failed.'}</p>
+          </div>
+        </div>
+      ) : null}
+
       {renderSectionContent()}
     </AppLayout>
   );
@@ -367,12 +382,17 @@ function ScanPage() {
 
 export default ScanPage;
 
+ScanPage.propTypes = {
+  headerActions: PropTypes.node
+};
+
+ScanPage.defaultProps = {
+  headerActions: null
+};
+
 function HomepageOverviewCard({
   domain,
-  result,
-  isRunning,
-  onRunHomepage,
-  onNavigateHomepage
+  result
 }) {
   return (
     <div className="card">
@@ -392,24 +412,9 @@ function HomepageOverviewCard({
           )}
         </div>
         <div className="cta-actions">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onNavigateHomepage}
-            disabled={!domain}
-          >
-            View homepage scan
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={onRunHomepage}
-            disabled={!domain || isRunning}
-          >
-            {isRunning ? 'Running…' : 'Run homepage scan'}
-          </Button>
+          <span className="card__meta">
+            Runs automatically with each new scan.
+          </span>
         </div>
       </div>
     </div>
@@ -418,16 +423,12 @@ function HomepageOverviewCard({
 
 HomepageOverviewCard.propTypes = {
   domain: PropTypes.string,
-  result: PropTypes.object,
-  isRunning: PropTypes.bool,
-  onRunHomepage: PropTypes.func.isRequired,
-  onNavigateHomepage: PropTypes.func.isRequired
+  result: PropTypes.object
 };
 
 HomepageOverviewCard.defaultProps = {
   domain: '',
-  result: null,
-  isRunning: false
+  result: null
 };
 
 function formatBytes(bytes) {
@@ -440,3 +441,40 @@ function formatBytes(bytes) {
   const value = bytes / Math.pow(1024, index);
   return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
 }
+
+function HomepageJsonPreview({ data }) {
+  if (!data) {
+    return (
+      <div className="card">
+        <div className="card__content">
+          <h3>Raw JSON</h3>
+          <p className="card__meta">
+            Run a scan to view the full homepage source payload.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card">
+      <div className="card__content">
+        <h3>Raw JSON</h3>
+        <p className="card__meta">
+          Full homepage source response for debugging and integrations.
+        </p>
+        <pre className="code-block" aria-label="Homepage source JSON">
+          {JSON.stringify(data, null, 2)}
+        </pre>
+      </div>
+    </div>
+  );
+}
+
+HomepageJsonPreview.propTypes = {
+  data: PropTypes.object
+};
+
+HomepageJsonPreview.defaultProps = {
+  data: null
+};

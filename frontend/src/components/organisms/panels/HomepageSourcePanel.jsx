@@ -14,12 +14,12 @@ function HomepageSourcePanel({ source }) {
           <div>
             <h2>Homepage fetch</h2>
             <p className="card__meta">
-              Run the homepage scan to see response status, size, redirects, and MIME type.
+              Run a new scan to see response status, size, redirects, and MIME type.
             </p>
           </div>
         </CardHeader>
         <CardContent>
-          <p className="card__meta">No homepage scan has been run for this domain yet.</p>
+          <p className="card__meta">No homepage source data has been captured for this domain yet.</p>
         </CardContent>
       </Card>
     );

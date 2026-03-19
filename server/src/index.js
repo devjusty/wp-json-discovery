@@ -18,7 +18,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { apiRateLimiter } from './middleware/rateLimiter.js';
 import { wrapAsync } from './utils/route.js';
 import { getDb } from './db/client.js';
-import { loadPlugins, savePlugins, validatePlugin, sortPlugins } from './utils/pluginRegistry.js';
+import { assertPluginRegistryReady, loadPlugins, savePlugins, validatePlugin, sortPlugins } from './utils/pluginRegistry.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,6 +36,11 @@ const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN ?? FRONTEND_ORIGIN_DEFAULT;
 app.use(cors({ origin: FRONTEND_ORIGIN, exposedHeaders: EXPOSED_HEADERS }));
 app.use(express.json({ limit: '2mb' }));
 app.use(morgan('dev'));
+
+const PROXY_CACHE_TTL_MS = 10 * 60 * 1000;
+const PROXY_CACHE_MAX_ENTRIES = 200;
+const PROXY_CACHE_MAX_PAYLOAD_BYTES = 750 * 1024;
+const proxyCache = new Map();
 
 app.use('/api', apiRateLimiter);
 
@@ -70,6 +75,35 @@ app.get('/api/proxy', wrapAsync(async (req, res) => {
   const startedAt = Date.now();
 
   try {
+    const cacheKey = `${sanitizedDomain}${normalizedEndpoint}`;
+    const cached = readProxyCache(cacheKey);
+    if (cached) {
+      logSilently('proxy.cache_hit', {
+        domain: sanitizedDomain,
+        endpoint: normalizedEndpoint,
+        status: cached.status,
+        contentType: cached.contentType,
+        bytes: cached.payload.length,
+        cachedAt: cached.cachedAt
+      });
+
+      res.status(cached.status);
+      res.set('x-wpjd-cache', 'HIT');
+      res.set('x-wpjd-upstream-status', String(cached.status));
+      res.set('x-wpjd-upstream-duration', String(cached.durationMs));
+      res.set('x-wpjd-final-url', cached.finalUrl ?? targetUrl);
+      res.set('x-wpjd-redirects', String(cached.redirects ?? 0));
+      FORWARDED_RESPONSE_HEADERS.forEach((headerName) => {
+        const value = cached.forwardedHeaders?.[headerName];
+        if (value) {
+          res.set(headerName, value);
+        }
+      });
+      res.set('content-type', cached.contentType);
+      res.send(cached.payload);
+      return;
+    }
+
     const { response, finalUrl, redirects } = await fetchWithRedirects(targetUrl, {
       signal: controller.signal,
       headers: {
@@ -98,6 +132,7 @@ app.get('/api/proxy', wrapAsync(async (req, res) => {
     res.set('x-wpjd-upstream-duration', String(durationMs));
     res.set('x-wpjd-final-url', finalUrl ?? targetUrl);
     res.set('x-wpjd-redirects', String(redirects ?? 0));
+    res.set('x-wpjd-cache', 'MISS');
     FORWARDED_RESPONSE_HEADERS.forEach((headerName) => {
       const value = response.headers.get(headerName);
       if (value !== null) {
@@ -105,6 +140,19 @@ app.get('/api/proxy', wrapAsync(async (req, res) => {
       }
     });
     res.set('content-type', contentType);
+
+    maybeWriteProxyCache({
+      cacheKey,
+      endpoint: normalizedEndpoint,
+      status: response.status,
+      contentType,
+      payload,
+      finalUrl: finalUrl ?? targetUrl,
+      redirects,
+      durationMs,
+      responseHeaders: response.headers
+    });
+
     res.send(payload);
   } catch (error) {
     const durationMs = Date.now() - startedAt;
@@ -125,6 +173,61 @@ app.get('/api/proxy', wrapAsync(async (req, res) => {
     clearTimeout(timeout);
   }
 }));
+
+function readProxyCache(key) {
+  const now = Date.now();
+  const entry = proxyCache.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt <= now) {
+    proxyCache.delete(key);
+    return null;
+  }
+  return entry;
+}
+
+function maybeWriteProxyCache({
+  cacheKey,
+  endpoint,
+  status,
+  contentType,
+  payload,
+  finalUrl,
+  redirects,
+  durationMs,
+  responseHeaders
+}) {
+  if (endpoint !== '/wp-json/') return;
+  if (status !== 200) return;
+  if (typeof payload !== 'string' || payload.length === 0) return;
+  if (payload.length > PROXY_CACHE_MAX_PAYLOAD_BYTES) return;
+
+  const forwardedHeaders = {};
+  FORWARDED_RESPONSE_HEADERS.forEach((headerName) => {
+    const value = responseHeaders.get(headerName);
+    if (value !== null) {
+      forwardedHeaders[headerName] = value;
+    }
+  });
+
+  proxyCache.set(cacheKey, {
+    status,
+    contentType,
+    payload,
+    finalUrl,
+    redirects,
+    durationMs,
+    forwardedHeaders,
+    cachedAt: new Date().toISOString(),
+    expiresAt: Date.now() + PROXY_CACHE_TTL_MS
+  });
+
+  if (proxyCache.size > PROXY_CACHE_MAX_ENTRIES) {
+    const oldestKey = proxyCache.keys().next().value;
+    if (oldestKey) {
+      proxyCache.delete(oldestKey);
+    }
+  }
+}
 
 app.get('/api/unsupported-plugins', wrapAsync(async (_req, res) => {
   try {
@@ -377,6 +480,21 @@ app.get('/api/admin/db-snapshot', wrapAsync(async (req, res) => {
       type: row.type,
       payload: safeParseJson(row.payload_json)
     }));
+  const heartbeatLogs = db
+    .prepare(`
+      select id, timestamp, type, payload_json
+      from activity_logs
+      where type = 'metrics.heartbeat'
+      order by id desc
+      limit 10
+    `)
+    .all()
+    .map((row) => ({
+      id: row.id,
+      timestamp: row.timestamp,
+      type: row.type,
+      payload: safeParseJson(row.payload_json)
+    }));
 
   const unsupportedPlugins = await readUnsupportedPlugins();
 
@@ -389,6 +507,10 @@ app.get('/api/admin/db-snapshot', wrapAsync(async (req, res) => {
     totals,
     unsupportedPlugins,
     activityLogs,
+    heartbeat: {
+      latest: heartbeatLogs[0] ?? null,
+      recent: heartbeatLogs
+    },
     files,
     homepageAssets,
     logs
@@ -688,7 +810,9 @@ function summarizeLogTimestamps(db, files) {
     lastPrunedAt: lastPrune?.timestamp ?? null,
     lastMaintenanceAt: lastMaintenance?.payload_json ? safeParseJson(lastMaintenance.payload_json)?.maintenanceAt ?? lastMaintenance.timestamp : null,
     activityLogSize: files?.activityLog?.sizeBytes ?? null,
-    dbSize: files?.db?.sizeBytes ?? null
+    dbSize: files?.db?.sizeBytes ?? null,
+    walSize: files?.wal?.sizeBytes ?? null,
+    shmSize: files?.shm?.sizeBytes ?? null
   };
 }
 
@@ -700,6 +824,14 @@ async function collectStorageStats(dbPath) {
     },
     activityLog: {
       path: path.join(__dirname, 'data', 'activity.log'),
+      sizeBytes: null
+    },
+    wal: {
+      path: `${dbPath}-wal`,
+      sizeBytes: null
+    },
+    shm: {
+      path: `${dbPath}-shm`,
       sizeBytes: null
     }
   };
@@ -718,6 +850,20 @@ async function collectStorageStats(dbPath) {
     stats.activityLog.sizeBytes = null;
   }
 
+  try {
+    const walStats = await stat(stats.wal.path);
+    stats.wal.sizeBytes = walStats.size;
+  } catch {
+    stats.wal.sizeBytes = null;
+  }
+
+  try {
+    const shmStats = await stat(stats.shm.path);
+    stats.shm.sizeBytes = shmStats.size;
+  } catch {
+    stats.shm.sizeBytes = null;
+  }
+
   return stats;
 }
 
@@ -726,8 +872,24 @@ app.use(errorHandler);
 const isTestEnv = process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID;
 
 if (!isTestEnv) {
-  app.listen(PORT, () => {
-    console.log(`Server listening on http://localhost:${PORT}`);
+  const adminEnabled = process.env.ADMIN_ENABLED !== 'false';
+
+  const start = async () => {
+    if (adminEnabled) {
+      const pluginRegistry = await assertPluginRegistryReady();
+      console.log(
+        `[startup] plugin registry ready: ${pluginRegistry.pluginsPath} (${pluginRegistry.count} plugins)`
+      );
+    }
+
+    app.listen(PORT, () => {
+      console.log(`Server listening on http://localhost:${PORT}`);
+    });
+  };
+
+  start().catch((error) => {
+    console.error(`[startup] failed: ${error.message}`);
+    process.exit(1);
   });
 }
 

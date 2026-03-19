@@ -1,34 +1,6 @@
 // This file is generated via admin plugin manager. Keep entries sorted by label.
 export const SUPPORTED_PLUGINS = [
   {
-    id: '0d2c88054a618e329a86d0609c2f844b',
-    label: '0d2c88054a618e329a86d0609c2f844b',
-    description: 'Unidentified vendor namespace observed in scans.',
-    namespaces: [
-      '0d2c88054a618e329a86d0609c2f844b/v1'
-    ]
-  },
-  {
-    id: '8b8387',
-    label: '8b8387 Namespace',
-    description: 'Unidentified vendor namespace observed in scans.',
-    namespaces: [
-      '8b8387/v1'
-    ]
-  },
-  {
-    id: 'pojo-accessibility',
-    label: 'Accessibility by Pojo',
-    description: 'Accessibility toolbox assets by Pojo.',
-    pluginUrl: 'https://wordpress.org/plugins/pojo-accessibility/',
-    namespaces: [
-      'ea11y/v1'
-    ],
-    assetHints: [
-      'pojo-accessibility'
-    ]
-  },
-  {
     id: 'accordion-blocks',
     label: 'Accordion Blocks',
     description: 'Accordion Blocks plugin REST routes for block content.',
@@ -86,6 +58,18 @@ export const SUPPORTED_PLUGINS = [
     ]
   },
   {
+    id: 'pojo-accessibility',
+    label: 'Ally – Web Accessibility & Usability',
+    description: 'Accessibility toolbox assets by Elementor, formerly by Pojo. And also formerly One Click Accessibility',
+    pluginUrl: 'https://wordpress.org/plugins/pojo-accessibility/',
+    namespaces: [
+      'ea11y/v1'
+    ],
+    assetHints: [
+      'pojo-accessibility'
+    ]
+  },
+  {
     id: 'wp-analytify',
     label: 'Analytify',
     description: 'Google Analytics dashboard plugin assets.',
@@ -96,6 +80,16 @@ export const SUPPORTED_PLUGINS = [
     assetHints: [
       'wp-analytify',
       'wp-analytify-pro'
+    ]
+  },
+  {
+    id: 'analyticswp',
+    label: 'AnalyticsWP',
+    description: 'AnalyticsWP analytics plugin assets.',
+    pluginUrl: 'https://analyticswp.com/',
+    namespaces: [],
+    assetHints: [
+      'analyticswp'
     ]
   },
   {
@@ -162,6 +156,9 @@ export const SUPPORTED_PLUGINS = [
     description: 'Block editor support routes registered by Gutenberg / core block editor.',
     namespaces: [
       'wp-block-editor/v1'
+    ],
+    assetHints: [
+      'gutenberg'
     ]
   },
   {
@@ -192,20 +189,21 @@ export const SUPPORTED_PLUGINS = [
     ]
   },
   {
+    id: 'bridge-core',
+    label: 'Bridge Core',
+    description: 'Bridge theme companion plugin assets.',
+    namespaces: [],
+    assetHints: [
+      'bridge-core'
+    ]
+  },
+  {
     id: 'burst-statistics',
     label: 'Burst Statistics',
     description: 'Burst Statistics privacy-friendly analytics endpoints.',
     pluginUrl: 'https://wordpress.org/plugins/burst-statistics/',
     namespaces: [
       'burst/v1'
-    ]
-  },
-  {
-    id: 'ccb-gutenberg',
-    label: 'CCB Gutenberg Blocks',
-    description: 'CCB Gutenberg block endpoints.',
-    namespaces: [
-      'ccb-gutenberg/v1'
     ]
   },
   {
@@ -236,12 +234,37 @@ export const SUPPORTED_PLUGINS = [
     ]
   },
   {
+    id: 'ccb-gutenberg',
+    label: 'Content Blocks Builder',
+    description: 'CCB Gutenberg block endpoints.',
+    namespaces: [
+      'ccb-gutenberg/v1'
+    ],
+    pluginUrl: 'https://wordpress.org/plugins/content-blocks-builder/',
+    assetHints: []
+  },
+  {
     id: 'cookieyes',
     label: 'CookieYes',
     description: 'Consent banner and policy endpoints from CookieYes / GDPR Cookie Consent.',
     pluginUrl: 'https://wordpress.org/plugins/cookie-law-info/',
     namespaces: [
       'cky/v1'
+    ],
+    assetHints: [
+      'gdpr-cookie-compliance'
+    ]
+  },
+  {
+    id: 'convertkit',
+    label: 'ConvertKit',
+    description: 'ConvertKit email marketing plugin endpoints and assets.',
+    pluginUrl: 'https://wordpress.org/plugins/convertkit/',
+    namespaces: [
+      'kit/v1'
+    ],
+    assetHints: [
+      'convertkit'
     ]
   },
   {
@@ -280,6 +303,9 @@ export const SUPPORTED_PLUGINS = [
     description: 'Divi Flash menu settings endpoints.',
     namespaces: [
       'df-menu-settings/v2'
+    ],
+    assetHints: [
+      'diviflash'
     ]
   },
   {
@@ -288,7 +314,9 @@ export const SUPPORTED_PLUGINS = [
     description: 'Divi Torque Lite REST endpoints.',
     namespaces: [
       'divitorque-lite/v1'
-    ]
+    ],
+    pluginUrl: 'https://wordpress.org/plugins/addons-for-divi/',
+    assetHints: []
   },
   {
     id: 'easy-digital-downloads',
@@ -403,6 +431,16 @@ export const SUPPORTED_PLUGINS = [
     pluginUrl: 'https://wordpress.org/plugins/google-analytics-dashboard-for-wp/',
     namespaces: [
       'exactmetrics/v1'
+    ]
+  },
+  {
+    id: 'forminator',
+    label: 'Forminator',
+    description: 'Forminator forms and quiz plugin assets.',
+    pluginUrl: 'https://wordpress.org/plugins/forminator/',
+    namespaces: [],
+    assetHints: [
+      'forminator'
     ]
   },
   {
@@ -525,6 +563,9 @@ export const SUPPORTED_PLUGINS = [
     namespaces: [
       'gf/v2',
       'gravityforms/v2'
+    ],
+    assetHints: [
+      'gravityformsrecaptcha'
     ]
   },
   {
@@ -550,7 +591,9 @@ export const SUPPORTED_PLUGINS = [
     description: 'Gravity Wiz/Gravity Perks helper endpoints.',
     namespaces: [
       'gwiz/v1'
-    ]
+    ],
+    pluginUrl: 'https://wordpress.org/plugins/gravity-forms-custom-post-types/',
+    assetHints: []
   },
   {
     id: 'greenshift',
@@ -726,6 +769,55 @@ export const SUPPORTED_PLUGINS = [
     pluginUrl: 'https://wordpress.org/plugins/joli-table-of-contents/',
     namespaces: [
       'jolitoc/v1'
+    ]
+  },
+  {
+    id: 'kadence-blocks',
+    label: 'Kadence Blocks',
+    description: 'Kadence Blocks core and integrations exposed via kb-* namespaces.',
+    pluginUrl: 'https://wordpress.org/plugins/kadence-blocks/',
+    namespaces: [
+      'kb-activecampaign/v1',
+      'kb-convertkit/v1',
+      'kb-custom-svg/v1',
+      'kb-design-library/v1',
+      'kb-fluentcrm/v1',
+      'kb-getresponse/v1',
+      'kb-image-picker/v1',
+      'kb-lottieanimation/v1',
+      'kb-mailchimp/v1',
+      'kb-mailerlite/v1',
+      'kb-sendinblue/v1',
+      'kb-vector/v1'
+    ],
+    assetHints: [
+      'kadence-blocks'
+    ]
+  },
+  {
+    id: 'kadence-blocks-pro',
+    label: 'Kadence Blocks Pro',
+    description: 'Pro extension endpoints for Kadence Blocks.',
+    pluginUrl: 'https://www.kadencewp.com/kadence-blocks/',
+    namespaces: [
+      'kbp/v1',
+      'kbp-dynamic/v1',
+      'kbpp/v1'
+    ],
+    assetHints: [
+      'kadence-blocks-pro'
+    ]
+  },
+  {
+    id: 'kadence-pro',
+    label: 'Kadence Pro',
+    description: 'Kadence theme pro add-on endpoints.',
+    pluginUrl: 'https://www.kadencewp.com/kadence-theme/pro/',
+    namespaces: [
+      'ktp/v1'
+    ],
+    assetHints: [
+      'kadence-pro'
     ]
   },
   {
@@ -917,6 +1009,16 @@ export const SUPPORTED_PLUGINS = [
     ]
   },
   {
+    id: 'novashare',
+    label: 'Novashare',
+    description: 'Novashare social sharing plugin assets.',
+    pluginUrl: 'https://novashare.io/',
+    namespaces: [],
+    assetHints: [
+      'novashare'
+    ]
+  },
+  {
     id: 'nps-survey',
     label: 'NPS Survey',
     description: 'Net Promoter Score survey submission endpoints.',
@@ -1021,6 +1123,16 @@ export const SUPPORTED_PLUGINS = [
     ]
   },
   {
+    id: 'password-protected-categories',
+    label: 'Password Protected Categories',
+    description: 'Password Protected Categories plugin assets.',
+    pluginUrl: 'https://wordpress.org/plugins/password-protected-categories/',
+    namespaces: [],
+    assetHints: [
+      'password-protected-categories'
+    ]
+  },
+  {
     id: 'beaver-builder-powerpack',
     label: 'PowerPack for Beaver Builder',
     description: 'PowerPack addon assets for Beaver Builder.',
@@ -1080,6 +1192,17 @@ export const SUPPORTED_PLUGINS = [
     ]
   },
   {
+    id: 'salient-core',
+    label: 'Salient Core',
+    description: 'Salient theme companion plugin assets.',
+    namespaces: [],
+    assetHints: [
+      'salient-core',
+      'salient-portfolio',
+      'js_composer_salient'
+    ]
+  },
+  {
     id: 'redirection',
     label: 'Redirection',
     description: 'Redirection plugin API exposing redirect rules.',
@@ -1132,6 +1255,16 @@ export const SUPPORTED_PLUGINS = [
       'seopress/v1',
       'seopress/v2'
     ]
+  },
+  {
+    id: 'ssp',
+    label: 'Seriously Simple Podcasting',
+    description: 'SSP endpoints observed in scans.',
+    namespaces: [
+      'ssp/v1'
+    ],
+    pluginUrl: 'https://wordpress.org/plugins/seriously-simple-podcasting/',
+    assetHints: []
   },
   {
     id: 'simple-history',
@@ -1216,6 +1349,26 @@ export const SUPPORTED_PLUGINS = [
     ]
   },
   {
+    id: 'social-pug',
+    label: 'Social Pug',
+    description: 'Social Pug social sharing plugin assets.',
+    pluginUrl: 'https://wordpress.org/plugins/social-pug/',
+    namespaces: [],
+    assetHints: [
+      'social-pug'
+    ]
+  },
+  {
+    id: 'sticky-header-effects-for-elementor',
+    label: 'Sticky Header Effects for Elementor',
+    description: 'Sticky Header Effects extension assets for Elementor.',
+    pluginUrl: 'https://wordpress.org/plugins/sticky-header-effects-for-elementor/',
+    namespaces: [],
+    assetHints: [
+      'sticky-header-effects-for-elementor'
+    ]
+  },
+  {
     id: 'instagram-feed',
     label: 'Smash Balloon Instagram Feed',
     description: 'Instagram feed plugin assets by Smash Balloon.',
@@ -1241,14 +1394,6 @@ export const SUPPORTED_PLUGINS = [
     description: 'SQL Buddy database helper endpoints.',
     namespaces: [
       'sqlbuddy/v1'
-    ]
-  },
-  {
-    id: 'ssp',
-    label: 'SSP',
-    description: 'SSP endpoints observed in scans.',
-    namespaces: [
-      'ssp/v1'
     ]
   },
   {
@@ -1359,6 +1504,26 @@ export const SUPPORTED_PLUGINS = [
     ]
   },
   {
+    id: 'qi-addons-for-elementor',
+    label: 'Qi Addons for Elementor',
+    description: 'Qi Addons for Elementor assets.',
+    pluginUrl: 'https://wordpress.org/plugins/qi-addons-for-elementor/',
+    namespaces: [],
+    assetHints: [
+      'qi-addons-for-elementor'
+    ]
+  },
+  {
+    id: 'qi-blocks',
+    label: 'Qi Blocks',
+    description: 'Qi Blocks plugin assets.',
+    pluginUrl: 'https://wordpress.org/plugins/qi-blocks/',
+    namespaces: [],
+    assetHints: [
+      'qi-blocks'
+    ]
+  },
+  {
     id: 'trustindex',
     label: 'Trustindex Reviews',
     description: 'Trustindex review widget endpoints for pulling reviews.',
@@ -1402,6 +1567,16 @@ export const SUPPORTED_PLUGINS = [
     description: 'UAEL widgets and helpers.',
     namespaces: [
       'uael/v1'
+    ]
+  },
+  {
+    id: 'simple-cloudflare-turnstile',
+    label: 'Simple Cloudflare Turnstile',
+    description: 'Cloudflare Turnstile anti-spam plugin assets.',
+    pluginUrl: 'https://wordpress.org/plugins/simple-cloudflare-turnstile/',
+    namespaces: [],
+    assetHints: [
+      'simple-cloudflare-turnstile'
     ]
   },
   {
@@ -1477,6 +1652,9 @@ export const SUPPORTED_PLUGINS = [
       'wc-telemetry',
       'payments/woopay',
       'wccom-site/v3'
+    ],
+    assetHints: [
+      'woocommerce-memberships'
     ]
   },
   {
@@ -1514,6 +1692,16 @@ export const SUPPORTED_PLUGINS = [
     pluginUrl: 'https://wordpress.org/plugins/wordfence/',
     namespaces: [
       'wordfence/v1'
+    ]
+  },
+  {
+    id: 'w3-total-cache',
+    label: 'W3 Total Cache',
+    description: 'W3 Total Cache performance plugin assets.',
+    pluginUrl: 'https://wordpress.org/plugins/w3-total-cache/',
+    namespaces: [],
+    assetHints: [
+      'w3-total-cache'
     ]
   },
   {

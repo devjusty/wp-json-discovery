@@ -23,6 +23,13 @@ export const SUPPORTED_THEMES = [
     pathSignals: ['/wp-content/themes/hello-elementor']
   },
   {
+    id: 'oceanwp',
+    label: 'OceanWP',
+    description: 'Flexible multipurpose theme commonly paired with Elementor.',
+    themeUrl: 'https://wordpress.org/themes/oceanwp/',
+    pathSignals: ['/wp-content/themes/oceanwp']
+  },
+  {
     id: 'generatepress',
     label: 'GeneratePress',
     description: 'Performance-focused theme often paired with GenerateBlocks.',
@@ -51,6 +58,33 @@ export const SUPPORTED_THEMES = [
     themeUrl: 'https://www.kadencewp.com/kadence-theme/',
     namespaceHints: ['kadence-theme'],
     pathSignals: ['/wp-content/themes/kadence']
+  },
+  {
+    id: 'kadence-custom-child',
+    label: 'Kadence Custom Child',
+    description: 'Observed custom child themes built on Kadence.',
+    themeUrl: 'https://www.kadencewp.com/kadence-theme/',
+    pathSignals: ['/wp-content/themes/pmd-ourfarmhouse', '/wp-content/themes/pmdsustainkind']
+  },
+  {
+    id: 'bridge',
+    label: 'Bridge',
+    description: 'Bridge multipurpose theme by Qode Interactive.',
+    themeUrl: 'https://themeforest.net/item/bridge-creative-multipurpose-wordpress-theme/7315054',
+    pathSignals: ['/wp-content/themes/bridge', '/wp-content/themes/bridge-child']
+  },
+  {
+    id: 'my-listing',
+    label: 'MyListing',
+    description: 'Directory/listings theme by 27collective.',
+    themeUrl: 'https://themeforest.net/item/mylisting-directory-listing-wordpress-theme/20593226',
+    pathSignals: ['/wp-content/themes/my-listing', '/wp-content/themes/my-listing-child']
+  },
+  {
+    id: 'noo-yogi',
+    label: 'Noo Yogi',
+    description: 'Yoga and wellness theme variant observed in scans.',
+    pathSignals: ['/wp-content/themes/noo-yogi']
   },
   {
     id: 'greenshift-theme',
@@ -113,6 +147,30 @@ export const SUPPORTED_THEMES = [
     label: 'GWP Theme',
     description: 'GenerateWP-branded child theme observed in scans.',
     pathSignals: ['/wp-content/themes/gwp']
+  },
+  {
+    id: 'aplusl',
+    label: 'A+L Theme',
+    description: 'Custom A+L Development theme.',
+    pathSignals: ['/wp-content/themes/aplusl']
+  },
+  {
+    id: 'cantey-theme',
+    label: 'Cantey Theme',
+    description: 'Custom Cantey Tech theme variant.',
+    pathSignals: ['/wp-content/themes/cantey-theme']
+  },
+  {
+    id: 'college-transitions-2023',
+    label: 'College Transitions 2023',
+    description: 'Custom College Transitions theme variant.',
+    pathSignals: ['/wp-content/themes/college-transitions-2023']
+  },
+  {
+    id: 'ddprodm',
+    label: 'DD Pro DM',
+    description: 'Custom Divi child theme variant observed in scans.',
+    pathSignals: ['/wp-content/themes/ddprodm']
   },
   {
     id: 'wp-tavern-2021',

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import { createContext, useContext, useState, useMemo, useCallback } from 'react';
 import { useScan } from '../hooks/useScan.js';
 import { useHomepageScan } from '../hooks/useHomepageScan.js';
 
@@ -7,8 +7,6 @@ const ScanContext = createContext(undefined);
 export function ScanProvider({ children }) {
   const [activePage, setActivePage] = useState('scan');
   const [domain, setDomain] = useState('');
-  const [autoHomepageDomain, setAutoHomepageDomain] = useState(null);
-  const [autoHomepageEnabled, setAutoHomepageEnabled] = useState(true);
 
   const {
     startScan: runScan,
@@ -34,24 +32,8 @@ export function ScanProvider({ children }) {
   const handleStartScan = useCallback((value) => {
     setDomain(value);
     runScan(value);
-  }, [runScan]);
-
-  const handleStartHomepageScan = useCallback((value) => {
-    setDomain(value);
-    setAutoHomepageDomain(value);
     startHomepageScan(value);
-  }, [startHomepageScan]);
-
-  // Auto-run homepage scan after REST scan completes for the same domain
-  useEffect(() => {
-    const scannedDomain = scanResult?.domain;
-    if (!scannedDomain) return;
-    if (autoHomepageDomain === scannedDomain) return;
-    if (autoHomepageEnabled) {
-      setAutoHomepageDomain(scannedDomain);
-      startHomepageScan(scannedDomain);
-    }
-  }, [scanResult, autoHomepageDomain, startHomepageScan, autoHomepageEnabled]);
+  }, [runScan, startHomepageScan]);
 
   const value = useMemo(
     () => ({
@@ -59,8 +41,6 @@ export function ScanProvider({ children }) {
       setActivePage,
       domain,
       setDomain,
-      autoHomepageEnabled,
-      setAutoHomepageEnabled,
       scanResult,
       isScanning,
       scanError,
@@ -71,14 +51,11 @@ export function ScanProvider({ children }) {
       homepageResult,
       homepageIsRunning,
       homepageError,
-      startHomepageScan: handleStartHomepageScan,
-      handleDomainChange,
-      setAutoHomepageDomain
+      handleDomainChange
     }),
     [
       activePage,
       domain,
-      autoHomepageEnabled,
       scanResult,
       isScanning,
       scanError,
@@ -89,9 +66,7 @@ export function ScanProvider({ children }) {
       homepageIsRunning,
       homepageError,
       handleStartScan,
-      handleStartHomepageScan,
-      handleDomainChange,
-      setAutoHomepageDomain
+      handleDomainChange
     ]
   );
 

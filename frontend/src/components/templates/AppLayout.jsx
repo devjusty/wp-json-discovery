@@ -6,12 +6,12 @@ function AppLayout({ title, subtitle, headerActions, sidebar, children }) {
   return (
     <div className="app">
       <header className="app__header">
-        <div>
+        <div className="app__header-main">
           <h1>{title}</h1>
           {subtitle ? <p>{subtitle}</p> : null}
         </div>
         {headerActions ? (
-          <div className="app__header-actions">{headerActions}</div>
+          <div className="app__header-right">{headerActions}</div>
         ) : null}
       </header>
       <div className={bodyClass}>

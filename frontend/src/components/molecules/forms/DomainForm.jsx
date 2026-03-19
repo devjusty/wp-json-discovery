@@ -14,10 +14,7 @@ function DomainForm({
   isScanning,
   initialDomain,
   domain,
-  onDomainChange,
-  showHomepageToggle,
-  homepageEnabled,
-  onToggleHomepage
+  onDomainChange
 }) {
   const isControlled = typeof domain === 'string';
   const [internalDomain, setInternalDomain] = useState(initialDomain ?? '');
@@ -84,16 +81,6 @@ function DomainForm({
             {isScanning ? 'Scanning…' : 'Start scan'}
           </Button>
         </div>
-        {showHomepageToggle ? (
-          <label className="domain-form__toggle">
-            <input
-              type="checkbox"
-              checked={homepageEnabled}
-              onChange={(event) => onToggleHomepage?.(event.target.checked)}
-            />
-            <span>Also run homepage source scan after REST scan</span>
-          </label>
-        ) : null}
       </CardContent>
     </Card>
   );
@@ -104,20 +91,14 @@ DomainForm.propTypes = {
   isScanning: PropTypes.bool,
   initialDomain: PropTypes.string,
   domain: PropTypes.string,
-  onDomainChange: PropTypes.func,
-  showHomepageToggle: PropTypes.bool,
-  homepageEnabled: PropTypes.bool,
-  onToggleHomepage: PropTypes.func
+  onDomainChange: PropTypes.func
 };
 
 DomainForm.defaultProps = {
   isScanning: false,
   initialDomain: '',
   domain: undefined,
-  onDomainChange: null,
-  showHomepageToggle: false,
-  homepageEnabled: true,
-  onToggleHomepage: null
+  onDomainChange: null
 };
 
 export default DomainForm;

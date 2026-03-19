@@ -5,14 +5,63 @@ import { inspect } from 'node:util';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const WORKSPACE_ROOT = path.resolve(__dirname, '../../..');
+const SERVER_ROOT = path.resolve(__dirname, '../..');
 
-const PLUGINS_PATH = path.resolve(__dirname, '../../../frontend/src/config/plugins.js');
+const CANDIDATE_PLUGIN_PATHS = [
+  process.env.WPJD_PLUGINS_CONFIG_PATH
+    ? path.resolve(process.env.WPJD_PLUGINS_CONFIG_PATH)
+    : null,
+  path.join(WORKSPACE_ROOT, 'frontend/src/config/plugins.js'),
+  // Legacy fallback path used by earlier buggy resolution logic.
+  path.join(SERVER_ROOT, 'frontend/src/config/plugins.js')
+].filter(Boolean);
+const DEFAULT_CORE_NAMESPACES = [
+  'wp/v2',
+  'oembed/1.0',
+  'wp-site-health/v1'
+];
+
+let resolvedPluginsPath = null;
+
+async function resolvePluginsPath() {
+  if (resolvedPluginsPath) {
+    return resolvedPluginsPath;
+  }
+
+  for (const candidate of CANDIDATE_PLUGIN_PATHS) {
+    try {
+      await fs.access(candidate);
+      resolvedPluginsPath = candidate;
+      return resolvedPluginsPath;
+    } catch {
+      // Try next candidate.
+    }
+  }
+
+  throw new Error(
+    `Unable to locate plugins config file. Checked: ${CANDIDATE_PLUGIN_PATHS.join(', ')}`
+  );
+}
 
 export async function loadPlugins() {
-  const fileUrl = `${pathToFileURL(PLUGINS_PATH).href}?t=${Date.now()}`;
+  const pluginsPath = await resolvePluginsPath();
+  const fileUrl = `${pathToFileURL(pluginsPath).href}?t=${Date.now()}`;
   const module = await import(fileUrl);
   const plugins = module.SUPPORTED_PLUGINS ?? [];
   return Array.isArray(plugins) ? plugins : [];
+}
+
+async function loadCoreNamespaces() {
+  try {
+    const pluginsPath = await resolvePluginsPath();
+    const fileUrl = `${pathToFileURL(pluginsPath).href}?t=${Date.now()}`;
+    const module = await import(fileUrl);
+    const namespaces = module.CORE_NAMESPACES;
+    return Array.isArray(namespaces) ? namespaces : DEFAULT_CORE_NAMESPACES;
+  } catch {
+    return DEFAULT_CORE_NAMESPACES;
+  }
 }
 
 export function sortPlugins(plugins = []) {
@@ -28,6 +77,8 @@ export function sortPlugins(plugins = []) {
 }
 
 export async function savePlugins(nextPlugins = []) {
+  const pluginsPath = await resolvePluginsPath();
+  const coreNamespaces = await loadCoreNamespaces();
   const sorted = sortPlugins(nextPlugins);
   const banner = '// This file is generated via admin plugin manager. Keep entries sorted by label.\n';
   const body = inspect(sorted, {
@@ -37,9 +88,30 @@ export async function savePlugins(nextPlugins = []) {
     sorted: false,
     maxArrayLength: null
   });
-  const contents = `${banner}export const SUPPORTED_PLUGINS = ${body};\n`;
-  await fs.writeFile(PLUGINS_PATH, contents, 'utf8');
+  const coreBody = inspect(coreNamespaces, {
+    depth: null,
+    compact: false,
+    breakLength: 80,
+    sorted: false,
+    maxArrayLength: null
+  });
+  const contents = `${banner}export const SUPPORTED_PLUGINS = ${body};\n\nexport const CORE_NAMESPACES = ${coreBody};\n`;
+  await fs.writeFile(pluginsPath, contents, 'utf8');
   return sorted;
+}
+
+export async function assertPluginRegistryReady() {
+  const pluginsPath = await resolvePluginsPath();
+  const plugins = await loadPlugins();
+  if (!Array.isArray(plugins)) {
+    throw new Error(
+      `Invalid plugins config export at ${pluginsPath}: SUPPORTED_PLUGINS must be an array`
+    );
+  }
+  return {
+    pluginsPath,
+    count: plugins.length
+  };
 }
 
 export function validatePlugin(input = {}, { requireId = true } = {}) {
