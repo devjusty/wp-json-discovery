@@ -104,6 +104,62 @@ describe('API routes', () => {
     expect(includeFailed.body.items.some((item) => item.domain === 'failed-example.com')).toBe(true);
   });
 
+  it('returns domain run timeline with includeFailed toggle', async () => {
+    await request(app).post('/api/logs').send({
+      type: 'scan.complete',
+      payload: {
+        domain: 'timeline-example.com',
+        metrics: { durationMs: 620 },
+        unsupportedNamespaces: ['foo/v1']
+      }
+    });
+
+    await request(app).post('/api/logs').send({
+      type: 'scan.error',
+      payload: {
+        domain: 'timeline-example.com',
+        message: 'Auth required',
+        code: 'auth_required'
+      }
+    });
+
+    const defaultTimeline = await request(app).get('/api/scan-history/timeline-example.com');
+    expect(defaultTimeline.statusCode).toEqual(200);
+    expect(defaultTimeline.body.runs.every((run) => run.status !== 'failed')).toBe(true);
+
+    const allTimeline = await request(app).get('/api/scan-history/timeline-example.com?includeFailed=true');
+    expect(allTimeline.statusCode).toEqual(200);
+    expect(allTimeline.body.runs.some((run) => run.status === 'failed')).toBe(true);
+  });
+
+  it('supports scan history pagination and sorting', async () => {
+    await request(app).post('/api/logs').send({
+      type: 'scan.complete',
+      payload: {
+        domain: 'paginate-a.com',
+        metrics: { durationMs: 420 },
+        unsupportedNamespaces: []
+      }
+    });
+
+    await request(app).post('/api/logs').send({
+      type: 'scan.complete',
+      payload: {
+        domain: 'paginate-b.com',
+        metrics: { durationMs: 510 },
+        unsupportedNamespaces: []
+      }
+    });
+
+    const paged = await request(app).get('/api/scan-history?includeFailed=true&sort=domain&q=paginate-&limit=1&offset=1');
+
+    expect(paged.statusCode).toEqual(200);
+    expect(Array.isArray(paged.body.items)).toBe(true);
+    expect(paged.body.items.length).toBe(1);
+    expect(paged.body.pagination.total).toBeGreaterThanOrEqual(2);
+    expect(paged.body.items[0].domain).toBe('paginate-b.com');
+  });
+
   it('returns admin db snapshot when enabled', async () => {
     process.env.ADMIN_ENABLED = 'true';
     await getDb();

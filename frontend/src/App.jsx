@@ -11,6 +11,7 @@ function AppContent() {
   const {
     activePage,
     setActivePage,
+    setDomain,
     startScan,
     activeDomain,
     scanResult,
@@ -89,6 +90,11 @@ function AppContent() {
           if (!domain) return;
           setActivePage('scan');
           startScan(domain);
+        }}
+        onUseDomain={(domain) => {
+          if (!domain) return;
+          setDomain(domain);
+          setActivePage('scan');
         }}
       />
     );

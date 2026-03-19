@@ -1662,6 +1662,22 @@ th.sortable .table__sort:hover {
   font-weight: 600;
 }
 
+.history-trends {
+  margin-top: 0.7rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.history-trends__item {
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.88rem;
+  color: var(--color-ink-soft);
+  background: var(--color-surface-muted);
+}
+
 .history-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -1713,6 +1729,42 @@ th.sortable .table__sort:hover {
 .history-card__actions {
   display: flex;
   justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.history-runs-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.history-runs-list__item {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.75rem 0.85rem;
+  background: var(--color-surface-muted);
+}
+
+.history-runs-list__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.history-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+}
+
+.history-pagination__meta {
+  font-size: 0.92rem;
+  color: var(--color-ink-soft);
 }
 
 .recent-domains-list {
@@ -1861,5 +1913,25 @@ th.sortable .table__sort:hover {
 
   .card__header {
     flex-direction: column;
+  }
+
+  .history-card__meta {
+    grid-template-columns: 1fr;
+  }
+
+  .history-card__actions {
+    justify-content: stretch;
+  }
+
+  .history-card__actions .button {
+    width: 100%;
+  }
+
+  .history-pagination {
+    flex-wrap: wrap;
+  }
+
+  .history-pagination .button {
+    min-width: 8rem;
   }
 }
