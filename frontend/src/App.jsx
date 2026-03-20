@@ -1,10 +1,15 @@
-import { useMemo } from 'react';
-import ScanPage from './components/pages/ScanPage.jsx';
-import AdminPage from './components/pages/AdminPage.jsx';
-import HistoryPage from './components/pages/HistoryPage.jsx';
+import { Suspense, lazy, useMemo } from 'react';
 import Button from './components/atoms/Button.jsx';
 import './App.css';
 import { ScanProvider, useScanContext } from './context/ScanContext.jsx';
+
+const loadScanPage = () => import('./components/pages/ScanPage.jsx');
+const loadAdminPage = () => import('./components/pages/AdminPage.jsx');
+const loadHistoryPage = () => import('./components/pages/HistoryPage.jsx');
+
+const ScanPage = lazy(loadScanPage);
+const AdminPage = lazy(loadAdminPage);
+const HistoryPage = lazy(loadHistoryPage);
 
 
 function AppContent() {
@@ -20,6 +25,20 @@ function AppContent() {
   } = useScanContext();
   const currentScanDomain = scanResult?.domain || activeDomain || '';
 
+  const prefetchPage = (page) => {
+    if (page === 'scan') {
+      void loadScanPage();
+      return;
+    }
+    if (page === 'history') {
+      void loadHistoryPage();
+      return;
+    }
+    if (page === 'admin') {
+      void loadAdminPage();
+    }
+  };
+
   const headerActions = useMemo(() => {
     return (
       <div className="app__topbar">
@@ -29,6 +48,8 @@ function AppContent() {
               type="button"
               className={`app__nav-link ${activePage === 'scan' ? 'is-active' : ''}`}
               onClick={() => setActivePage('scan')}
+              onMouseEnter={() => prefetchPage('scan')}
+              onFocus={() => prefetchPage('scan')}
               aria-current={activePage === 'scan' ? 'page' : undefined}
             >
               Current scan
@@ -37,6 +58,8 @@ function AppContent() {
               type="button"
               className={`app__nav-link ${activePage === 'history' ? 'is-active' : ''}`}
               onClick={() => setActivePage('history')}
+              onMouseEnter={() => prefetchPage('history')}
+              onFocus={() => prefetchPage('history')}
               aria-current={activePage === 'history' ? 'page' : undefined}
             >
               History
@@ -45,6 +68,8 @@ function AppContent() {
               type="button"
               className={`app__nav-link ${activePage === 'admin' ? 'is-active' : ''}`}
               onClick={() => setActivePage('admin')}
+              onMouseEnter={() => prefetchPage('admin')}
+              onFocus={() => prefetchPage('admin')}
               aria-current={activePage === 'admin' ? 'page' : undefined}
             >
               Admin
@@ -68,39 +93,47 @@ function AppContent() {
 
   if (activePage === 'admin') {
     return (
-      <AdminPage
-        headerActions={headerActions}
-        onNavigate={setActivePage}
-        rotateLogs={rotateLogs}
-        isRotatingLogs={isRotatingLogs}
-        onRescan={(domain) => {
-          if (!domain) return;
-          setActivePage('scan');
-          startScan(domain);
-        }}
-      />
+      <Suspense fallback={<PageLoadingState label="Loading admin console..." />}>
+        <AdminPage
+          headerActions={headerActions}
+          onNavigate={setActivePage}
+          rotateLogs={rotateLogs}
+          isRotatingLogs={isRotatingLogs}
+          onRescan={(domain) => {
+            if (!domain) return;
+            setActivePage('scan');
+            startScan(domain);
+          }}
+        />
+      </Suspense>
     );
   }
 
   if (activePage === 'history') {
     return (
-      <HistoryPage
-        headerActions={headerActions}
-        onRescan={(domain) => {
-          if (!domain) return;
-          setActivePage('scan');
-          startScan(domain);
-        }}
-        onUseDomain={(domain) => {
-          if (!domain) return;
-          setDomain(domain);
-          setActivePage('scan');
-        }}
-      />
+      <Suspense fallback={<PageLoadingState label="Loading scan history..." />}>
+        <HistoryPage
+          headerActions={headerActions}
+          onRescan={(domain) => {
+            if (!domain) return;
+            setActivePage('scan');
+            startScan(domain);
+          }}
+          onUseDomain={(domain) => {
+            if (!domain) return;
+            setDomain(domain);
+            setActivePage('scan');
+          }}
+        />
+      </Suspense>
     );
   }
 
-  return <ScanPage headerActions={headerActions} />;
+  return (
+    <Suspense fallback={<PageLoadingState label="Loading scanner..." />}>
+      <ScanPage headerActions={headerActions} />
+    </Suspense>
+  );
 }
 
 function App() {
@@ -112,3 +145,11 @@ function App() {
 }
 
 export default App;
+
+function PageLoadingState({ label }) {
+  return (
+    <div className="app__page-loading" role="status" aria-live="polite">
+      <p>{label}</p>
+    </div>
+  );
+}

@@ -1,5 +1,8 @@
 import PropTypes from 'prop-types';
 
+const loadAdminPage = () => import('../AdminPage.jsx');
+const loadHistoryPage = () => import('../HistoryPage.jsx');
+
 const SCAN_SECTIONS = [
   { id: 'overview', label: 'Overview', requiresScan: true },
   { id: 'exposure', label: 'Exposure', requiresScan: true },
@@ -51,12 +54,32 @@ function ScanSidebarNav({
             );
           })}
           <li>
-            <button type="button" className="sidebar__link" onClick={onOpenHistory}>
+            <button
+              type="button"
+              className="sidebar__link"
+              onClick={onOpenHistory}
+              onMouseEnter={() => {
+                void loadHistoryPage();
+              }}
+              onFocus={() => {
+                void loadHistoryPage();
+              }}
+            >
               History view
             </button>
           </li>
           <li>
-            <button type="button" className="sidebar__link" onClick={onOpenAdmin}>
+            <button
+              type="button"
+              className="sidebar__link"
+              onClick={onOpenAdmin}
+              onMouseEnter={() => {
+                void loadAdminPage();
+              }}
+              onFocus={() => {
+                void loadAdminPage();
+              }}
+            >
               Admin view
             </button>
           </li>
