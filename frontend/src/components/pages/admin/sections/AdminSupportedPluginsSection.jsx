@@ -3,6 +3,9 @@ import { Card, CardContent, CardHeader } from '../../../atoms/Card.jsx';
 
 function AdminSupportedPluginsSection({
   totalPlugins,
+  isLoading,
+  isError,
+  errorMessage,
   pluginCatalogQuery,
   setPluginCatalogQuery,
   pluginCatalogSort,
@@ -23,6 +26,18 @@ function AdminSupportedPluginsSection({
           </div>
         </CardHeader>
         <CardContent>
+          {isLoading ? (
+            <p className="card__meta">Loading supported plugins…</p>
+          ) : null}
+          {isError ? (
+            <div className="card card--error">
+              <div className="card__content">
+                <p>{errorMessage || 'Unable to load supported plugins.'}</p>
+              </div>
+            </div>
+          ) : null}
+          {!isLoading && !isError ? (
+            <>
           <div className="admin-filters">
             <label className="admin-filter-field">
               Search
@@ -91,6 +106,8 @@ function AdminSupportedPluginsSection({
           {!filteredSupportedPlugins.length ? (
             <p className="card__meta">No supported plugins match this filter.</p>
           ) : null}
+            </>
+          ) : null}
         </CardContent>
       </Card>
     </section>
@@ -99,6 +116,9 @@ function AdminSupportedPluginsSection({
 
 AdminSupportedPluginsSection.propTypes = {
   totalPlugins: PropTypes.number,
+  isLoading: PropTypes.bool,
+  isError: PropTypes.bool,
+  errorMessage: PropTypes.string,
   pluginCatalogQuery: PropTypes.string.isRequired,
   setPluginCatalogQuery: PropTypes.func.isRequired,
   pluginCatalogSort: PropTypes.string.isRequired,
@@ -110,6 +130,9 @@ AdminSupportedPluginsSection.propTypes = {
 
 AdminSupportedPluginsSection.defaultProps = {
   totalPlugins: 0,
+  isLoading: false,
+  isError: false,
+  errorMessage: '',
   filteredSupportedPlugins: [],
   expandedPluginId: null
 };

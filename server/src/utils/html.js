@@ -1,16 +1,20 @@
 import * as cheerio from 'cheerio';
-import { SUPPORTED_PLUGINS } from '../../../frontend/src/config/plugins.js';
-import { SUPPORTED_THEMES } from '../../../frontend/src/config/themes.js';
+import { loadPlugins, loadThemes } from './pluginRegistry.js';
 
-const KNOWN_PLUGIN_ASSETS = buildAssetLookup(SUPPORTED_PLUGINS, 'plugin');
-const KNOWN_THEME_ASSETS = buildAssetLookup(SUPPORTED_THEMES, 'theme');
+let assetLookupCache = {
+  expiresAt: 0,
+  pluginLookup: new Map(),
+  themeLookup: new Map()
+};
+const ASSET_LOOKUP_CACHE_TTL_MS = 60 * 1000;
 
-export function extractHomepageInsights(html = '') {
+export async function extractHomepageInsights(html = '') {
+  const { pluginLookup, themeLookup } = await getAssetLookups();
   const $ = cheerio.load(html);
 
   const meta = extractMetaTags($);
   const comments = extractComments($);
-  const assets = extractAssetPaths($);
+  const assets = extractAssetPaths($, pluginLookup, themeLookup);
   const scriptHints = extractScriptHints($);
   const frameworks = detectFrameworks($, assets, scriptHints);
   const other = detectOtherHints($);
@@ -67,7 +71,7 @@ function extractComments($) {
   return comments;
 }
 
-function extractAssetPaths($) {
+function extractAssetPaths($, pluginLookup, themeLookup) {
   const counts = new Map();
 
   // Find all elements that might link to assets
@@ -94,7 +98,7 @@ function extractAssetPaths($) {
 
   return assets.map((asset) => {
     const slug = extractAssetSlug(asset.path);
-    const matches = matchAssetSlug(asset.type, slug);
+    const matches = matchAssetSlug(asset.type, slug, pluginLookup, themeLookup);
 
     return {
       ...asset,
@@ -217,12 +221,38 @@ export function extractAssetSlug(pathValue = '') {
   return match[1].toLowerCase();
 }
 
-function matchAssetSlug(type, slug) {
+function matchAssetSlug(type, slug, pluginLookup, themeLookup) {
   if (!slug) {
     return [];
   }
-  const lookup = type === 'plugin' ? KNOWN_PLUGIN_ASSETS : KNOWN_THEME_ASSETS;
+  const lookup = type === 'plugin' ? pluginLookup : themeLookup;
   return lookup.get(slug) ?? [];
+}
+
+async function getAssetLookups() {
+  const now = Date.now();
+  if (assetLookupCache.expiresAt > now) {
+    return {
+      pluginLookup: assetLookupCache.pluginLookup,
+      themeLookup: assetLookupCache.themeLookup
+    };
+  }
+
+  const [plugins, themes] = await Promise.all([
+    loadPlugins(),
+    loadThemes()
+  ]);
+
+  const pluginLookup = buildAssetLookup(plugins, 'plugin');
+  const themeLookup = buildAssetLookup(themes, 'theme');
+
+  assetLookupCache = {
+    expiresAt: now + ASSET_LOOKUP_CACHE_TTL_MS,
+    pluginLookup,
+    themeLookup
+  };
+
+  return { pluginLookup, themeLookup };
 }
 
 function buildAssetLookup(definitions = [], type) {

@@ -35,9 +35,10 @@ Values from `.env` override the bundled defaults; restart the server after chang
 | ------ | ----------------------------- | ------- |
 | GET    | `/health`                     | Simple status check used by CI/dev scripts. |
 | GET    | `/api/proxy`                  | Fetches `https://<domain>/<endpoint>` with a 15 s timeout and streams the response back to the client. |
-| GET    | `/api/unsupported-plugins`    | Returns the persisted list from `server/data/unsupported-plugins.json`. |
+| GET    | `/api/unsupported-plugins`    | Returns unsupported namespace records persisted in Turso. |
 | POST   | `/api/unsupported-plugins`    | Upserts a namespace/domain pair and stamps `lastDetectedAt`. |
 | POST   | `/api/logs`                   | Accepts structured log events coming from the frontend scan workflow. |
+| GET    | `/api/registry/plugins`       | Public plugin registry payload (`plugins`, `coreNamespaces`) used by scanner matching. |
 | POST   | `/api/logs/rotate`            | Rotates the activity log file and clears the SQLite log table. |
 | GET    | `/api/scan-history`           | Returns previously scanned domains (failed scans hidden by default unless `includeFailed=true`). |
 | GET    | `/api/scan-history/:domain`   | Returns recent scan runs for a domain (failed runs hidden by default unless `includeFailed=true`). |
@@ -46,12 +47,22 @@ Values from `.env` override the bundled defaults; restart the server after chang
 | GET    | `/api/admin/db-snapshot`      | Returns SQLite snapshot (counts, unsupported plugins, homepage asset aggregates, recent logs). |
 | POST   | `/api/admin/db/maintenance`   | Runs WAL checkpoint, integrity check, and VACUUM. |
 | POST   | `/api/admin/activity/prune`   | Prunes `activity_logs` by age/count. |
+| GET    | `/api/admin/plugins`          | Returns known plugin registry entries from Turso. |
+| POST   | `/api/admin/plugins`          | Creates a plugin registry entry. |
+| PUT    | `/api/admin/plugins/:id`      | Updates a plugin registry entry. |
+| DELETE | `/api/admin/plugins/:id`      | Deletes a plugin registry entry. |
+| POST   | `/api/admin/plugins/sort`     | Sorts plugin entries by label and rewrites registry ordering. |
+| GET    | `/api/admin/themes`           | Returns known theme registry entries from Turso. |
+| POST   | `/api/admin/themes`           | Creates a theme registry entry. |
+| PUT    | `/api/admin/themes/:id`       | Updates a theme registry entry. |
+| DELETE | `/api/admin/themes/:id`       | Deletes a theme registry entry. |
+| POST   | `/api/admin/themes/sort`      | Sorts theme entries by label and rewrites registry ordering. |
 
 The proxy attaches a custom user agent (`wp-json-discovery/0.0.1`) to aid vendor rate-limit debugging.
 
 ## Persistence & Logging
 
-- Turso (libSQL) holds `unsupported_plugins`, `unsupported_plugin_domains`, `activity_logs`, plus scan-history tables (`scan_domains`, `scan_runs`).
+- Turso (libSQL) holds `unsupported_plugins`, `unsupported_plugin_domains`, `activity_logs`, scan-history tables (`scan_domains`, `scan_runs`), and known registries (`plugin_registry`, `theme_registry`).
 - `server/data/unsupported-plugins.json` – Legacy file store; automatically imported into SQLite on first boot when the DB table is empty.
 - `server/data/activity.log` – JSONL log containing `proxy.response`, `unsupported_plugins.upserted`, `homepage-scan` (with full asset lists), and custom events from the frontend. `/api/logs/rotate` archives this file and clears the DB table to keep storage small.
 

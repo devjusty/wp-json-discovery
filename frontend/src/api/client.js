@@ -153,3 +153,11 @@ export async function fetchDomainScanHistory(domain, options = {}) {
 
   return result.data;
 }
+
+export async function fetchPluginRegistry() {
+  const result = await request('/api/registry/plugins');
+  if (!result.ok) {
+    throw new Error('Failed to load plugin registry');
+  }
+  return result.data;
+}

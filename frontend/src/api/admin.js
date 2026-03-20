@@ -84,3 +84,53 @@ export async function sortPlugins() {
   }
   return result.data;
 }
+
+export async function fetchThemes() {
+  const result = await request('/api/admin/themes');
+  if (!result.ok) {
+    throw new Error('Unable to load themes');
+  }
+  return result.data;
+}
+
+export async function createTheme(payload) {
+  const result = await request('/api/admin/themes', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+  if (!result.ok) {
+    throw new Error(result.error ?? 'Failed to create theme');
+  }
+  return result.data;
+}
+
+export async function updateTheme(id, payload) {
+  const result = await request(`/api/admin/themes/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload)
+  });
+  if (!result.ok) {
+    throw new Error(result.error ?? 'Failed to update theme');
+  }
+  return result.data;
+}
+
+export async function deleteTheme(id) {
+  const result = await request(`/api/admin/themes/${encodeURIComponent(id)}`, {
+    method: 'DELETE'
+  });
+  if (!result.ok) {
+    throw new Error(result.error ?? 'Failed to delete theme');
+  }
+  return result.data;
+}
+
+export async function sortThemes() {
+  const result = await request('/api/admin/themes/sort', {
+    method: 'POST'
+  });
+  if (!result.ok) {
+    throw new Error(result.error ?? 'Failed to sort themes');
+  }
+  return result.data;
+}

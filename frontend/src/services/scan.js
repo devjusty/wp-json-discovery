@@ -1,4 +1,4 @@
-import { proxyRequest } from '../api/client.js';
+import { fetchPluginRegistry, proxyRequest } from '../api/client.js';
 import { CORE_COLLECTIONS } from '../config/core.js';
 import {
   SUPPORTED_PLUGINS,
@@ -10,6 +10,13 @@ import {
 } from '../utils/format.js';
 
 const MIN_WORDPRESS_VERSION = '6.3.0';
+const REGISTRY_CACHE_TTL_MS = 60 * 1000;
+
+let registryCache = {
+  expiresAt: 0,
+  plugins: SUPPORTED_PLUGINS,
+  coreNamespaces: CORE_NAMESPACES
+};
 const PLUGIN_VERSION_HINTS = {
   woocommerce: { minVersion: '7.0.0', note: 'Older WooCommerce releases often miss security fixes.' },
   yoast: { minVersion: '20.0.0', note: 'Major SEO updates shipped post-20.x.' },
@@ -26,6 +33,7 @@ export async function scanDomain(domainInput) {
   const scanStartedAt = getTimestamp();
 
   const rootStartedAt = getTimestamp();
+  const registry = await loadPluginRegistry();
   const rootResult = await proxyRequest({
     domain,
     endpoint: '/wp-json/'
@@ -119,7 +127,7 @@ export async function scanDomain(domainInput) {
     sitemapProbe,
     robotsProbe
   });
-  const pluginMatches = matchSupportedPlugins(namespaces, routes);
+  const pluginMatches = matchSupportedPlugins(namespaces, routes, registry.plugins);
   const versions = gatherVersionHints({
     rootResult,
     performance,
@@ -127,7 +135,8 @@ export async function scanDomain(domainInput) {
   });
   const unsupportedNamespaces = detectUnsupportedNamespaces(
     namespaces,
-    pluginMatches
+    pluginMatches,
+    registry.coreNamespaces
   );
   const scanCompletedAt = getTimestamp();
   const durationMs = Math.max(0, Math.round(scanCompletedAt - scanStartedAt));
@@ -228,8 +237,8 @@ async function gatherCoreCollections(domain) {
   );
 }
 
-function matchSupportedPlugins(namespaces, routes) {
-  return SUPPORTED_PLUGINS.map((plugin) => {
+function matchSupportedPlugins(namespaces, routes, supportedPlugins = []) {
+  return supportedPlugins.map((plugin) => {
     const matchedNamespaces = plugin.namespaces.filter((namespace) =>
       namespaces.includes(namespace)
     );
@@ -259,9 +268,9 @@ function matchSupportedPlugins(namespaces, routes) {
   }).filter(Boolean);
 }
 
-function detectUnsupportedNamespaces(namespaces, pluginMatches) {
+function detectUnsupportedNamespaces(namespaces, pluginMatches, coreNamespaces = CORE_NAMESPACES) {
   const supportedNamespaces = new Set([
-    ...CORE_NAMESPACES,
+    ...coreNamespaces,
     ...pluginMatches.flatMap(({ namespaces }) => namespaces)
   ]);
 
@@ -274,6 +283,41 @@ function detectUnsupportedNamespaces(namespaces, pluginMatches) {
     seen.add(namespace);
     return true;
   });
+}
+
+async function loadPluginRegistry() {
+  const now = Date.now();
+  if (registryCache.expiresAt > now) {
+    return {
+      plugins: registryCache.plugins,
+      coreNamespaces: registryCache.coreNamespaces
+    };
+  }
+
+  try {
+    const data = await fetchPluginRegistry();
+    const plugins = Array.isArray(data?.plugins) ? data.plugins : SUPPORTED_PLUGINS;
+    const coreNamespaces = Array.isArray(data?.coreNamespaces)
+      ? data.coreNamespaces
+      : CORE_NAMESPACES;
+
+    registryCache = {
+      expiresAt: now + REGISTRY_CACHE_TTL_MS,
+      plugins,
+      coreNamespaces
+    };
+  } catch {
+    registryCache = {
+      expiresAt: now + REGISTRY_CACHE_TTL_MS,
+      plugins: SUPPORTED_PLUGINS,
+      coreNamespaces: CORE_NAMESPACES
+    };
+  }
+
+  return {
+    plugins: registryCache.plugins,
+    coreNamespaces: registryCache.coreNamespaces
+  };
 }
 
 function extractArgs(endpoints = []) {

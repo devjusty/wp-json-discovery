@@ -77,6 +77,14 @@ describe('API routes', () => {
     expect(res.statusCode).not.toEqual(404);
   });
 
+  it('returns public plugin registry payload', async () => {
+    const res = await request(app).get('/api/registry/plugins');
+    expect(res.statusCode).toEqual(200);
+    expect(Array.isArray(res.body.plugins)).toBe(true);
+    expect(Array.isArray(res.body.coreNamespaces)).toBe(true);
+    expect(res.body.plugins.length).toBeGreaterThan(0);
+  });
+
   it('hides failed scans from history by default', async () => {
     await request(app).post('/api/logs').send({
       type: 'scan.complete',
@@ -173,6 +181,15 @@ describe('API routes', () => {
     expect(res.statusCode).toEqual(200);
     expect(res.body).toHaveProperty('totals.activityLogs');
     expect(Array.isArray(res.body.activityLogs)).toBe(true);
+  });
+
+  it('returns seeded admin themes registry', async () => {
+    process.env.ADMIN_ENABLED = 'true';
+    const res = await request(app).get('/api/admin/themes');
+    expect(res.statusCode).toEqual(200);
+    expect(Array.isArray(res.body.themes)).toBe(true);
+    expect(res.body.themes.length).toBeGreaterThan(0);
+    expect(res.body.themes.some((theme) => theme.id === 'astra')).toBe(true);
   });
 
   it('blocks admin snapshot when disabled', async () => {

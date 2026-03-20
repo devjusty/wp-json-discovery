@@ -18,7 +18,18 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { apiRateLimiter } from './middleware/rateLimiter.js';
 import { wrapAsync } from './utils/route.js';
 import { execute, getDb, queryAll, queryOne } from './db/client.js';
-import { assertPluginRegistryReady, loadPlugins, savePlugins, validatePlugin, sortPlugins } from './utils/pluginRegistry.js';
+import {
+  assertPluginRegistryReady,
+  loadPlugins,
+  loadCoreNamespaces,
+  loadThemes,
+  savePlugins,
+  saveThemes,
+  validatePlugin,
+  validateTheme,
+  sortPlugins,
+  sortThemes
+} from './utils/pluginRegistry.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -288,6 +299,15 @@ app.post('/api/logs', wrapAsync(async (req, res) => {
   }
 }));
 
+app.get('/api/registry/plugins', wrapAsync(async (_req, res) => {
+  const plugins = await loadPlugins();
+  const coreNamespaces = await loadCoreNamespaces();
+  res.json({
+    plugins,
+    coreNamespaces
+  });
+}));
+
 app.get('/api/scan-history', wrapAsync(async (req, res) => {
   const includeFailed = parseBooleanQuery(req.query.includeFailed, false);
   const q = typeof req.query.q === 'string' ? req.query.q.trim().toLowerCase() : '';
@@ -524,7 +544,7 @@ app.post('/api/homepage-scan', wrapAsync(async (req, res) => {
       HOMEPAGE_HTML_CAP_BYTES
     );
 
-    const insights = extractHomepageInsights(html);
+    const insights = await extractHomepageInsights(html);
     const assetsForLog = insights.assets
       .map(({ path, type, count, slug, matches = [] }) => ({
         path,
@@ -872,6 +892,110 @@ app.post('/api/admin/plugins/sort', wrapAsync(async (_req, res) => {
   res.json({ plugins: updated });
 }));
 
+app.get('/api/admin/themes', wrapAsync(async (_req, res) => {
+  if (process.env.ADMIN_ENABLED === 'false') {
+    throw new AppError('Admin endpoints are disabled', 403);
+  }
+
+  const themes = await loadThemes();
+  res.json({ themes: sortThemes(themes) });
+}));
+
+app.post('/api/admin/themes', wrapAsync(async (req, res) => {
+  if (process.env.ADMIN_ENABLED === 'false') {
+    throw new AppError('Admin endpoints are disabled', 403);
+  }
+
+  const { theme, errors } = validateTheme(req.body ?? {});
+  if (errors.length) {
+    throw new ValidationError(errors.join(', '));
+  }
+
+  const existing = await loadThemes();
+  if (existing.some((t) => t.id === theme.id)) {
+    throw new ValidationError(`Theme with id "${theme.id}" already exists`);
+  }
+
+  const updated = await saveThemes([...existing, theme]);
+  logSilently('admin.themes.updated', {
+    action: 'create',
+    themeId: theme.id,
+    total: updated.length
+  });
+
+  res.status(201).json({ themes: updated, theme });
+}));
+
+app.put('/api/admin/themes/:id', wrapAsync(async (req, res) => {
+  if (process.env.ADMIN_ENABLED === 'false') {
+    throw new AppError('Admin endpoints are disabled', 403);
+  }
+
+  const themeId = req.params.id;
+  const existing = await loadThemes();
+  const index = existing.findIndex((theme) => theme.id === themeId);
+  if (index === -1) {
+    throw new AppError(`Theme with id "${themeId}" not found`, 404);
+  }
+
+  const { theme, errors } = validateTheme(
+    { ...existing[index], ...req.body, id: themeId },
+    { requireId: false }
+  );
+  if (errors.length) {
+    throw new ValidationError(errors.join(', '));
+  }
+
+  const next = [...existing];
+  next[index] = { ...existing[index], ...theme, id: themeId };
+  const updated = await saveThemes(next);
+
+  logSilently('admin.themes.updated', {
+    action: 'update',
+    themeId,
+    total: updated.length
+  });
+
+  res.json({ themes: updated, theme: next[index] });
+}));
+
+app.delete('/api/admin/themes/:id', wrapAsync(async (req, res) => {
+  if (process.env.ADMIN_ENABLED === 'false') {
+    throw new AppError('Admin endpoints are disabled', 403);
+  }
+
+  const themeId = req.params.id;
+  const existing = await loadThemes();
+  const next = existing.filter((theme) => theme.id !== themeId);
+  if (next.length === existing.length) {
+    throw new AppError(`Theme with id "${themeId}" not found`, 404);
+  }
+
+  const updated = await saveThemes(next);
+  logSilently('admin.themes.updated', {
+    action: 'delete',
+    themeId,
+    total: updated.length
+  });
+
+  res.status(204).json({});
+}));
+
+app.post('/api/admin/themes/sort', wrapAsync(async (_req, res) => {
+  if (process.env.ADMIN_ENABLED === 'false') {
+    throw new AppError('Admin endpoints are disabled', 403);
+  }
+
+  const themes = await loadThemes();
+  const updated = await saveThemes(themes);
+  logSilently('admin.themes.updated', {
+    action: 'sort',
+    total: updated.length
+  });
+
+  res.json({ themes: updated });
+}));
+
 function safeParseJson(raw) {
   if (typeof raw !== 'string') return raw;
   try {
@@ -1008,7 +1132,7 @@ if (!isTestEnv) {
     if (adminEnabled) {
       const pluginRegistry = await assertPluginRegistryReady();
       console.log(
-        `[startup] plugin registry ready: ${pluginRegistry.pluginsPath} (${pluginRegistry.count} plugins)`
+        `[startup] registry ready: ${pluginRegistry.pluginsCount} plugins, ${pluginRegistry.themesCount} themes`
       );
     }
 

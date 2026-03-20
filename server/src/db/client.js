@@ -78,6 +78,37 @@ const MIGRATIONS = [
       `create index if not exists idx_scan_runs_status on scan_runs(status);`,
       `create index if not exists idx_scan_domains_last_scanned on scan_domains(last_scanned_at desc);`
     ]
+  },
+  {
+    version: 4,
+    statements: [
+      `
+      create table if not exists plugin_registry (
+        id text primary key,
+        label text not null,
+        description text not null default '',
+        plugin_url text,
+        namespaces_json text not null default '[]',
+        asset_hints_json text not null default '[]',
+        created_at text not null,
+        updated_at text not null
+      );
+      `,
+      `
+      create table if not exists theme_registry (
+        id text primary key,
+        label text not null,
+        description text not null default '',
+        theme_url text,
+        namespace_hints_json text not null default '[]',
+        path_signals_json text not null default '[]',
+        created_at text not null,
+        updated_at text not null
+      );
+      `,
+      `create index if not exists idx_plugin_registry_label on plugin_registry(label);`,
+      `create index if not exists idx_theme_registry_label on theme_registry(label);`
+    ]
   }
 ];
 

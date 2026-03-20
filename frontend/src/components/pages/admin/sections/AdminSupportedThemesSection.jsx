@@ -3,6 +3,9 @@ import { Card, CardContent, CardHeader } from '../../../atoms/Card.jsx';
 
 function AdminSupportedThemesSection({
   totalThemes,
+  isLoading,
+  isError,
+  errorMessage,
   themeCatalogQuery,
   setThemeCatalogQuery,
   themeCatalogSort,
@@ -23,6 +26,18 @@ function AdminSupportedThemesSection({
           </div>
         </CardHeader>
         <CardContent>
+          {isLoading ? (
+            <p className="card__meta">Loading supported themes…</p>
+          ) : null}
+          {isError ? (
+            <div className="card card--error">
+              <div className="card__content">
+                <p>{errorMessage || 'Unable to load supported themes.'}</p>
+              </div>
+            </div>
+          ) : null}
+          {!isLoading && !isError ? (
+            <>
           <div className="admin-filters">
             <label className="admin-filter-field">
               Search
@@ -93,6 +108,8 @@ function AdminSupportedThemesSection({
           {!filteredSupportedThemes.length ? (
             <p className="card__meta">No supported themes match this filter.</p>
           ) : null}
+            </>
+          ) : null}
         </CardContent>
       </Card>
     </section>
@@ -101,6 +118,9 @@ function AdminSupportedThemesSection({
 
 AdminSupportedThemesSection.propTypes = {
   totalThemes: PropTypes.number,
+  isLoading: PropTypes.bool,
+  isError: PropTypes.bool,
+  errorMessage: PropTypes.string,
   themeCatalogQuery: PropTypes.string.isRequired,
   setThemeCatalogQuery: PropTypes.func.isRequired,
   themeCatalogSort: PropTypes.string.isRequired,
@@ -112,6 +132,9 @@ AdminSupportedThemesSection.propTypes = {
 
 AdminSupportedThemesSection.defaultProps = {
   totalThemes: 0,
+  isLoading: false,
+  isError: false,
+  errorMessage: '',
   filteredSupportedThemes: [],
   expandedThemeId: null
 };

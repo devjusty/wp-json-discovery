@@ -1,6 +1,4 @@
 import { useMemo } from 'react';
-import { SUPPORTED_PLUGINS } from '../../../config/plugins.js';
-import { SUPPORTED_THEMES } from '../../../config/themes.js';
 import {
   deriveDomainsFromUnsupported,
   deriveHeartbeatSeries,
@@ -17,8 +15,10 @@ function useAdminData({
   domainsSort,
   pluginCatalogQuery,
   pluginCatalogSort,
+  supportedPlugins = [],
   themeCatalogQuery,
-  themeCatalogSort
+  themeCatalogSort,
+  supportedThemes = []
 }) {
   const isSnapshotBackedSection = ['domains', 'unsupported', 'logs', 'heartbeat', 'assets'].includes(activeSection);
 
@@ -102,7 +102,7 @@ function useAdminData({
 
   const filteredSupportedPlugins = useMemo(() => {
     const query = pluginCatalogQuery.trim().toLowerCase();
-    const base = SUPPORTED_PLUGINS.filter((plugin) => {
+    const base = supportedPlugins.filter((plugin) => {
       if (!query) return true;
       return (
         (plugin.label ?? '').toLowerCase().includes(query) ||
@@ -120,11 +120,11 @@ function useAdminData({
       return (a.label ?? '').localeCompare(b.label ?? '');
     });
     return sorted;
-  }, [pluginCatalogQuery, pluginCatalogSort]);
+  }, [pluginCatalogQuery, pluginCatalogSort, supportedPlugins]);
 
   const filteredSupportedThemes = useMemo(() => {
     const query = themeCatalogQuery.trim().toLowerCase();
-    const base = SUPPORTED_THEMES.filter((theme) => {
+    const base = supportedThemes.filter((theme) => {
       if (!query) return true;
       return (
         (theme.label ?? '').toLowerCase().includes(query) ||
@@ -142,7 +142,7 @@ function useAdminData({
       return (a.label ?? '').localeCompare(b.label ?? '');
     });
     return sorted;
-  }, [themeCatalogQuery, themeCatalogSort]);
+  }, [themeCatalogQuery, themeCatalogSort, supportedThemes]);
 
   const sqliteFootprintBytes = sumFinite([
     data?.files?.db?.sizeBytes,
