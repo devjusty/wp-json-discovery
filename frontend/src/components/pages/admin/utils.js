@@ -57,6 +57,19 @@ export function formatFullTimestamp(value) {
   });
 }
 
+export function formatCompactTimestamp(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('en-US', {
+    month: '2-digit',
+    day: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
 export function formatWalSummary(walCheckpoint) {
   if (!walCheckpoint) return 'Not run';
   if (walCheckpoint.error) return `Error: ${walCheckpoint.error}`;
@@ -70,12 +83,6 @@ export function formatWalSummary(walCheckpoint) {
   ]
     .filter(Boolean)
     .join(' · ') || 'Completed';
-}
-
-export function sumFinite(values = []) {
-  const finiteValues = values.filter((value) => Number.isFinite(value));
-  if (!finiteValues.length) return null;
-  return finiteValues.reduce((total, value) => total + value, 0);
 }
 
 export function deriveDomainsFromUnsupported(unsupported = []) {

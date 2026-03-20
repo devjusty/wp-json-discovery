@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types';
 import { Card, CardContent, CardHeader } from '../../../atoms/Card.jsx';
 import TrendBadge from '../TrendBadge.jsx';
-import { formatMs } from '../utils.js';
+import { formatFullTimestamp, formatMs } from '../utils.js';
 
 function AdminHeartbeatSection({ data, heartbeatP95Series, heartbeatErrorSeries }) {
   return (
@@ -22,9 +22,13 @@ function AdminHeartbeatSection({ data, heartbeatP95Series, heartbeatErrorSeries 
                 <div className="stat-grid__item">
                   <dt>Window</dt>
                   <dd>
-                    {data.heartbeat.latest.payload?.window?.startedAt || '—'} →{' '}
-                    {data.heartbeat.latest.payload?.window?.endedAt || '—'}
+                    {formatFullTimestamp(data.heartbeat.latest.payload?.window?.startedAt) || '—'} →{' '}
+                    {formatFullTimestamp(data.heartbeat.latest.payload?.window?.endedAt) || '—'}
                   </dd>
+                </div>
+                <div className="stat-grid__item">
+                  <dt>Latest heartbeat</dt>
+                  <dd>{formatFullTimestamp(data.heartbeat.latest.timestamp) || '—'}</dd>
                 </div>
                 <div className="stat-grid__item">
                   <dt>Scans completed</dt>
@@ -59,7 +63,7 @@ function AdminHeartbeatSection({ data, heartbeatP95Series, heartbeatErrorSeries 
 
               <h3 id="admin-heartbeat-errors" style={{ marginTop: '16px' }}>Errors by category</h3>
               {data.heartbeat.latest.payload?.errors?.perCategory?.length ? (
-                <div className="admin-table admin-table--logs">
+                <div className="admin-table admin-table--heartbeat-errors">
                   <div className="admin-table__header">
                     <span>Category</span>
                     <span>Count</span>
@@ -69,7 +73,7 @@ function AdminHeartbeatSection({ data, heartbeatP95Series, heartbeatErrorSeries 
                     <div key={`errcat-${row.category}`} className="admin-table__row">
                       <span>{row.category}</span>
                       <span>{row.count}</span>
-                      <span>{row.ratePerScan}</span>
+                      <span>{Number.isFinite(row.ratePerScan) ? row.ratePerScan.toFixed(2) : '—'}</span>
                     </div>
                   ))}
                 </div>
@@ -79,7 +83,7 @@ function AdminHeartbeatSection({ data, heartbeatP95Series, heartbeatErrorSeries 
 
               <h3 id="admin-heartbeat-failing-domains" style={{ marginTop: '16px' }}>Top failing domains</h3>
               {data.heartbeat.latest.payload?.errors?.topFailingDomains?.length ? (
-                <div className="admin-table admin-table--logs">
+                <div className="admin-table admin-table--heartbeat-failing">
                   <div className="admin-table__header">
                     <span>Domain</span>
                     <span>Count</span>
@@ -97,7 +101,7 @@ function AdminHeartbeatSection({ data, heartbeatP95Series, heartbeatErrorSeries 
 
               <h3 id="admin-heartbeat-unsupported" style={{ marginTop: '16px' }}>Top unsupported namespaces</h3>
               {data.heartbeat.latest.payload?.unsupportedPlugins?.topNamespaces?.length ? (
-                <div className="admin-table admin-table--logs">
+                <div className="admin-table admin-table--heartbeat-unsupported">
                   <div className="admin-table__header">
                     <span>Namespace</span>
                     <span>Count</span>
@@ -121,7 +125,7 @@ function AdminHeartbeatSection({ data, heartbeatP95Series, heartbeatErrorSeries 
 
           <h3 id="admin-heartbeat-recent" style={{ marginTop: '16px' }}>Recent heartbeat events</h3>
           {data?.heartbeat?.recent?.length ? (
-            <div className="admin-table admin-table--logs">
+            <div className="admin-table admin-table--heartbeat-recent">
               <div className="admin-table__header">
                 <span>ID</span>
                 <span>Timestamp</span>
@@ -132,7 +136,7 @@ function AdminHeartbeatSection({ data, heartbeatP95Series, heartbeatErrorSeries 
               {data.heartbeat.recent.map((heartbeat) => (
                 <div key={`heartbeat-${heartbeat.id}`} className="admin-table__row">
                   <span>{heartbeat.id}</span>
-                  <span>{heartbeat.timestamp}</span>
+                  <span>{formatFullTimestamp(heartbeat.timestamp) || '—'}</span>
                   <span>{heartbeat.payload?.scansCompleted ?? '—'}</span>
                   <span>{formatMs(heartbeat.payload?.scanDurationMs?.p95)}</span>
                   <span>{heartbeat.payload?.errors?.total ?? 0}</span>

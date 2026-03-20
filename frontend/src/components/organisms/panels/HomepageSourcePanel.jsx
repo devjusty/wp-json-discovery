@@ -47,7 +47,7 @@ function HomepageSourcePanel({ source }) {
         <StatusBadge label={source.ok ? 'OK' : 'Check'} tone={source.ok ? 'success' : 'warning'} />
       </CardHeader>
       <CardContent>
-        <dl className="stat-grid">
+        <dl className="stat-grid stat-grid--homepage-fetch">
           {rows.map((row) => (
             <div key={row.label} className="stat-grid__item">
               <dt>{row.label}</dt>

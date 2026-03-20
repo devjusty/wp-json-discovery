@@ -63,6 +63,6 @@ Configuration is managed via `.env` files in their respective packages.
 
 *   **Package Manager**: This project uses `pnpm`. Always use `pnpm` instead of `npm` or `yarn` for managing dependencies.
 *   **Component Architecture**: The `frontend` components are organized using the Atomic Design methodology (`atoms`, `molecules`, `organisms`, etc.).
-*   **Plugin Namespaces**: Known WordPress plugin API namespaces are registered in `frontend/src/config/plugins.js`. When a scan discovers a namespace not in this file, the server persists it to SQLite (`server/data/wpjd.sqlite`) and seeds from the legacy `server/data/unsupported-plugins.json`.
+*   **Plugin Namespaces**: Known WordPress plugin API namespaces are registered in `frontend/src/config/plugins.js`. When a scan discovers a namespace not in this file, the server persists it to Turso (configured by `TURSO_DATABASE_URL`) and seeds from the legacy `server/data/unsupported-plugins.json`.
 *   **Logging**: The server records detailed scan activity, performance metrics, homepage asset findings, and errors into a JSONL file located at `server/data/activity.log`. Homepage asset paths are aggregated in Admin and via `pnpm --filter wp-json-discovery-server db:assets` to keep the registry up to date.
 *   **Code Style**: The project uses ESLint to enforce a consistent coding style. Run `pnpm --filter frontend run lint` to check for issues.

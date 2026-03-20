@@ -181,6 +181,7 @@ describe('API routes', () => {
     expect(res.statusCode).toEqual(200);
     expect(res.body).toHaveProperty('totals.activityLogs');
     expect(Array.isArray(res.body.activityLogs)).toBe(true);
+    expect(res.body).toHaveProperty('turso');
   });
 
   it('returns seeded admin themes registry', async () => {

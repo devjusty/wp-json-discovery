@@ -4,10 +4,9 @@ import HomepageInsightsPanel from '../../../organisms/panels/HomepageInsightsPan
 
 function HomepageSection({ homepageResult, homepageDomain }) {
   return (
-    <section className="section">
+    <section className="section homepage-section">
       <div className="grid">
         <HomepageSourcePanel source={homepageResult?.source} />
-        <HomepageJsonPreview data={homepageResult} />
       </div>
       {homepageResult ? (
         <HomepageInsightsPanel
@@ -24,6 +23,7 @@ function HomepageSection({ homepageResult, homepageDomain }) {
           </div>
         </div>
       )}
+      <HomepageJsonPreview data={homepageResult} />
     </section>
   );
 }
@@ -43,7 +43,7 @@ export default HomepageSection;
 function HomepageJsonPreview({ data }) {
   if (!data) {
     return (
-      <div className="card">
+      <div className="card homepage-section__json">
         <div className="card__content">
           <h3>Raw JSON</h3>
           <p className="card__meta">
@@ -55,7 +55,7 @@ function HomepageJsonPreview({ data }) {
   }
 
   return (
-    <div className="card">
+    <div className="card homepage-section__json">
       <div className="card__content">
         <h3>Raw JSON</h3>
         <p className="card__meta">

@@ -37,10 +37,13 @@ function buildInput(overrides = {}) {
           }
         ]
       },
-      files: {
-        db: { sizeBytes: 1000 },
-        wal: { sizeBytes: 250 },
-        shm: { sizeBytes: 100 }
+      files: {},
+      homepageAssets: {
+        unknown: [
+          { path: '/wp-content/plugins/convertkit/dist/app.js', type: 'plugin', occurrences: 2 },
+          { path: '/wp-content/plugins/convertkit/assets/embed.js', type: 'plugin', occurrences: 1 },
+          { path: '/wp-content/themes/astra/style.css', type: 'theme', occurrences: 3 }
+        ]
       }
     },
     activeSection: 'logs',
@@ -48,7 +51,27 @@ function buildInput(overrides = {}) {
     unsupportedNamespacePrefix: 'wc/',
     unsupportedSort: 'domainsDesc',
     domainsQuery: 'alpha',
-    domainsSort: 'namespacesDesc',
+    domainsSort: 'recent',
+    domainHistoryItems: [
+      {
+        domain: 'alpha.com',
+        firstScannedAt: '2026-03-01T00:00:00.000Z',
+        lastScannedAt: '2026-03-19T10:00:00.000Z',
+        lastStatus: 'failed',
+        lastDurationMs: 1200,
+        lastErrorCategory: 'timeout',
+        lastUnsupportedCount: 1
+      },
+      {
+        domain: 'beta.com',
+        firstScannedAt: '2026-03-01T00:00:00.000Z',
+        lastScannedAt: '2026-03-18T10:00:00.000Z',
+        lastStatus: 'success',
+        lastDurationMs: 800,
+        lastErrorCategory: null,
+        lastUnsupportedCount: 0
+      }
+    ],
     pluginCatalogQuery: '',
     pluginCatalogSort: 'labelAsc',
     themeCatalogQuery: '',
@@ -71,7 +94,9 @@ describe('useAdminData', () => {
     expect(result.current.recentScans).toHaveLength(2);
     expect(result.current.heartbeatP95Series).toEqual([900, 1200]);
     expect(result.current.heartbeatErrorSeries).toEqual([1, 3]);
-    expect(result.current.sqliteFootprintBytes).toBe(1350);
+    expect(result.current.unknownPluginAssetHints).toEqual([
+      { slug: 'convertkit', occurrences: 3, pathCount: 2 }
+    ]);
   });
 
   it('handles missing data safely', () => {
@@ -81,6 +106,6 @@ describe('useAdminData', () => {
     expect(result.current.activityLogs).toEqual([]);
     expect(result.current.filteredActivityLogs).toEqual([]);
     expect(result.current.recentScans).toEqual([]);
-    expect(result.current.sqliteFootprintBytes).toBe(null);
+    expect(result.current.unknownPluginAssetHints).toEqual([]);
   });
 });

@@ -1,4 +1,4 @@
-import { appendFile, mkdir, rename, stat } from 'node:fs/promises';
+import { appendFile, mkdir, readdir, rename, stat, unlink } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,6 +24,8 @@ const SUPPRESSION_TYPES = new Set([
 ]);
 const HEARTBEAT_SCAN_INTERVAL = 10;
 const HEARTBEAT_TOP_N = 5;
+const ACTIVITY_ARCHIVE_RETENTION_DAYS = positiveIntegerFromEnv('ACTIVITY_LOG_ARCHIVE_RETENTION_DAYS', 21);
+const ACTIVITY_ARCHIVE_MAX_FILES = positiveIntegerFromEnv('ACTIVITY_LOG_ARCHIVE_MAX_FILES', 30);
 const suppressionState = new Map();
 let heartbeatState = createHeartbeatState();
 let heartbeatBootstrapped = false;
@@ -683,12 +685,13 @@ function compactMeta(meta) {
 
 async function writeToDb(entry) {
   try {
+    const storedPayload = compactPayloadForStorage(entry);
     await execute(
       `
       insert into activity_logs (timestamp, type, payload_json)
       values (?, ?, ?)
     `,
-      [entry.timestamp, entry.type, JSON.stringify(entry.payload ?? {})]
+      [entry.timestamp, entry.type, JSON.stringify(storedPayload)]
     );
     await persistScanHistoryFromLog(entry);
   } catch (error) {
@@ -710,6 +713,10 @@ export async function rotateLog() {
 
   await rename(logFilePath, archivePath);
   await appendFile(logFilePath, '', 'utf-8');
+  const archiveCleanup = await pruneArchivedLogs({
+    keepLatest: ACTIVITY_ARCHIVE_MAX_FILES,
+    olderThanDays: ACTIVITY_ARCHIVE_RETENTION_DAYS
+  });
 
   let rowsCleared = 0;
   try {
@@ -722,8 +729,100 @@ export async function rotateLog() {
   return {
     archivePath,
     archiveName,
-    rowsCleared
+    rowsCleared,
+    archiveCleanup
   };
+}
+
+function compactPayloadForStorage(entry) {
+  const payload = entry?.payload ?? {};
+  if (entry?.type !== 'scan.complete') {
+    return payload;
+  }
+
+  const unsupportedNamespaces = Array.isArray(payload.unsupportedNamespaces)
+    ? payload.unsupportedNamespaces
+    : [];
+  const matchedPlugins = Array.isArray(payload.matchedPlugins)
+    ? payload.matchedPlugins
+    : [];
+
+  return {
+    domain: payload.domain ?? null,
+    failureCategory: payload.failureCategory ?? null,
+    message: payload.message ?? null,
+    metrics: payload.metrics ?? null,
+    snapshotBytes: safeSerializedBytes(payload),
+    snapshot: {
+      domain: payload.domain ?? null,
+      metrics: payload.metrics ?? null,
+      coreSummary: Array.isArray(payload.coreSummary) ? payload.coreSummary : [],
+      unsupportedNamespaces: unsupportedNamespaces.slice(0, 50),
+      matchedPlugins: matchedPlugins.slice(0, 25).map((plugin) => ({
+        id: plugin?.id ?? null,
+        label: plugin?.label ?? null,
+        namespaceCount: Array.isArray(plugin?.matchedNamespaces) ? plugin.matchedNamespaces.length : 0
+      })),
+      notes: {
+        unsupportedNamespacesTruncated: unsupportedNamespaces.length > 50,
+        matchedPluginsTruncated: matchedPlugins.length > 25
+      }
+    }
+  };
+}
+
+function safeSerializedBytes(value) {
+  try {
+    return JSON.stringify(value ?? {}).length;
+  } catch {
+    return null;
+  }
+}
+
+async function pruneArchivedLogs({ keepLatest, olderThanDays }) {
+  const entries = await readdir(dataDir, { withFileTypes: true });
+  const now = Date.now();
+  const cutoffMs = olderThanDays > 0
+    ? now - olderThanDays * 24 * 60 * 60 * 1000
+    : null;
+
+  const archives = await Promise.all(entries
+    .filter((entry) => entry.isFile() && /^activity-.*\.log$/i.test(entry.name))
+    .map(async (entry) => {
+      const filePath = path.join(dataDir, entry.name);
+      const details = await stat(filePath);
+      return {
+        name: entry.name,
+        path: filePath,
+        mtimeMs: details.mtimeMs
+      };
+    }));
+
+  archives.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  const keepCount = Number.isFinite(keepLatest) && keepLatest > 0 ? keepLatest : Number.POSITIVE_INFINITY;
+
+  const toDelete = archives.filter((archive, index) => {
+    const oldByCount = index >= keepCount;
+    const oldByAge = Number.isFinite(cutoffMs) ? archive.mtimeMs < cutoffMs : false;
+    return oldByCount || oldByAge;
+  });
+
+  await Promise.all(toDelete.map((archive) => unlink(archive.path).catch(() => null)));
+
+  return {
+    inspected: archives.length,
+    deleted: toDelete.length,
+    keepLatest: Number.isFinite(keepCount) ? keepCount : null,
+    olderThanDays: Number.isFinite(cutoffMs) ? olderThanDays : null
+  };
+}
+
+function positiveIntegerFromEnv(name, fallback) {
+  const value = Number.parseInt(process.env[name] ?? '', 10);
+  if (Number.isFinite(value) && value > 0) {
+    return value;
+  }
+  return fallback;
 }
 
 async function persistScanHistoryFromLog(entry) {

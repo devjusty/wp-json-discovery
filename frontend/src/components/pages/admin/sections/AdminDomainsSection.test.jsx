@@ -5,12 +5,20 @@ import AdminDomainsSection from './AdminDomainsSection.jsx';
 
 function buildProps(overrides = {}) {
   return {
-    unsupportedEntries: [{ namespace: 'wc/v3', domains: ['alpha.com'] }],
+    totalDomainEntries: 1,
     domainsQuery: '',
     setDomainsQuery: vi.fn(),
-    domainsSort: 'domainAsc',
+    domainsSort: 'recent',
     setDomainsSort: vi.fn(),
-    filteredDomainEntries: [{ domain: 'alpha.com', namespaces: ['wc/v3', 'yoast/v1'] }],
+    filteredDomainEntries: [{
+      domain: 'alpha.com',
+      firstScannedAt: '2026-03-01T10:00:00.000Z',
+      lastScannedAt: '2026-03-02T10:00:00.000Z',
+      lastStatus: 'failed',
+      lastDurationMs: 1234,
+      lastErrorCategory: 'timeout',
+      lastUnsupportedCount: 2
+    }],
     expandedDomainRows: new Set(),
     setExpandedDomainRows: vi.fn(),
     onRescan: vi.fn(),
@@ -41,10 +49,10 @@ describe('AdminDomainsSection', () => {
   it('shows empty copy when no domains are present', () => {
     render(
       <AdminDomainsSection
-        {...buildProps({ unsupportedEntries: [], filteredDomainEntries: [] })}
+        {...buildProps({ totalDomainEntries: 0, filteredDomainEntries: [] })}
       />
     );
 
-    expect(screen.getByText('No domains recorded.')).toBeInTheDocument();
+    expect(screen.getByText('No scanned domains found.')).toBeInTheDocument();
   });
 });

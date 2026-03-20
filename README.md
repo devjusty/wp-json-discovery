@@ -14,7 +14,7 @@ WP JSON Discovery is a Vite-powered React application backed by a lightweight Ex
 - **Robust logging** – JSONL activity log records proxy performance, scan duration, persistence actions, homepage asset findings, and error diagnostics.
 - **Atomic design system** – UI is composed using Brad Frost’s atoms → molecules → organisms → templates → pages to encourage reuse and scalability.
 - **Homepage source scan (opt-in)** – Single GET to `/` (1 MB cap) to extract generators, builder hints, asset paths, and framework signals without crawling sub-resources. Full asset paths are logged for follow-up.
-- **Admin views** – Built-in Admin tab to inspect SQLite persistence (unsupported plugins, recent logs, homepage asset paths) and supported plugin/theme registries.
+- **Admin views** – Built-in Admin tab to inspect Turso-backed persistence (unsupported plugins, recent logs, homepage asset paths) and supported plugin/theme registries.
 
 ---
 
@@ -25,8 +25,8 @@ root/
 ├── server/               # Express proxy + persistence
 │   ├── src/index.js      # REST proxy, unsupported plugin API, logging
 │   ├── src/logger.js     # JSONL logger utility
-│   ├── src/db/           # SQLite client, migrations, maintenance scripts
-│   └── data/             # Persisted unsupported plugin list + logs + SQLite DB
+│   ├── src/db/           # libSQL/Turso client, migrations, maintenance scripts
+│   └── data/             # Persisted unsupported plugin seeds + logs
 └── frontend/             # Vite + React client
     ├── src/
     │   ├── api/          # Client wrappers for proxy + persistence endpoints
@@ -42,7 +42,7 @@ root/
 1. User submits a domain from the frontend.
 2. Client calls the Express proxy (`/api/proxy`) which fetches `https://domain/wp-json/...` with timeouts and logging.
 3. Scan service enumerates namespaces, triggers core collection fetches, and collects plugin route metadata.
-4. Newly detected namespaces without handlers are POSTed to `/api/unsupported-plugins` and persisted to SQLite (seeded from the legacy JSON).
+4. Newly detected namespaces without handlers are POSTed to `/api/unsupported-plugins` and persisted to Turso (seeded from the legacy JSON).
 5. Results render into tables, summaries, plugin panels, and admin views; CSV exports leverage `papaparse`. Homepage scans also capture asset paths plus matches and surface them in Admin for mapping.
 
 ---
@@ -53,7 +53,7 @@ The project now ships with the full WooCommerce, Rank Math, Divi, Health Check, 
 
 1. **Run a scan** via the UI or `POST /api/scan` to reproduce the unsupported namespace.
 2. **Inspect persisted state**:
-   - SQLite: `server/data/wpjd.sqlite` holds `unsupported_plugins` and `activity_logs` (legacy JSON seeds on first run).
+   - Turso: `unsupported_plugins` and `activity_logs` are persisted in the configured `TURSO_DATABASE_URL` (legacy JSON seeds on first run).
    - `server/data/activity.log` – JSONL log with `namespaceDetected`, `unsupportedPersisted`, homepage asset findings, and error entries.
 3. **Research the plugin** using Context7:
    - `pnpm context7 -- "/wordpress/plugins/<namespace>"` (replace with the namespace slug) to retrieve docs, repo links, and usage details.
@@ -95,15 +95,15 @@ pnpm --filter frontend run preview
 
 ### Environment variables
 
-- Copy `server/.env.example` to `server/.env` to override the Express server port (`PORT`), admin toggle, or DB path.
+- Copy `server/.env.example` to `server/.env` to override the Express server port (`PORT`), admin toggle, Turso URL/auth token, or optional Turso API token for Admin metrics.
 - Copy `frontend/.env.example` to `frontend/.env` to point the UI at a non-default proxy (`VITE_API_BASE_URL`).
 - Without overrides the proxy listens on `4100` and the frontend targets `http://localhost:4100`.
 
 ### Logs & persistence
 
 - `server/data/activity.log` – JSONL event log (rotate when >1 MB).
-- `server/data/wpjd.sqlite` – SQLite database for unsupported plugins and activity logs (seeded from legacy JSON). Use `pnpm --filter wp-json-discovery-server db:assets` to summarize homepage asset paths and unknown matches.
-- `server/data/unsupported-plugins.json` – Legacy file store (auto-seeded into SQLite on first access).
+- Turso (libSQL) stores unsupported plugins, domains, activity logs, scan history, and registries (seeded from legacy JSON). Use `pnpm --filter wp-json-discovery-server db:assets` to summarize homepage asset paths and unknown matches.
+- `server/data/unsupported-plugins.json` – Legacy file store (auto-seeded into Turso on first access).
 - `frontend/src/config/plugins.js` – Source of truth for supported namespaces.
 - `frontend/src/config/themes.js` – Source of truth for supported themes and detection signals.
 - `homepage-scan` log entries include status, size, cap, truncate flag, and counts for meta/comments/scripts/assets/frameworks plus full asset lists for debugging.

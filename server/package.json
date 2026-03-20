@@ -9,8 +9,6 @@
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "db:inspect": "node src/db/inspect.js",
     "db:assets": "node src/db/list-assets.js",
-    "db:vacuum": "node src/db/vacuum.js",
-    "db:backup": "node src/db/backup.js",
     "db:import:logs": "node src/db/import-logs.js"
   },
   "dependencies": {

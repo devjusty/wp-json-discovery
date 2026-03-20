@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types';
 import { Card, CardContent, CardHeader } from '../../../atoms/Card.jsx';
+import Button from '../../../atoms/Button.jsx';
 import { formatFullTimestamp, formatShortDate } from '../utils.js';
 
 function AdminUnsupportedSection({
@@ -8,7 +9,9 @@ function AdminUnsupportedSection({
   setUnsupportedNamespacePrefix,
   unsupportedSort,
   setUnsupportedSort,
-  filteredUnsupportedEntries
+  filteredUnsupportedEntries,
+  unknownPluginAssetHints,
+  onCreatePluginFromAsset
 }) {
   return (
     <section className="section">
@@ -20,6 +23,42 @@ function AdminUnsupportedSection({
           </div>
         </CardHeader>
         <CardContent>
+          <p className="card__meta">
+            Namespace-based unsupported plugins and homepage asset-only plugin signals are tracked separately.
+          </p>
+
+          <h3>Asset-only plugin signals</h3>
+          {unknownPluginAssetHints.length ? (
+            <div className="admin-table admin-table--compact">
+              <div className="admin-table__header">
+                <span>Plugin slug</span>
+                <span>Occurrences</span>
+                <span>Paths</span>
+                <span>Action</span>
+              </div>
+              {unknownPluginAssetHints.map((asset) => (
+                <div key={asset.slug} className="admin-table__row">
+                  <span>{asset.slug}</span>
+                  <span>{asset.occurrences}</span>
+                  <span>{asset.pathCount}</span>
+                  <span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onCreatePluginFromAsset(asset.slug)}
+                    >
+                      Create plugin entry
+                    </Button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="card__meta">No unknown plugin asset signals currently detected.</p>
+          )}
+
+          <h3 style={{ marginTop: '16px' }}>Namespace unsupported plugins</h3>
           {unsupportedEntries.length ? (
             <>
               <div className="admin-filters">
@@ -89,12 +128,15 @@ AdminUnsupportedSection.propTypes = {
   setUnsupportedNamespacePrefix: PropTypes.func.isRequired,
   unsupportedSort: PropTypes.string.isRequired,
   setUnsupportedSort: PropTypes.func.isRequired,
-  filteredUnsupportedEntries: PropTypes.array
+  filteredUnsupportedEntries: PropTypes.array,
+  unknownPluginAssetHints: PropTypes.array,
+  onCreatePluginFromAsset: PropTypes.func.isRequired
 };
 
 AdminUnsupportedSection.defaultProps = {
   unsupportedEntries: [],
-  filteredUnsupportedEntries: []
+  filteredUnsupportedEntries: [],
+  unknownPluginAssetHints: []
 };
 
 export default AdminUnsupportedSection;

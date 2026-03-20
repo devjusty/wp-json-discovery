@@ -1,14 +1,17 @@
+import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { Card, CardContent, CardHeader } from '../../../atoms/Card.jsx';
 import Button from '../../../atoms/Button.jsx';
 import ActivityLogsTable from '../ActivityLogsTable.jsx';
-import { formatBytes, formatFullTimestamp } from '../utils.js';
+import {
+  formatBytes,
+  formatCompactTimestamp,
+  formatFullTimestamp
+} from '../utils.js';
 
 function AdminDbSection({
   data,
-  pruneMutation,
   snapshotQuery,
-  sqliteFootprintBytes,
   setActiveSection,
   recentScans,
   expandedScanIds,
@@ -22,6 +25,29 @@ function AdminDbSection({
   expandedLogIds,
   setExpandedLogIds
 }) {
+  const [copiedSnapshotKey, setCopiedSnapshotKey] = useState('');
+  const isRemoteDb = /^(libsql|https?|wss?):\/\//i.test(data.dbPath ?? '');
+  const hasActivityLogSize = Number.isFinite(data.files?.activityLog?.sizeBytes);
+  const turso = data.turso;
+  const tursoStats = turso?.stats?.data;
+  const tursoUsage = turso?.orgUsage?.data;
+  const tursoInstanceSummary = turso?.instances?.summary;
+
+  const handleCopySnapshot = async (key, snapshot) => {
+    if (!navigator?.clipboard) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(snapshot, null, 2));
+      setCopiedSnapshotKey(key);
+      window.setTimeout(() => {
+        setCopiedSnapshotKey((current) => (current === key ? '' : current));
+      }, 1500);
+    } catch {
+      setCopiedSnapshotKey('');
+    }
+  };
+
   return (
     <>
       <section className="section">
@@ -31,11 +57,9 @@ function AdminDbSection({
               <div>
                 <h2 id="admin-db-database">Database</h2>
                 <p className="card__meta">{data.dbPath}</p>
-                {pruneMutation.data ? (
-                  <p className="card__meta">
-                    Pruned {pruneMutation.data.prunedByAge + pruneMutation.data.prunedByCount} rows · Remaining: {pruneMutation.data.remaining}
-                  </p>
-                ) : null}
+                <p className="card__meta">
+                  {isRemoteDb ? 'Turso database endpoint' : 'Local database path'}
+                </p>
               </div>
               <div className="card__actions">
                 <span className="tooltip">
@@ -63,7 +87,7 @@ function AdminDbSection({
                 </li>
                 <li className="pill">
                   <button type="button" className="pill__link" onClick={() => setActiveSection('domains')}>
-                    Domains tracked: {data.totals?.unsupportedPluginDomains ?? 0}
+                    Domains tracked: {data.totals?.scanDomains ?? data.totals?.unsupportedPluginDomains ?? 0}
                   </button>
                 </li>
                 <li className="pill">
@@ -73,14 +97,12 @@ function AdminDbSection({
                 </li>
               </ul>
               <div className="stat-grid">
-                <div className="stat-grid__item">
-                  <dt>DB size</dt>
-                  <dd>{formatBytes(data.files?.db?.sizeBytes)}</dd>
-                </div>
-                <div className="stat-grid__item">
-                  <dt>Activity log</dt>
-                  <dd>{formatBytes(data.files?.activityLog?.sizeBytes)}</dd>
-                </div>
+                {hasActivityLogSize ? (
+                  <div className="stat-grid__item">
+                    <dt>Activity log size</dt>
+                    <dd>{formatBytes(data.files?.activityLog?.sizeBytes)}</dd>
+                  </div>
+                ) : null}
               </div>
             </CardContent>
           </Card>
@@ -95,27 +117,77 @@ function AdminDbSection({
             <CardContent>
               <div className="stat-grid">
                 <div className="stat-grid__item">
-                  <dt>SQLite footprint</dt>
-                  <dd>{formatBytes(sqliteFootprintBytes)}</dd>
+                  <dt>{isRemoteDb ? 'Turso endpoint' : 'Database file'}</dt>
+                  <dd>{data.dbPath || '—'}</dd>
                 </div>
-                <div className="stat-grid__item">
-                  <dt>DB / WAL / SHM</dt>
-                  <dd>
-                    {formatBytes(data.files?.db?.sizeBytes)} / {formatBytes(data.files?.wal?.sizeBytes)} / {formatBytes(data.files?.shm?.sizeBytes)}
-                  </dd>
-                </div>
-                <div className="stat-grid__item">
-                  <dt>Activity log size</dt>
-                  <dd>{formatBytes(data.files?.activityLog?.sizeBytes)}</dd>
-                </div>
+                {isRemoteDb ? (
+                  <>
+                    <div className="stat-grid__item">
+                      <dt>Turso health</dt>
+                      <dd>
+                        {turso?.health?.ok
+                          ? 'Healthy'
+                          : turso?.health?.error
+                            ? `Unavailable (${turso.health.error})`
+                            : 'Unavailable'}
+                      </dd>
+                    </div>
+                    <div className="stat-grid__item">
+                      <dt>Active connections</dt>
+                      <dd>{formatNumber(tursoStats?.active_connections)}</dd>
+                    </div>
+                    <div className="stat-grid__item">
+                      <dt>Queries / second</dt>
+                      <dd>{formatRate(tursoStats?.queries_per_second)}</dd>
+                    </div>
+                    <div className="stat-grid__item">
+                      <dt>Rows read / second</dt>
+                      <dd>{formatRate(tursoStats?.rows_read_per_second)}</dd>
+                    </div>
+                    <div className="stat-grid__item">
+                      <dt>Rows written / second</dt>
+                      <dd>{formatRate(tursoStats?.rows_written_per_second)}</dd>
+                    </div>
+                    <div className="stat-grid__item">
+                      <dt>Turso storage</dt>
+                      <dd>{formatBytes(tursoStats?.storage_bytes)}</dd>
+                    </div>
+                    <div className="stat-grid__item">
+                      <dt>Org requests ({tursoUsage?.period || 'period'})</dt>
+                      <dd>{formatNumber(tursoUsage?.total_requests)}</dd>
+                    </div>
+                    <div className="stat-grid__item">
+                      <dt>Org DB bytes</dt>
+                      <dd>{formatBytes(tursoUsage?.database_bytes)}</dd>
+                    </div>
+                    <div className="stat-grid__item">
+                      <dt>Org DB rows</dt>
+                      <dd>{formatNumber(tursoUsage?.database_rows)}</dd>
+                    </div>
+                    <div className="stat-grid__item">
+                      <dt>Instances</dt>
+                      <dd>{formatNumber(tursoInstanceSummary?.total)}</dd>
+                    </div>
+                    <div className="stat-grid__item">
+                      <dt>Primary region</dt>
+                      <dd>{tursoInstanceSummary?.primaryRegion || '—'}</dd>
+                    </div>
+                    <div className="stat-grid__item">
+                      <dt>Replica regions</dt>
+                      <dd>{formatRegionList(tursoInstanceSummary?.replicaRegions)}</dd>
+                    </div>
+                  </>
+                ) : null}
                 <div className="stat-grid__item">
                   <dt>Last heartbeat</dt>
                   <dd>{formatFullTimestamp(data.heartbeat?.latest?.timestamp) || '—'}</dd>
                 </div>
-                <div className="stat-grid__item">
-                  <dt>Last log rotation</dt>
-                  <dd>{formatFullTimestamp(data.logs?.lastRotatedAt) || '—'}</dd>
-                </div>
+                {data.logs?.lastRotatedAt ? (
+                  <div className="stat-grid__item">
+                    <dt>Last log rotation</dt>
+                    <dd>{formatFullTimestamp(data.logs?.lastRotatedAt) || '—'}</dd>
+                  </div>
+                ) : null}
                 <div className="stat-grid__item">
                   <dt>Last prune</dt>
                   <dd>{formatFullTimestamp(data.logs?.lastPrunedAt) || '—'}</dd>
@@ -136,7 +208,7 @@ function AdminDbSection({
             <div>
               <h2 id="admin-db-scans">Recent scans</h2>
               <p className="card__meta">
-                Last 10 scan events from the activity log. Full snapshots are stored in log payloads.
+                Last 10 scan events from the activity log. Compact scan snapshots are retained for quick inspection.
               </p>
             </div>
           </CardHeader>
@@ -177,7 +249,7 @@ function AdminDbSection({
                       >
                         {log.payload?.domain}
                       </button>
-                      <span>{log.timestamp}</span>
+                      <span>{formatCompactTimestamp(log.timestamp) || '—'}</span>
                       <span>{log.payload?.metrics?.namespacesCount ?? '—'}</span>
                       <span>{log.payload?.metrics?.plugins?.matchedCount ?? '—'}</span>
                       <span>
@@ -197,7 +269,17 @@ function AdminDbSection({
                             <strong>Snapshot size:</strong>{' '}
                             {log.payload?.snapshotBytes ?? JSON.stringify(snapshot).length} bytes
                           </p>
-                          <code className="code-block">
+                          <div className="button-group">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleCopySnapshot(key, snapshot)}
+                            >
+                              {copiedSnapshotKey === key ? 'Copied' : 'Copy JSON'}
+                            </Button>
+                          </div>
+                          <code className="code-block admin-table__details-code">
                             {JSON.stringify(snapshot, null, 2)}
                           </code>
                         </div>
@@ -215,29 +297,31 @@ function AdminDbSection({
 
       <section className="section">
         <Card>
-          <CardHeader>
+          <CardHeader className="card__header--row">
             <div>
               <h2 id="admin-db-activity">Recent activity logs</h2>
               <p className="card__meta">Most recent entries (up to 75).</p>
             </div>
+            {activityLogs.length ? (
+              <div className="card__actions">
+                <label className="admin-filter-field admin-filter-field--compact">
+                  Type
+                  <select
+                    value={logTypeFilter}
+                    onChange={(event) => setLogTypeFilter(event.target.value)}
+                  >
+                    <option value="all">All</option>
+                    {logTypes.map((type) => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            ) : null}
           </CardHeader>
           <CardContent>
             {activityLogs.length ? (
               <>
-                <div className="admin-filters">
-                  <label className="admin-filter-field">
-                    Type
-                    <select
-                      value={logTypeFilter}
-                      onChange={(event) => setLogTypeFilter(event.target.value)}
-                    >
-                      <option value="all">All</option>
-                      {logTypes.map((type) => (
-                        <option key={type} value={type}>{type}</option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
                 <ActivityLogsTable
                   logs={filteredActivityLogs}
                   expandedLogIds={expandedLogIds}
@@ -264,11 +348,27 @@ function AdminDbSection({
   );
 }
 
+function formatNumber(value) {
+  if (!Number.isFinite(value)) return '—';
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value);
+}
+
+function formatRate(value) {
+  if (!Number.isFinite(value)) return '—';
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  }).format(value);
+}
+
+function formatRegionList(value = []) {
+  if (!Array.isArray(value) || value.length === 0) return '—';
+  return value.join(', ');
+}
+
 AdminDbSection.propTypes = {
   data: PropTypes.object.isRequired,
-  pruneMutation: PropTypes.object.isRequired,
   snapshotQuery: PropTypes.object.isRequired,
-  sqliteFootprintBytes: PropTypes.number,
   setActiveSection: PropTypes.func.isRequired,
   recentScans: PropTypes.array,
   expandedScanIds: PropTypes.instanceOf(Set).isRequired,
@@ -284,7 +384,6 @@ AdminDbSection.propTypes = {
 };
 
 AdminDbSection.defaultProps = {
-  sqliteFootprintBytes: null,
   recentScans: [],
   activityLogs: [],
   logTypes: [],

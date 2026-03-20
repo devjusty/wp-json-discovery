@@ -1,8 +1,6 @@
 import { useMemo } from 'react';
 import {
-  deriveDomainsFromUnsupported,
-  deriveHeartbeatSeries,
-  sumFinite
+  deriveHeartbeatSeries
 } from './utils.js';
 
 function useAdminData({
@@ -11,6 +9,7 @@ function useAdminData({
   logTypeFilter,
   unsupportedNamespacePrefix,
   unsupportedSort,
+  domainHistoryItems = [],
   domainsQuery,
   domainsSort,
   pluginCatalogQuery,
@@ -20,7 +19,7 @@ function useAdminData({
   themeCatalogSort,
   supportedThemes = []
 }) {
-  const isSnapshotBackedSection = ['domains', 'unsupported', 'logs', 'heartbeat', 'assets'].includes(activeSection);
+  const isSnapshotBackedSection = ['unsupported', 'logs', 'heartbeat', 'assets'].includes(activeSection);
 
   const activityLogs = useMemo(
     () => data?.activityLogs ?? [],
@@ -61,22 +60,22 @@ function useAdminData({
 
   const filteredDomainEntries = useMemo(() => {
     const query = domainsQuery.trim().toLowerCase();
-    const base = deriveDomainsFromUnsupported(unsupportedEntries).filter((entry) => {
+    const base = domainHistoryItems.filter((entry) => {
       if (!query) return true;
       return entry.domain.toLowerCase().includes(query);
     });
     const sorted = [...base];
     sorted.sort((a, b) => {
-      if (domainsSort === 'namespacesDesc') {
-        return b.namespaces.length - a.namespaces.length;
+      if (domainsSort === 'domainAsc') {
+        return a.domain.localeCompare(b.domain);
       }
-      if (domainsSort === 'namespacesAsc') {
-        return a.namespaces.length - b.namespaces.length;
+      if (domainsSort === 'status') {
+        return (b.lastStatus ?? '').localeCompare(a.lastStatus ?? '');
       }
-      return a.domain.localeCompare(b.domain);
+      return Date.parse(b.lastScannedAt ?? '') - Date.parse(a.lastScannedAt ?? '');
     });
     return sorted;
-  }, [unsupportedEntries, domainsQuery, domainsSort]);
+  }, [domainHistoryItems, domainsQuery, domainsSort]);
 
   const recentScans = useMemo(() => {
     if (!data?.activityLogs?.length) return [];
@@ -144,11 +143,40 @@ function useAdminData({
     return sorted;
   }, [themeCatalogQuery, themeCatalogSort, supportedThemes]);
 
-  const sqliteFootprintBytes = sumFinite([
-    data?.files?.db?.sizeBytes,
-    data?.files?.wal?.sizeBytes,
-    data?.files?.shm?.sizeBytes
-  ]);
+  const unknownPluginAssetHints = useMemo(() => {
+    const unknownAssets = data?.homepageAssets?.unknown ?? [];
+    const bySlug = new Map();
+
+    unknownAssets.forEach((asset) => {
+      if (asset?.type !== 'plugin' || typeof asset?.path !== 'string') {
+        return;
+      }
+
+      const match = asset.path.match(/\/wp-content\/plugins\/([^/]+)/i);
+      if (!match?.[1]) {
+        return;
+      }
+
+      const slug = match[1].toLowerCase();
+      const existing = bySlug.get(slug) ?? {
+        slug,
+        occurrences: 0,
+        paths: new Set()
+      };
+
+      existing.occurrences += Number.isFinite(asset.occurrences) ? asset.occurrences : 1;
+      existing.paths.add(asset.path);
+      bySlug.set(slug, existing);
+    });
+
+    return Array.from(bySlug.values())
+      .map((entry) => ({
+        slug: entry.slug,
+        occurrences: entry.occurrences,
+        pathCount: entry.paths.size
+      }))
+      .sort((a, b) => b.occurrences - a.occurrences || a.slug.localeCompare(b.slug));
+  }, [data]);
 
   return {
     isSnapshotBackedSection,
@@ -164,7 +192,7 @@ function useAdminData({
     heartbeatErrorSeries,
     filteredSupportedPlugins,
     filteredSupportedThemes,
-    sqliteFootprintBytes
+    unknownPluginAssetHints
   };
 }
 

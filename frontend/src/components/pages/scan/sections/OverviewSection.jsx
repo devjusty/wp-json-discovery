@@ -23,10 +23,10 @@ function OverviewSection({ scanResult, homepageDomain, homepageResult }) {
       />
       <section className="section">
         <div className="grid">
-          <ExposurePanel exposure={scanResult.exposure} />
           <PerformancePanel performance={scanResult.performance} />
           <ContentOverviewPanel overview={scanResult.contentOverview} />
           <VersionPanel versions={scanResult.versions} />
+          <ExposurePanel exposure={scanResult.exposure} />
         </div>
       </section>
     </>

@@ -1,6 +1,12 @@
 import PropTypes from 'prop-types';
 import Button from '../../atoms/Button.jsx';
-import { getPayloadSize, serializePayload, truncateText } from './utils.js';
+import {
+  formatCompactTimestamp,
+  formatFullTimestamp,
+  getPayloadSize,
+  serializePayload,
+  truncateText
+} from './utils.js';
 
 function ActivityLogsTable({ logs, expandedLogIds, onToggle }) {
   return (
@@ -19,7 +25,12 @@ function ActivityLogsTable({ logs, expandedLogIds, onToggle }) {
         return (
           <div key={log.id} className="admin-table__row admin-table__row--expandable">
             <span>{log.id}</span>
-            <span>{log.timestamp}</span>
+            <span className="tooltip">
+              {formatCompactTimestamp(log.timestamp) || '—'}
+              <span className="tooltip__content">
+                {formatFullTimestamp(log.timestamp) || log.timestamp || '—'}
+              </span>
+            </span>
             <span>{log.type}</span>
             <span>{payloadBytes}</span>
             <span className="admin-log-preview">

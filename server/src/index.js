@@ -51,6 +51,9 @@ app.use(morgan('dev'));
 const PROXY_CACHE_TTL_MS = 10 * 60 * 1000;
 const PROXY_CACHE_MAX_ENTRIES = 200;
 const PROXY_CACHE_MAX_PAYLOAD_BYTES = 750 * 1024;
+const PROXY_RESPONSE_SAMPLE_RATE = 20;
+const PROXY_RESPONSE_SLOW_MS = 1500;
+const TURSO_API_BASE_URL = 'https://api.turso.tech';
 const proxyCache = new Map();
 
 app.use('/api', apiRateLimiter);
@@ -126,17 +129,28 @@ app.get('/api/proxy', wrapAsync(async (req, res) => {
     const payload = await response.text();
     const durationMs = Date.now() - startedAt;
 
-    logSilently('proxy.response', {
+    const proxyLogReason = getProxyResponseLogReason({
       domain: sanitizedDomain,
       endpoint: normalizedEndpoint,
-      targetUrl,
-      finalUrl,
       status: response.status,
       redirects,
-      durationMs,
-      contentType,
-      bytes: payload.length
+      durationMs
     });
+
+    if (proxyLogReason) {
+      logSilently('proxy.response', {
+        domain: sanitizedDomain,
+        endpoint: normalizedEndpoint,
+        targetUrl,
+        finalUrl,
+        status: response.status,
+        redirects,
+        durationMs,
+        contentType,
+        bytes: payload.length,
+        reason: proxyLogReason
+      });
+    }
 
     res.status(response.status);
     res.set('x-wpjd-upstream-status', String(response.status));
@@ -238,6 +252,39 @@ function maybeWriteProxyCache({
       proxyCache.delete(oldestKey);
     }
   }
+}
+
+function getProxyResponseLogReason({ domain, endpoint, status, redirects, durationMs }) {
+  if (!Number.isFinite(status)) {
+    return 'unknown_status';
+  }
+
+  if (status >= 400) {
+    return 'upstream_error';
+  }
+
+  if (Number.isFinite(durationMs) && durationMs >= PROXY_RESPONSE_SLOW_MS) {
+    return 'slow_response';
+  }
+
+  if (Number.isFinite(redirects) && redirects > 0) {
+    return 'redirected';
+  }
+
+  const bucket = stableHash(`${domain}:${endpoint}:${status}`) % PROXY_RESPONSE_SAMPLE_RATE;
+  if (bucket === 0) {
+    return 'sampled';
+  }
+
+  return null;
+}
+
+function stableHash(value = '') {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+  return hash;
 }
 
 app.get('/api/unsupported-plugins', wrapAsync(async (_req, res) => {
@@ -638,16 +685,18 @@ app.get('/api/admin/db-snapshot', wrapAsync(async (req, res) => {
 
   const db = await getDb();
 
-  const [unsupportedPluginsTotal, unsupportedDomainsTotal, activityLogsTotal] = await Promise.all([
+  const [unsupportedPluginsTotal, unsupportedDomainsTotal, activityLogsTotal, scanDomainsTotal] = await Promise.all([
     queryOne('select count(1) as count from unsupported_plugins'),
     queryOne('select count(1) as count from unsupported_plugin_domains'),
-    queryOne('select count(1) as count from activity_logs')
+    queryOne('select count(1) as count from activity_logs'),
+    queryOne('select count(1) as count from scan_domains')
   ]);
 
   const totals = {
     unsupportedPlugins: Number(unsupportedPluginsTotal?.count ?? 0),
     unsupportedPluginDomains: Number(unsupportedDomainsTotal?.count ?? 0),
-    activityLogs: Number(activityLogsTotal?.count ?? 0)
+    activityLogs: Number(activityLogsTotal?.count ?? 0),
+    scanDomains: Number(scanDomainsTotal?.count ?? 0)
   };
 
   const activityLogs = (await queryAll(
@@ -681,6 +730,10 @@ app.get('/api/admin/db-snapshot', wrapAsync(async (req, res) => {
   const files = await collectStorageStats(dbUrl, db.__meta?.isRemote !== false);
   const homepageAssets = aggregateHomepageAssets(activityLogs);
   const logs = await summarizeLogTimestamps(files);
+  const turso = await collectTursoDiagnostics({
+    dbUrl,
+    isRemote: db.__meta?.isRemote !== false
+  });
 
   res.json({
     dbPath: dbUrl,
@@ -693,7 +746,8 @@ app.get('/api/admin/db-snapshot', wrapAsync(async (req, res) => {
     },
     files,
     homepageAssets,
-    logs
+    logs,
+    turso
   });
 }));
 
@@ -1079,10 +1133,181 @@ async function summarizeLogTimestamps(files) {
     lastPrunedAt: lastPrune?.timestamp ?? null,
     lastMaintenanceAt: lastMaintenance?.payload_json ? safeParseJson(lastMaintenance.payload_json)?.maintenanceAt ?? lastMaintenance.timestamp : null,
     activityLogSize: files?.activityLog?.sizeBytes ?? null,
-    dbSize: files?.db?.sizeBytes ?? null,
-    walSize: files?.wal?.sizeBytes ?? null,
-    shmSize: files?.shm?.sizeBytes ?? null
+    dbSize: files?.db?.sizeBytes ?? null
   };
+}
+
+async function collectTursoDiagnostics({ dbUrl, isRemote }) {
+  if (!isRemote) {
+    return {
+      enabled: false,
+      reason: 'local_database',
+      checkedAt: new Date().toISOString()
+    };
+  }
+
+  const parsed = parseTursoDatabaseRef(dbUrl);
+  const organization = process.env.TURSO_ORGANIZATION ?? parsed?.organization ?? null;
+  const database = process.env.TURSO_DATABASE_NAME ?? parsed?.database ?? null;
+  const hostname = parsed?.hostname ?? null;
+
+  const dbToken = process.env.TURSO_AUTH_TOKEN;
+  const apiToken = process.env.TURSO_API_TOKEN ?? process.env.TURSO_PLATFORM_API_TOKEN ?? null;
+
+  const health = await fetchTursoDatabaseHealth({ hostname, dbToken });
+
+  if (!apiToken) {
+    return {
+      enabled: false,
+      reason: 'missing_api_token',
+      checkedAt: new Date().toISOString(),
+      source: {
+        organization,
+        database,
+        hostname
+      },
+      health
+    };
+  }
+
+  if (!organization || !database) {
+    return {
+      enabled: false,
+      reason: 'missing_database_identifier',
+      checkedAt: new Date().toISOString(),
+      source: {
+        organization,
+        database,
+        hostname
+      },
+      health
+    };
+  }
+
+  const [statsResult, orgUsageResult, instancesResult] = await Promise.allSettled([
+    fetchTursoControlPlane(`/v1/organizations/${encodeURIComponent(organization)}/databases/${encodeURIComponent(database)}/stats`, apiToken),
+    fetchTursoControlPlane(`/v1/organizations/${encodeURIComponent(organization)}/usage`, apiToken),
+    fetchTursoControlPlane(`/v1/organizations/${encodeURIComponent(organization)}/databases/${encodeURIComponent(database)}/instances`, apiToken)
+  ]);
+
+  const statsData = settledJson(statsResult);
+  const orgUsageData = settledJson(orgUsageResult);
+  const instancesData = settledJson(instancesResult);
+  const instances = Array.isArray(instancesData?.instances) ? instancesData.instances : [];
+
+  return {
+    enabled: true,
+    checkedAt: new Date().toISOString(),
+    source: {
+      organization,
+      database,
+      hostname
+    },
+    health,
+    stats: {
+      data: statsData?.stats ?? null,
+      error: settledError(statsResult)
+    },
+    orgUsage: {
+      data: orgUsageData ?? null,
+      error: settledError(orgUsageResult)
+    },
+    instances: {
+      data: instances,
+      error: settledError(instancesResult),
+      summary: {
+        total: instances.length,
+        primaryRegion: instances.find((instance) => instance?.primary)?.region ?? null,
+        replicaRegions: Array.from(new Set(instances.filter((instance) => !instance?.primary).map((instance) => instance?.region).filter(Boolean))).sort()
+      }
+    }
+  };
+}
+
+function parseTursoDatabaseRef(dbUrl) {
+  if (typeof dbUrl !== 'string' || !dbUrl.startsWith('libsql://')) {
+    return null;
+  }
+
+  try {
+    const normalized = dbUrl.replace(/^libsql:\/\//, 'https://');
+    const parsedUrl = new URL(normalized);
+    const hostname = parsedUrl.hostname;
+    const left = hostname.replace(/\.turso\.io$/i, '');
+    const splitIndex = left.lastIndexOf('-');
+    if (splitIndex <= 0 || splitIndex >= left.length - 1) {
+      return { hostname, database: null, organization: null };
+    }
+
+    return {
+      hostname,
+      database: left.slice(0, splitIndex),
+      organization: left.slice(splitIndex + 1)
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchTursoDatabaseHealth({ hostname, dbToken }) {
+  if (!hostname) {
+    return {
+      ok: false,
+      statusCode: null,
+      checkedAt: new Date().toISOString(),
+      error: 'missing_hostname'
+    };
+  }
+
+  try {
+    const response = await fetch(`https://${hostname}/health`, {
+      headers: dbToken
+        ? { Authorization: `Bearer ${dbToken}` }
+        : undefined
+    });
+    return {
+      ok: response.ok,
+      statusCode: response.status,
+      checkedAt: new Date().toISOString(),
+      error: response.ok ? null : `http_${response.status}`
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      statusCode: null,
+      checkedAt: new Date().toISOString(),
+      error: error.message
+    };
+  }
+}
+
+async function fetchTursoControlPlane(pathname, token) {
+  const response = await fetch(`${TURSO_API_BASE_URL}${pathname}`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`turso_api_${response.status}:${body.slice(0, 200)}`);
+  }
+
+  return response.json();
+}
+
+function settledJson(result) {
+  if (!result || result.status !== 'fulfilled') {
+    return null;
+  }
+  return result.value;
+}
+
+function settledError(result) {
+  if (!result || result.status !== 'rejected') {
+    return null;
+  }
+  return result.reason?.message ?? 'request_failed';
 }
 
 async function collectStorageStats(dbPath, isRemote = true) {
@@ -1095,9 +1320,7 @@ async function collectStorageStats(dbPath, isRemote = true) {
     activityLog: {
       path: path.join(__dirname, 'data', 'activity.log'),
       sizeBytes: null
-    },
-    wal: null,
-    shm: null
+    }
   };
 
   if (isRemote) {

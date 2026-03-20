@@ -34,6 +34,7 @@ function ScanPage({ headerActions }) {
 
   const [sitemapFilter, setSitemapFilter] = useState('all');
   const [activeSection, setActiveSection] = useState('overview');
+  const [recentDomainsExpanded, setRecentDomainsExpanded] = useState(false);
 
   const homepageDomain = domain || activeDomain;
   const homepageNavSummary = useMemo(() => {
@@ -96,6 +97,8 @@ function ScanPage({ headerActions }) {
         isLoading={recentHistoryQuery.isLoading}
         items={recentItems}
         isScanning={isScanning}
+        isExpanded={recentDomainsExpanded}
+        onToggleExpanded={() => setRecentDomainsExpanded((value) => !value)}
         onOpenHistory={() => setActivePage('history')}
         onRescan={startScan}
       />

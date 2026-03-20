@@ -1,4 +1,12 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { getDb, queryOne } from './client.js';
+import { loadEnvFile } from '../utils/env.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+loadEnvFile(path.join(__dirname, '..', '..', '.env'));
 
 async function main() {
   const tables = [

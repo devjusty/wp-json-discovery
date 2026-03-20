@@ -2,10 +2,13 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execute, getDb } from './client.js';
+import { loadEnvFile } from '../utils/env.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const defaultLogPath = path.join(__dirname, '..', 'data', 'activity.log');
+
+loadEnvFile(path.join(__dirname, '..', '..', '.env'));
 
 async function main() {
   const logPath = process.argv[2] || defaultLogPath;

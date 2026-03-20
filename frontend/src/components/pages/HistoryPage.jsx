@@ -212,7 +212,7 @@ function HistoryPage({ headerActions, onRescan, onUseDomain }) {
             <dl className="history-card__meta">
               <div>
                 <dt>Last scanned</dt>
-                <dd>{formatDate(item.lastScannedAt) || '—'}</dd>
+                <dd>{formatHistoryDate(item.lastScannedAt) || '—'}</dd>
               </div>
               <div>
                 <dt>Duration</dt>
@@ -331,6 +331,25 @@ function formatDuration(durationMs) {
   }
 
   return `${durationMs}ms`;
+}
+
+function formatHistoryDate(value) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: '2-digit',
+    day: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(date);
 }
 
 HistoryPage.propTypes = {

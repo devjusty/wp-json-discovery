@@ -25,7 +25,7 @@ function ContentOverviewPanel({ overview }) {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="stat-grid">
+        <div className="stat-grid stat-grid--content-footprint">
           {collections.map((item) => (
             <div key={item.key} className="stat-chip">
               <div className="stat-chip__top">

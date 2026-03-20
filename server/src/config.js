@@ -95,6 +95,6 @@ export const FORWARDED_RESPONSE_HEADERS_LIST = [
  * olderThanDays: prune anything older than this many days (if set).
  */
 export const ACTIVITY_LOG_PRUNE_DEFAULTS = {
-  keepLatest: 1000,
-  olderThanDays: 30
+  keepLatest: 500,
+  olderThanDays: 21
 };

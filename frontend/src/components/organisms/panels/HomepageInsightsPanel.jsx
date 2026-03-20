@@ -45,7 +45,7 @@ function HomepageInsightsPanel({ insights, htmlPreview }) {
 
           <h3>Asset paths</h3>
           {insights.assets?.length ? (
-            <div className="asset-grid">
+            <div className="asset-grid asset-grid--triple">
               {insights.assets.map((asset) => (
                 <div key={asset.path} className="asset-card">
                   <div className="asset-card__path">{asset.path}</div>

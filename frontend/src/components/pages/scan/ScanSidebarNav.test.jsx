@@ -29,6 +29,24 @@ describe('ScanSidebarNav', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Admin view' }));
     expect(onOpenAdmin).toHaveBeenCalledTimes(1);
 
+    expect(screen.getByRole('button', { name: 'Unsupported' })).toBeDisabled();
+    expect(onSectionChange).not.toHaveBeenCalled();
+  });
+
+  it('enables scan sections once results are available', async () => {
+    const onSectionChange = vi.fn();
+
+    render(
+      <ScanSidebarNav
+        activeSection="overview"
+        hasScanResult
+        homepageNavSummary="S200 · M3 · A12 · F1"
+        onSectionChange={onSectionChange}
+        onOpenHistory={vi.fn()}
+        onOpenAdmin={vi.fn()}
+      />
+    );
+
     await userEvent.click(screen.getByRole('button', { name: 'Unsupported' }));
     expect(onSectionChange).toHaveBeenCalledWith('unsupported');
   });

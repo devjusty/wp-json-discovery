@@ -1,9 +1,10 @@
 import PropTypes from 'prop-types';
 import { Card, CardContent, CardHeader } from '../../../atoms/Card.jsx';
 import Button from '../../../atoms/Button.jsx';
+import { formatFullTimestamp } from '../utils.js';
 
 function AdminDomainsSection({
-  unsupportedEntries,
+  totalDomainEntries,
   domainsQuery,
   setDomainsQuery,
   domainsSort,
@@ -20,39 +21,41 @@ function AdminDomainsSection({
           <div>
             <h2 id="admin-domains-main">Domains tracked</h2>
             <p className="card__meta">
-              Unique domains observed across unsupported plugin records.
+              All domains with at least one scan attempt (success or failure).
             </p>
           </div>
         </CardHeader>
         <CardContent>
-          {unsupportedEntries.length ? (
+          <div className="admin-filters">
+            <label className="admin-filter-field">
+              Domain contains
+              <input
+                type="text"
+                value={domainsQuery}
+                onChange={(event) => setDomainsQuery(event.target.value)}
+                placeholder="example.com"
+              />
+            </label>
+            <label className="admin-filter-field">
+              Sort
+              <select
+                value={domainsSort}
+                onChange={(event) => setDomainsSort(event.target.value)}
+              >
+                <option value="recent">Most recently scanned</option>
+                <option value="domainAsc">Domain (A-Z)</option>
+                <option value="status">Status (failed first)</option>
+              </select>
+            </label>
+          </div>
+
+          {totalDomainEntries > 0 ? (
             <>
-              <div className="admin-filters">
-                <label className="admin-filter-field">
-                  Domain contains
-                  <input
-                    type="text"
-                    value={domainsQuery}
-                    onChange={(event) => setDomainsQuery(event.target.value)}
-                    placeholder="example.com"
-                  />
-                </label>
-                <label className="admin-filter-field">
-                  Sort
-                  <select
-                    value={domainsSort}
-                    onChange={(event) => setDomainsSort(event.target.value)}
-                  >
-                    <option value="domainAsc">Domain (A-Z)</option>
-                    <option value="namespacesDesc">Namespaces (high-low)</option>
-                    <option value="namespacesAsc">Namespaces (low-high)</option>
-                  </select>
-                </label>
-              </div>
-              <div className="admin-table admin-table--domains">
+              <div className="admin-table admin-table--domain-history">
                 <div className="admin-table__header">
                   <span>Domain</span>
-                  <span>Plugins</span>
+                  <span>Last status</span>
+                  <span>Last scanned</span>
                   <span>Action</span>
                 </div>
                 {filteredDomainEntries.map((domainEntry) => {
@@ -77,7 +80,8 @@ function AdminDomainsSection({
                       >
                         {domainEntry.domain}
                       </button>
-                      <span>{domainEntry.namespaces.length}</span>
+                      <span>{domainEntry.lastStatus ?? '—'}</span>
+                      <span>{formatFullTimestamp(domainEntry.lastScannedAt) || '—'}</span>
                       <span>
                         <Button
                           type="button"
@@ -91,10 +95,24 @@ function AdminDomainsSection({
                       {isExpanded ? (
                         <div className="admin-table__details">
                           <p>
-                            <strong>Namespaces:</strong>{' '}
-                            {domainEntry.namespaces.length
-                              ? domainEntry.namespaces.join(', ')
-                              : 'None'}
+                            <strong>First scanned:</strong>{' '}
+                            {formatFullTimestamp(domainEntry.firstScannedAt) || '—'}
+                          </p>
+                          <p>
+                            <strong>Last duration:</strong>{' '}
+                            {Number.isFinite(domainEntry.lastDurationMs)
+                              ? `${domainEntry.lastDurationMs} ms`
+                              : '—'}
+                          </p>
+                          <p>
+                            <strong>Last error category:</strong>{' '}
+                            {domainEntry.lastErrorCategory || '—'}
+                          </p>
+                          <p>
+                            <strong>Last unsupported namespaces:</strong>{' '}
+                            {Number.isFinite(domainEntry.lastUnsupportedCount)
+                              ? domainEntry.lastUnsupportedCount
+                              : '—'}
                           </p>
                         </div>
                       ) : null}
@@ -107,7 +125,7 @@ function AdminDomainsSection({
               ) : null}
             </>
           ) : (
-            <p className="card__meta">No domains recorded.</p>
+            <p className="card__meta">No scanned domains found.</p>
           )}
         </CardContent>
       </Card>
@@ -116,7 +134,7 @@ function AdminDomainsSection({
 }
 
 AdminDomainsSection.propTypes = {
-  unsupportedEntries: PropTypes.array,
+  totalDomainEntries: PropTypes.number,
   domainsQuery: PropTypes.string.isRequired,
   setDomainsQuery: PropTypes.func.isRequired,
   domainsSort: PropTypes.string.isRequired,
@@ -128,7 +146,7 @@ AdminDomainsSection.propTypes = {
 };
 
 AdminDomainsSection.defaultProps = {
-  unsupportedEntries: [],
+  totalDomainEntries: 0,
   filteredDomainEntries: []
 };
 

@@ -1,13 +1,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AdminPage from './AdminPage.jsx';
 import {
   fetchDbSnapshot,
   fetchPlugins,
-  fetchThemes
+  fetchThemes,
+  createPlugin
 } from '../../api/admin.js';
+import { fetchScanHistory } from '../../api/client.js';
 
 vi.mock('../../api/admin.js', () => ({
   fetchDbSnapshot: vi.fn(),
@@ -23,6 +25,10 @@ vi.mock('../../api/admin.js', () => ({
   updateTheme: vi.fn(),
   deleteTheme: vi.fn(),
   sortThemes: vi.fn()
+}));
+
+vi.mock('../../api/client.js', () => ({
+  fetchScanHistory: vi.fn()
 }));
 
 function renderPage(props = {}) {
@@ -54,12 +60,11 @@ function buildSnapshot() {
     totals: {
       unsupportedPlugins: 2,
       unsupportedPluginDomains: 3,
-      activityLogs: 4
+      activityLogs: 4,
+      scanDomains: 5
     },
     files: {
       db: { sizeBytes: 1024 },
-      wal: { sizeBytes: 128 },
-      shm: { sizeBytes: 64 },
       activityLog: { sizeBytes: 512 }
     },
     logs: {
@@ -149,10 +154,19 @@ function buildSnapshot() {
       totalPaths: 4,
       unknownPaths: 1,
       unknown: [
-        { path: '/wp-content/x.js', type: 'script', occurrences: 2 }
+        {
+          path: '/wp-content/plugins/convertkit/assets/embed.js',
+          type: 'plugin',
+          occurrences: 2
+        }
       ],
       all: [
-        { path: '/wp-content/x.js', type: 'script', occurrences: 2, matches: [] }
+        {
+          path: '/wp-content/plugins/convertkit/assets/embed.js',
+          type: 'plugin',
+          occurrences: 2,
+          matches: []
+        }
       ]
     }
   };
@@ -164,6 +178,8 @@ describe('AdminPage integration', () => {
     fetchDbSnapshot.mockResolvedValue(buildSnapshot());
     fetchPlugins.mockResolvedValue({ plugins: [] });
     fetchThemes.mockResolvedValue({ themes: [] });
+    fetchScanHistory.mockResolvedValue({ items: [] });
+    createPlugin.mockResolvedValue({ plugin: { id: 'convertkit' }, plugins: [] });
   });
 
   it('switches between major admin sections from the sidebar', async () => {
@@ -202,5 +218,54 @@ describe('AdminPage integration', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Go to current scan' }));
     expect(onNavigate).toHaveBeenCalledWith('scan');
+  });
+
+  it('creates a plugin from asset-only signal without namespaces', async () => {
+    renderPage();
+
+    await screen.findByRole('heading', { name: 'Database' });
+    await userEvent.click(screen.getByRole('button', { name: 'Unsupported plugins' }));
+    await screen.findByRole('heading', { name: 'Unsupported plugins' });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create plugin entry' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Add plugin' });
+    expect(within(dialog).getByLabelText('ID')).toHaveValue('convertkit');
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add plugin' }));
+
+    await waitFor(() => {
+      expect(createPlugin).toHaveBeenCalled();
+    });
+
+    expect(createPlugin.mock.calls[0][0]).toEqual(expect.objectContaining({
+      id: 'convertkit',
+      label: 'Convertkit',
+      namespaces: [],
+      assetHints: ['convertkit']
+    }));
+  });
+
+  it('opens edit mode when asset-only slug already exists', async () => {
+    fetchPlugins.mockResolvedValue({
+      plugins: [{
+        id: 'convertkit',
+        label: 'ConvertKit',
+        description: 'Existing plugin',
+        pluginUrl: 'https://wordpress.org/plugins/convertkit/',
+        namespaces: ['ck/v1'],
+        assetHints: ['convertkit']
+      }]
+    });
+
+    renderPage();
+
+    await screen.findByRole('heading', { name: 'Database' });
+    await userEvent.click(screen.getByRole('button', { name: 'Unsupported plugins' }));
+    await screen.findByRole('heading', { name: 'Unsupported plugins' });
+    await userEvent.click(screen.getByRole('button', { name: 'Create plugin entry' }));
+
+    expect(await screen.findByText('Editing convertkit')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Add plugin' })).not.toBeInTheDocument();
   });
 });

@@ -236,6 +236,11 @@ function ThemeFormFields({ themeDraft, setThemeDraft, disableId }) {
 function RegistryModal({ title, onClose, onSubmit, submitLabel, isSubmitting, children }) {
   const panelRef = useRef(null);
   const restoreFocusRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     restoreFocusRef.current = document.activeElement;
@@ -246,14 +251,15 @@ function RegistryModal({ title, onClose, onSubmit, submitLabel, isSubmitting, ch
     }
 
     const focusables = getFocusableElements(panel);
+    const primaryField = panel.querySelector('input:not([disabled]), textarea:not([disabled]), select:not([disabled])');
     if (focusables.length > 0) {
-      focusables[0].focus();
+      (primaryField ?? focusables[0]).focus();
     }
 
     const onKeyDown = (event) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
 
@@ -286,7 +292,7 @@ function RegistryModal({ title, onClose, onSubmit, submitLabel, isSubmitting, ch
         restoreFocusRef.current.focus();
       }
     };
-  }, [onClose]);
+  }, []);
 
   return (
     <div className="registry-modal" role="dialog" aria-modal="true" aria-label={title}>

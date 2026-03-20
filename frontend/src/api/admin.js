@@ -49,7 +49,7 @@ export async function createPlugin(payload) {
     body: JSON.stringify(payload)
   });
   if (!result.ok) {
-    throw new Error(result.error ?? 'Failed to create plugin');
+    throw new Error(result.data?.error ?? 'Failed to create plugin');
   }
   return result.data;
 }
@@ -60,7 +60,7 @@ export async function updatePlugin(id, payload) {
     body: JSON.stringify(payload)
   });
   if (!result.ok) {
-    throw new Error(result.error ?? 'Failed to update plugin');
+    throw new Error(result.data?.error ?? 'Failed to update plugin');
   }
   return result.data;
 }
@@ -70,7 +70,7 @@ export async function deletePlugin(id) {
     method: 'DELETE'
   });
   if (!result.ok) {
-    throw new Error(result.error ?? 'Failed to delete plugin');
+    throw new Error(result.data?.error ?? 'Failed to delete plugin');
   }
   return result.data;
 }
@@ -80,7 +80,7 @@ export async function sortPlugins() {
     method: 'POST'
   });
   if (!result.ok) {
-    throw new Error(result.error ?? 'Failed to sort plugins');
+    throw new Error(result.data?.error ?? 'Failed to sort plugins');
   }
   return result.data;
 }

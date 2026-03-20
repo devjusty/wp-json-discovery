@@ -39,7 +39,7 @@ See `frontend/src/config/plugins.js` for the authoritative namespace list. When 
 
 ## How to implement/surface in the project
 
-- Discovery: continue using `/wp-json/` to enumerate namespaces. Unknown namespaces are persisted (SQLite) via `/api/unsupported-plugins`. Homepage asset paths are also logged and aggregated to speed up plugin/theme registry updates.
+- Discovery: continue using `/wp-json/` to enumerate namespaces. Unknown namespaces are persisted (Turso/libSQL) via `/api/unsupported-plugins`. Homepage asset paths are also logged and aggregated to speed up plugin/theme registry updates.
 - Light data pulls: core collections already fetch with `per_page=1` to derive counts; reuse this pattern for plugin endpoints we decide to sample.
 - Probes vs. fetches: keep “probe-only” endpoints (sitemap, robots, uploads, settings, users) as status/metadata checks, not full crawls.
 - Plugin enrichment (future):

@@ -1,9 +1,13 @@
 import PropTypes from 'prop-types';
 import { Card, CardContent, CardHeader } from '../../../atoms/Card.jsx';
 import Button from '../../../atoms/Button.jsx';
-import { formatBytes, formatWalSummary } from '../utils.js';
+import { formatBytes, formatFullTimestamp, formatWalSummary } from '../utils.js';
 
 function AdminMaintenanceSection({ data, maintenanceMutation }) {
+  const isRemoteDb = /^(libsql|https?|wss?):\/\//i.test(data?.dbPath ?? '');
+  const maintenanceData = maintenanceMutation.data;
+  const hasRotationMarker = Boolean(data?.logs?.lastRotatedAt);
+
   return (
     <section className="section">
       <Card>
@@ -11,7 +15,7 @@ function AdminMaintenanceSection({ data, maintenanceMutation }) {
           <div>
             <h2 id="admin-maintenance-main">Database maintenance</h2>
             <p className="card__meta">
-              Runs integrity checks and database health maintenance. Includes last rotation/prune/maintenance markers when available.
+              Runs integrity checks and records maintenance markers for the active storage mode.
             </p>
           </div>
           <div className="card__actions">
@@ -25,24 +29,26 @@ function AdminMaintenanceSection({ data, maintenanceMutation }) {
                 {maintenanceMutation.isPending ? 'Maintaining…' : 'Run maintenance'}
               </Button>
               <span className="tooltip__content">
-                Run maintenance checks and storage cleanup.
+                Run maintenance checks and write the latest maintenance marker.
               </span>
             </span>
           </div>
         </CardHeader>
         <CardContent>
           <div className="stat-grid">
-            <div className="stat-grid__item">
-              <dt>Last log rotation</dt>
-              <dd>{data?.logs?.lastRotatedAt || '—'}</dd>
-            </div>
+            {hasRotationMarker ? (
+              <div className="stat-grid__item">
+                <dt>Last log rotation</dt>
+                <dd>{formatFullTimestamp(data?.logs?.lastRotatedAt) || '—'}</dd>
+              </div>
+            ) : null}
             <div className="stat-grid__item">
               <dt>Last maintenance</dt>
-              <dd>{data?.logs?.lastMaintenanceAt || '—'}</dd>
+              <dd>{formatFullTimestamp(data?.logs?.lastMaintenanceAt) || '—'}</dd>
             </div>
             <div className="stat-grid__item">
               <dt>Last prune</dt>
-              <dd>{data?.logs?.lastPrunedAt || '—'}</dd>
+              <dd>{formatFullTimestamp(data?.logs?.lastPrunedAt) || '—'}</dd>
             </div>
           </div>
 
@@ -54,39 +60,48 @@ function AdminMaintenanceSection({ data, maintenanceMutation }) {
             </div>
           ) : null}
 
-          {maintenanceMutation.data ? (
+          {maintenanceData ? (
             <div className="stat-grid">
-              <div className="stat-grid__item">
-                <dt>Size</dt>
-                <dd>
-                  {formatBytes(maintenanceMutation.data.size?.beforeBytes)} →{' '}
-                  {formatBytes(maintenanceMutation.data.size?.afterBytes)}
-                </dd>
-              </div>
-              <div className="stat-grid__item">
-                <dt>WAL checkpoint</dt>
-                <dd>{formatWalSummary(maintenanceMutation.data.walCheckpoint)}</dd>
-              </div>
+              {!isRemoteDb ? (
+                <>
+                  <div className="stat-grid__item">
+                    <dt>Size</dt>
+                    <dd>
+                      {formatBytes(maintenanceData.size?.beforeBytes)} →{' '}
+                      {formatBytes(maintenanceData.size?.afterBytes)}
+                    </dd>
+                  </div>
+                  <div className="stat-grid__item">
+                    <dt>WAL checkpoint</dt>
+                    <dd>{formatWalSummary(maintenanceData.walCheckpoint)}</dd>
+                  </div>
+                  <div className="stat-grid__item">
+                    <dt>Vacuum</dt>
+                    <dd>{maintenanceData.vacuumRan ? 'Completed' : 'Skipped'}</dd>
+                  </div>
+                </>
+              ) : (
+                <div className="stat-grid__item">
+                  <dt>Mode</dt>
+                  <dd>{maintenanceData.mode || 'turso'}</dd>
+                </div>
+              )}
               <div className="stat-grid__item">
                 <dt>Integrity</dt>
                 <dd>
-                  {maintenanceMutation.data.integrity?.ok
-                    ? maintenanceMutation.data.integrity?.status ?? 'ok'
-                    : `Error: ${maintenanceMutation.data.integrity?.error ?? 'unknown'}`}
+                  {maintenanceData.integrity?.ok
+                    ? maintenanceData.integrity?.status ?? 'ok'
+                    : `Error: ${maintenanceData.integrity?.error ?? 'unknown'}`}
                 </dd>
               </div>
               <div className="stat-grid__item">
-                <dt>Vacuum</dt>
-                <dd>{maintenanceMutation.data.vacuumRan ? 'Completed' : 'Skipped'}</dd>
-              </div>
-              <div className="stat-grid__item">
                 <dt>Run at</dt>
-                <dd>{maintenanceMutation.data.maintenanceAt || '—'}</dd>
+                <dd>{formatFullTimestamp(maintenanceData.maintenanceAt) || '—'}</dd>
               </div>
             </div>
           ) : (
             <p className="card__meta">
-              No maintenance run yet. Trigger it to verify integrity and keep DB health in check.
+              No maintenance run yet. Trigger it to verify integrity and update maintenance markers.
             </p>
           )}
         </CardContent>

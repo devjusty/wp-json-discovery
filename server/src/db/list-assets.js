@@ -1,8 +1,16 @@
 #!/usr/bin/env node
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { queryAll } from './client.js';
 import { extractAssetSlug } from '../utils/html.js';
+import { loadEnvFile } from '../utils/env.js';
 import { SUPPORTED_PLUGINS } from '../../../frontend/src/config/plugins.js';
 import { SUPPORTED_THEMES } from '../../../frontend/src/config/themes.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+loadEnvFile(path.join(__dirname, '..', '..', '.env'));
 
 function buildAssetLookup(definitions = [], type) {
   const lookup = new Map();

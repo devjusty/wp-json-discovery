@@ -13,7 +13,7 @@ const SCAN_SECTIONS = [
   { id: 'sitemap', label: 'Sitemap scan', requiresScan: true },
   { id: 'core', label: 'Core data', requiresScan: true },
   { id: 'plugins', label: 'Plugins', requiresScan: true },
-  { id: 'unsupported', label: 'Unsupported', requiresScan: false }
+  { id: 'unsupported', label: 'Unsupported', requiresScan: true }
 ];
 
 function ScanSidebarNav({
