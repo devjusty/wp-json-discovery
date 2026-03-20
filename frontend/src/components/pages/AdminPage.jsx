@@ -1,31 +1,48 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import AppLayout from '../templates/AppLayout.jsx';
 import AdminSidebarNav from './admin/AdminSidebarNav.jsx';
 import useAdminData from './admin/useAdminData.js';
-import AdminMaintenanceSection from './admin/sections/AdminMaintenanceSection.jsx';
-import AdminDbSection from './admin/sections/AdminDbSection.jsx';
-import AdminLogsSection from './admin/sections/AdminLogsSection.jsx';
-import AdminHeartbeatSection from './admin/sections/AdminHeartbeatSection.jsx';
-import AdminPluginManagerSection from './admin/sections/AdminPluginManagerSection.jsx';
-import AdminDomainsSection from './admin/sections/AdminDomainsSection.jsx';
-import AdminUnsupportedSection from './admin/sections/AdminUnsupportedSection.jsx';
-import AdminAssetsSection from './admin/sections/AdminAssetsSection.jsx';
-import AdminSupportedPluginsSection from './admin/sections/AdminSupportedPluginsSection.jsx';
-import AdminSupportedThemesSection from './admin/sections/AdminSupportedThemesSection.jsx';
 import {
   fetchDbSnapshot,
   pruneActivityLogs,
   runDbMaintenance,
   fetchPlugins,
+  fetchThemes,
   createPlugin,
   updatePlugin,
   deletePlugin,
-  sortPlugins as sortPluginsApi
+  sortPlugins as sortPluginsApi,
+  createTheme,
+  updateTheme,
+  deleteTheme,
+  sortThemes as sortThemesApi
 } from '../../api/admin.js';
-import { SUPPORTED_PLUGINS } from '../../config/plugins.js';
-import { SUPPORTED_THEMES } from '../../config/themes.js';
+
+const loadAdminMaintenanceSection = () => import('./admin/sections/AdminMaintenanceSection.jsx');
+const loadAdminDbSection = () => import('./admin/sections/AdminDbSection.jsx');
+const loadAdminLogsSection = () => import('./admin/sections/AdminLogsSection.jsx');
+const loadAdminHeartbeatSection = () => import('./admin/sections/AdminHeartbeatSection.jsx');
+const loadAdminPluginManagerSection = () => import('./admin/sections/AdminPluginManagerSection.jsx');
+const loadAdminDomainsSection = () => import('./admin/sections/AdminDomainsSection.jsx');
+const loadAdminUnsupportedSection = () => import('./admin/sections/AdminUnsupportedSection.jsx');
+const loadAdminAssetsSection = () => import('./admin/sections/AdminAssetsSection.jsx');
+const loadAdminSupportedPluginsSection = () => import('./admin/sections/AdminSupportedPluginsSection.jsx');
+const loadAdminSupportedThemesSection = () => import('./admin/sections/AdminSupportedThemesSection.jsx');
+const loadAdminThemeManagerSection = () => import('./admin/sections/AdminThemeManagerSection.jsx');
+
+const AdminMaintenanceSection = lazy(loadAdminMaintenanceSection);
+const AdminDbSection = lazy(loadAdminDbSection);
+const AdminLogsSection = lazy(loadAdminLogsSection);
+const AdminHeartbeatSection = lazy(loadAdminHeartbeatSection);
+const AdminPluginManagerSection = lazy(loadAdminPluginManagerSection);
+const AdminDomainsSection = lazy(loadAdminDomainsSection);
+const AdminUnsupportedSection = lazy(loadAdminUnsupportedSection);
+const AdminAssetsSection = lazy(loadAdminAssetsSection);
+const AdminSupportedPluginsSection = lazy(loadAdminSupportedPluginsSection);
+const AdminSupportedThemesSection = lazy(loadAdminSupportedThemesSection);
+const AdminThemeManagerSection = lazy(loadAdminThemeManagerSection);
 
 function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRescan }) {
   const [activeSection, setActiveSection] = useState('db');
@@ -44,6 +61,7 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
   });
   const [editingPluginId, setEditingPluginId] = useState(null);
   const [pluginValidationError, setPluginValidationError] = useState('');
+  const [showCreatePluginModal, setShowCreatePluginModal] = useState(false);
   const [logTypeFilter, setLogTypeFilter] = useState('all');
   const [unsupportedNamespacePrefix, setUnsupportedNamespacePrefix] = useState('');
   const [unsupportedSort, setUnsupportedSort] = useState('lastSeenDesc');
@@ -53,6 +71,17 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
   const [pluginCatalogSort, setPluginCatalogSort] = useState('labelAsc');
   const [themeCatalogQuery, setThemeCatalogQuery] = useState('');
   const [themeCatalogSort, setThemeCatalogSort] = useState('labelAsc');
+  const [themeDraft, setThemeDraft] = useState({
+    id: '',
+    label: '',
+    description: '',
+    themeUrl: '',
+    namespaceHints: '',
+    pathSignals: ''
+  });
+  const [editingThemeId, setEditingThemeId] = useState(null);
+  const [themeValidationError, setThemeValidationError] = useState('');
+  const [showCreateThemeModal, setShowCreateThemeModal] = useState(false);
   const snapshotQuery = useQuery({
     queryKey: ['dbSnapshot'],
     queryFn: () => fetchDbSnapshot(75),
@@ -73,7 +102,13 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
   const pluginsQuery = useQuery({
     queryKey: ['adminPlugins'],
     queryFn: fetchPlugins,
-    enabled: activeSection === 'plugin-manager',
+    enabled: activeSection === 'plugin-manager' || activeSection === 'plugins',
+    refetchOnWindowFocus: false
+  });
+  const themesQuery = useQuery({
+    queryKey: ['adminThemes'],
+    queryFn: fetchThemes,
+    enabled: activeSection === 'themes' || activeSection === 'theme-manager',
     refetchOnWindowFocus: false
   });
   const createPluginMutation = useMutation({
@@ -81,6 +116,7 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
     onSuccess: () => {
       pluginsQuery.refetch();
       resetPluginDraft();
+      setShowCreatePluginModal(false);
     }
   });
   const updatePluginMutation = useMutation({
@@ -103,9 +139,41 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
       pluginsQuery.refetch();
     }
   });
+  const createThemeMutation = useMutation({
+    mutationFn: createTheme,
+    onSuccess: () => {
+      themesQuery.refetch();
+      resetThemeDraft();
+      setShowCreateThemeModal(false);
+    }
+  });
+  const updateThemeMutation = useMutation({
+    mutationFn: ({ id, payload }) => updateTheme(id, payload),
+    onSuccess: () => {
+      themesQuery.refetch();
+      resetThemeDraft();
+    }
+  });
+  const deleteThemeMutation = useMutation({
+    mutationFn: deleteTheme,
+    onSuccess: () => {
+      themesQuery.refetch();
+      resetThemeDraft();
+    }
+  });
+  const sortThemesMutation = useMutation({
+    mutationFn: sortThemesApi,
+    onSuccess: () => {
+      themesQuery.refetch();
+    }
+  });
   const managedPlugins = useMemo(
     () => pluginsQuery.data?.plugins ?? [],
     [pluginsQuery.data]
+  );
+  const managedThemes = useMemo(
+    () => themesQuery.data?.themes ?? [],
+    [themesQuery.data]
   );
 
   const parseList = useCallback((value) => {
@@ -115,7 +183,47 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
       .filter((v) => v.length > 0);
   }, []);
 
-  const resetPluginDraft = useCallback(() => {
+  const prefetchAdminSection = useCallback((sectionKey) => {
+    switch (sectionKey) {
+      case 'db':
+        void loadAdminDbSection();
+        break;
+      case 'maintenance':
+        void loadAdminMaintenanceSection();
+        break;
+      case 'unsupported':
+        void loadAdminUnsupportedSection();
+        break;
+      case 'domains':
+        void loadAdminDomainsSection();
+        break;
+      case 'logs':
+        void loadAdminLogsSection();
+        break;
+      case 'heartbeat':
+        void loadAdminHeartbeatSection();
+        break;
+      case 'plugins':
+        void loadAdminSupportedPluginsSection();
+        break;
+      case 'plugin-manager':
+        void loadAdminPluginManagerSection();
+        break;
+      case 'themes':
+        void loadAdminSupportedThemesSection();
+        break;
+      case 'theme-manager':
+        void loadAdminThemeManagerSection();
+        break;
+      case 'assets':
+        void loadAdminAssetsSection();
+        break;
+      default:
+        break;
+    }
+  }, []);
+
+  const resetPluginDraft = () => {
     setPluginDraft({
       id: '',
       label: '',
@@ -125,7 +233,29 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
       assetHints: ''
     });
     setPluginValidationError('');
-  }, []);
+  };
+
+  const cancelPluginEdit = () => {
+    resetPluginDraft();
+    setEditingPluginId(null);
+  };
+
+  const resetThemeDraft = () => {
+    setThemeDraft({
+      id: '',
+      label: '',
+      description: '',
+      themeUrl: '',
+      namespaceHints: '',
+      pathSignals: ''
+    });
+    setThemeValidationError('');
+  };
+
+  const cancelThemeEdit = () => {
+    resetThemeDraft();
+    setEditingThemeId(null);
+  };
 
   const startEditing = useCallback((plugin) => {
     setEditingPluginId(plugin.id);
@@ -140,11 +270,30 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
     });
   }, []);
 
+  const startEditingTheme = useCallback((theme) => {
+    setEditingThemeId(theme.id);
+    setThemeValidationError('');
+    setThemeDraft({
+      id: theme.id ?? '',
+      label: theme.label ?? '',
+      description: theme.description ?? '',
+      themeUrl: theme.themeUrl ?? '',
+      namespaceHints: (theme.namespaceHints ?? []).join('\n'),
+      pathSignals: (theme.pathSignals ?? []).join('\n')
+    });
+  }, []);
+
   useEffect(() => {
     if (pluginValidationError) {
       setPluginValidationError('');
     }
   }, [pluginDraft, editingPluginId, pluginValidationError]);
+
+  useEffect(() => {
+    if (themeValidationError) {
+      setThemeValidationError('');
+    }
+  }, [themeDraft, editingThemeId, themeValidationError]);
 
   const handlePluginSave = useCallback(() => {
     const payload = {
@@ -180,23 +329,47 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
     }
   }, [pluginDraft, editingPluginId, parseList, updatePluginMutation, createPluginMutation, managedPlugins]);
 
+  const handleThemeSave = useCallback(() => {
+    const payload = {
+      id: themeDraft.id.trim(),
+      label: themeDraft.label.trim(),
+      description: themeDraft.description.trim(),
+      themeUrl: themeDraft.themeUrl.trim(),
+      namespaceHints: Array.from(new Set(parseList(themeDraft.namespaceHints))),
+      pathSignals: Array.from(new Set(parseList(themeDraft.pathSignals)))
+    };
+
+    if (!payload.id) {
+      setThemeValidationError('Theme ID is required.');
+      return;
+    }
+    if (!payload.label) {
+      setThemeValidationError('Theme label is required.');
+      return;
+    }
+    if (!payload.pathSignals.length) {
+      setThemeValidationError('Add at least one path signal before saving.');
+      return;
+    }
+    if (!editingThemeId && managedThemes.some((theme) => theme.id === payload.id)) {
+      setThemeValidationError(`Theme ID "${payload.id}" already exists.`);
+      return;
+    }
+
+    setThemeValidationError('');
+    if (editingThemeId) {
+      updateThemeMutation.mutate({ id: editingThemeId, payload });
+    } else {
+      createThemeMutation.mutate(payload);
+    }
+  }, [themeDraft, editingThemeId, parseList, updateThemeMutation, createThemeMutation, managedThemes]);
+
   const sidebarNav = (
     <AdminSidebarNav
       activeSection={activeSection}
       onNavigate={onNavigate}
       onSetActiveSection={setActiveSection}
-      editingPluginId={editingPluginId}
-      pluginDraft={pluginDraft}
-      setPluginDraft={setPluginDraft}
-      createPluginPending={createPluginMutation.isPending}
-      updatePluginPending={updatePluginMutation.isPending}
-      onPluginSave={handlePluginSave}
-      onPluginReset={() => {
-        resetPluginDraft();
-        setEditingPluginId(null);
-      }}
-      pluginValidationError={pluginValidationError}
-      pluginSaveError={createPluginMutation.error?.message || updatePluginMutation.error?.message || ''}
+      onPrefetchSection={prefetchAdminSection}
     />
   );
 
@@ -225,22 +398,26 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
     domainsSort,
     pluginCatalogQuery,
     pluginCatalogSort,
+    supportedPlugins: managedPlugins,
     themeCatalogQuery,
-    themeCatalogSort
+    themeCatalogSort,
+    supportedThemes: managedThemes
   });
 
   return (
     <AppLayout
       title="Admin"
-      subtitle="Inspect SQLite persistence for unsupported plugins and recent activity logs."
+      subtitle="Inspect Turso-backed scan data, registries, unsupported namespaces, and activity logs."
       headerActions={headerActions}
       sidebar={sidebarNav}
     >
       {activeSection === 'maintenance' ? (
-        <AdminMaintenanceSection
-          data={data}
-          maintenanceMutation={maintenanceMutation}
-        />
+        <Suspense fallback={<SectionLoadingState label="Loading maintenance..." />}>
+          <AdminMaintenanceSection
+            data={data}
+            maintenanceMutation={maintenanceMutation}
+          />
+        </Suspense>
       ) : null}
 
       {activeSection === 'db' && snapshotQuery.isLoading ? (
@@ -259,24 +436,26 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
       ) : null}
 
       {activeSection === 'db' && data ? (
-        <AdminDbSection
-          data={data}
-          pruneMutation={pruneMutation}
-          snapshotQuery={snapshotQuery}
-          sqliteFootprintBytes={sqliteFootprintBytes}
-          setActiveSection={setActiveSection}
-          recentScans={recentScans}
-          expandedScanIds={expandedScanIds}
-          setExpandedScanIds={setExpandedScanIds}
-          onRescan={onRescan}
-          activityLogs={activityLogs}
-          logTypeFilter={logTypeFilter}
-          setLogTypeFilter={setLogTypeFilter}
-          logTypes={logTypes}
-          filteredActivityLogs={filteredActivityLogs}
-          expandedLogIds={expandedLogIds}
-          setExpandedLogIds={setExpandedLogIds}
-        />
+        <Suspense fallback={<SectionLoadingState label="Loading data snapshot..." />}>
+          <AdminDbSection
+            data={data}
+            pruneMutation={pruneMutation}
+            snapshotQuery={snapshotQuery}
+            sqliteFootprintBytes={sqliteFootprintBytes}
+            setActiveSection={setActiveSection}
+            recentScans={recentScans}
+            expandedScanIds={expandedScanIds}
+            setExpandedScanIds={setExpandedScanIds}
+            onRescan={onRescan}
+            activityLogs={activityLogs}
+            logTypeFilter={logTypeFilter}
+            setLogTypeFilter={setLogTypeFilter}
+            logTypes={logTypes}
+            filteredActivityLogs={filteredActivityLogs}
+            expandedLogIds={expandedLogIds}
+            setExpandedLogIds={setExpandedLogIds}
+          />
+        </Suspense>
       ) : null}
 
       {isSnapshotBackedSection && snapshotQuery.isLoading ? (
@@ -296,91 +475,161 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
       ) : null}
 
       {activeSection === 'plugin-manager' ? (
-        <AdminPluginManagerSection
-          sortPluginsMutation={sortPluginsMutation}
-          pluginsQuery={pluginsQuery}
-          managedPlugins={managedPlugins}
-          startEditing={startEditing}
-          deletePluginMutation={deletePluginMutation}
-        />
+        <Suspense fallback={<SectionLoadingState label="Loading plugin manager..." />}>
+          <AdminPluginManagerSection
+            sortPluginsMutation={sortPluginsMutation}
+            pluginsQuery={pluginsQuery}
+            managedPlugins={managedPlugins}
+            pluginDraft={pluginDraft}
+            setPluginDraft={setPluginDraft}
+            editingPluginId={editingPluginId}
+            createPluginPending={createPluginMutation.isPending}
+            updatePluginPending={updatePluginMutation.isPending}
+            onPluginSave={handlePluginSave}
+            onPluginReset={cancelPluginEdit}
+            pluginValidationError={pluginValidationError}
+            pluginSaveError={createPluginMutation.error?.message || updatePluginMutation.error?.message || ''}
+            onOpenCreateModal={() => {
+              cancelPluginEdit();
+              setShowCreatePluginModal(true);
+            }}
+            showCreateModal={showCreatePluginModal}
+            onCloseCreateModal={() => {
+              setShowCreatePluginModal(false);
+              cancelPluginEdit();
+            }}
+            startEditing={startEditing}
+            deletePluginMutation={deletePluginMutation}
+          />
+        </Suspense>
       ) : null}
 
       {activeSection === 'domains' && data ? (
-        <AdminDomainsSection
-          unsupportedEntries={unsupportedEntries}
-          domainsQuery={domainsQuery}
-          setDomainsQuery={setDomainsQuery}
-          domainsSort={domainsSort}
-          setDomainsSort={setDomainsSort}
-          filteredDomainEntries={filteredDomainEntries}
-          expandedDomainRows={expandedDomainRows}
-          setExpandedDomainRows={setExpandedDomainRows}
-          onRescan={onRescan}
-        />
+        <Suspense fallback={<SectionLoadingState label="Loading tracked domains..." />}>
+          <AdminDomainsSection
+            unsupportedEntries={unsupportedEntries}
+            domainsQuery={domainsQuery}
+            setDomainsQuery={setDomainsQuery}
+            domainsSort={domainsSort}
+            setDomainsSort={setDomainsSort}
+            filteredDomainEntries={filteredDomainEntries}
+            expandedDomainRows={expandedDomainRows}
+            setExpandedDomainRows={setExpandedDomainRows}
+            onRescan={onRescan}
+          />
+        </Suspense>
       ) : null}
 
       {activeSection === 'unsupported' && data ? (
-        <AdminUnsupportedSection
-          unsupportedEntries={unsupportedEntries}
-          unsupportedNamespacePrefix={unsupportedNamespacePrefix}
-          setUnsupportedNamespacePrefix={setUnsupportedNamespacePrefix}
-          unsupportedSort={unsupportedSort}
-          setUnsupportedSort={setUnsupportedSort}
-          filteredUnsupportedEntries={filteredUnsupportedEntries}
-        />
+        <Suspense fallback={<SectionLoadingState label="Loading unsupported namespaces..." />}>
+          <AdminUnsupportedSection
+            unsupportedEntries={unsupportedEntries}
+            unsupportedNamespacePrefix={unsupportedNamespacePrefix}
+            setUnsupportedNamespacePrefix={setUnsupportedNamespacePrefix}
+            unsupportedSort={unsupportedSort}
+            setUnsupportedSort={setUnsupportedSort}
+            filteredUnsupportedEntries={filteredUnsupportedEntries}
+          />
+        </Suspense>
       ) : null}
 
       {activeSection === 'logs' && data ? (
-        <AdminLogsSection
-          activityLogs={activityLogs}
-          logTypeFilter={logTypeFilter}
-          setLogTypeFilter={setLogTypeFilter}
-          logTypes={logTypes}
-          filteredActivityLogs={filteredActivityLogs}
-          expandedLogIds={expandedLogIds}
-          setExpandedLogIds={setExpandedLogIds}
-          rotateLogs={rotateLogs}
-          isRotatingLogs={isRotatingLogs}
-          pruneMutation={pruneMutation}
-        />
+        <Suspense fallback={<SectionLoadingState label="Loading activity logs..." />}>
+          <AdminLogsSection
+            activityLogs={activityLogs}
+            logTypeFilter={logTypeFilter}
+            setLogTypeFilter={setLogTypeFilter}
+            logTypes={logTypes}
+            filteredActivityLogs={filteredActivityLogs}
+            expandedLogIds={expandedLogIds}
+            setExpandedLogIds={setExpandedLogIds}
+            rotateLogs={rotateLogs}
+            isRotatingLogs={isRotatingLogs}
+            pruneMutation={pruneMutation}
+          />
+        </Suspense>
       ) : null}
 
       {activeSection === 'heartbeat' && data ? (
-        <AdminHeartbeatSection
-          data={data}
-          heartbeatP95Series={heartbeatP95Series}
-          heartbeatErrorSeries={heartbeatErrorSeries}
-        />
+        <Suspense fallback={<SectionLoadingState label="Loading heartbeat analytics..." />}>
+          <AdminHeartbeatSection
+            data={data}
+            heartbeatP95Series={heartbeatP95Series}
+            heartbeatErrorSeries={heartbeatErrorSeries}
+          />
+        </Suspense>
       ) : null}
 
       {activeSection === 'assets' && data ? (
-        <AdminAssetsSection data={data} />
+        <Suspense fallback={<SectionLoadingState label="Loading homepage assets..." />}>
+          <AdminAssetsSection data={data} />
+        </Suspense>
       ) : null}
 
       {activeSection === 'plugins' ? (
-        <AdminSupportedPluginsSection
-          totalPlugins={SUPPORTED_PLUGINS.length}
-          pluginCatalogQuery={pluginCatalogQuery}
-          setPluginCatalogQuery={setPluginCatalogQuery}
-          pluginCatalogSort={pluginCatalogSort}
-          setPluginCatalogSort={setPluginCatalogSort}
-          filteredSupportedPlugins={filteredSupportedPlugins}
-          expandedPluginId={expandedPluginId}
-          setExpandedPluginId={setExpandedPluginId}
-        />
+        <Suspense fallback={<SectionLoadingState label="Loading supported plugins..." />}>
+          <AdminSupportedPluginsSection
+            totalPlugins={managedPlugins.length}
+            isLoading={pluginsQuery.isLoading}
+            isError={pluginsQuery.isError}
+            errorMessage={pluginsQuery.error?.message || ''}
+            pluginCatalogQuery={pluginCatalogQuery}
+            setPluginCatalogQuery={setPluginCatalogQuery}
+            pluginCatalogSort={pluginCatalogSort}
+            setPluginCatalogSort={setPluginCatalogSort}
+            filteredSupportedPlugins={filteredSupportedPlugins}
+            expandedPluginId={expandedPluginId}
+            setExpandedPluginId={setExpandedPluginId}
+          />
+        </Suspense>
       ) : null}
 
       {activeSection === 'themes' ? (
-        <AdminSupportedThemesSection
-          totalThemes={SUPPORTED_THEMES.length}
-          themeCatalogQuery={themeCatalogQuery}
-          setThemeCatalogQuery={setThemeCatalogQuery}
-          themeCatalogSort={themeCatalogSort}
-          setThemeCatalogSort={setThemeCatalogSort}
-          filteredSupportedThemes={filteredSupportedThemes}
-          expandedThemeId={expandedThemeId}
-          setExpandedThemeId={setExpandedThemeId}
-        />
+        <Suspense fallback={<SectionLoadingState label="Loading supported themes..." />}>
+          <AdminSupportedThemesSection
+            totalThemes={managedThemes.length}
+            isLoading={themesQuery.isLoading}
+            isError={themesQuery.isError}
+            errorMessage={themesQuery.error?.message || ''}
+            themeCatalogQuery={themeCatalogQuery}
+            setThemeCatalogQuery={setThemeCatalogQuery}
+            themeCatalogSort={themeCatalogSort}
+            setThemeCatalogSort={setThemeCatalogSort}
+            filteredSupportedThemes={filteredSupportedThemes}
+            expandedThemeId={expandedThemeId}
+            setExpandedThemeId={setExpandedThemeId}
+          />
+        </Suspense>
+      ) : null}
+
+      {activeSection === 'theme-manager' ? (
+        <Suspense fallback={<SectionLoadingState label="Loading theme manager..." />}>
+          <AdminThemeManagerSection
+            sortThemesMutation={sortThemesMutation}
+            themesQuery={themesQuery}
+            managedThemes={managedThemes}
+            themeDraft={themeDraft}
+            setThemeDraft={setThemeDraft}
+            editingThemeId={editingThemeId}
+            createThemePending={createThemeMutation.isPending}
+            updateThemePending={updateThemeMutation.isPending}
+            onThemeSave={handleThemeSave}
+            onThemeReset={cancelThemeEdit}
+            themeValidationError={themeValidationError}
+            themeSaveError={createThemeMutation.error?.message || updateThemeMutation.error?.message || ''}
+            onOpenCreateModal={() => {
+              cancelThemeEdit();
+              setShowCreateThemeModal(true);
+            }}
+            showCreateModal={showCreateThemeModal}
+            onCloseCreateModal={() => {
+              setShowCreateThemeModal(false);
+              cancelThemeEdit();
+            }}
+            startEditingTheme={startEditingTheme}
+            deleteThemeMutation={deleteThemeMutation}
+          />
+        </Suspense>
       ) : null}
     </AppLayout>
   );
@@ -400,3 +649,17 @@ AdminPage.defaultProps = {
 };
 
 export default AdminPage;
+
+function SectionLoadingState({ label }) {
+  return (
+    <div className="card card--info">
+      <div className="card__content">
+        <p>{label}</p>
+      </div>
+    </div>
+  );
+}
+
+SectionLoadingState.propTypes = {
+  label: PropTypes.string.isRequired
+};

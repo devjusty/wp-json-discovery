@@ -5,7 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AdminPage from './AdminPage.jsx';
 import {
   fetchDbSnapshot,
-  fetchPlugins
+  fetchPlugins,
+  fetchThemes
 } from '../../api/admin.js';
 
 vi.mock('../../api/admin.js', () => ({
@@ -13,10 +14,15 @@ vi.mock('../../api/admin.js', () => ({
   pruneActivityLogs: vi.fn(),
   runDbMaintenance: vi.fn(),
   fetchPlugins: vi.fn(),
+  fetchThemes: vi.fn(),
   createPlugin: vi.fn(),
   updatePlugin: vi.fn(),
   deletePlugin: vi.fn(),
-  sortPlugins: vi.fn()
+  sortPlugins: vi.fn(),
+  createTheme: vi.fn(),
+  updateTheme: vi.fn(),
+  deleteTheme: vi.fn(),
+  sortThemes: vi.fn()
 }));
 
 function renderPage(props = {}) {
@@ -157,6 +163,7 @@ describe('AdminPage integration', () => {
     vi.resetAllMocks();
     fetchDbSnapshot.mockResolvedValue(buildSnapshot());
     fetchPlugins.mockResolvedValue({ plugins: [] });
+    fetchThemes.mockResolvedValue({ themes: [] });
   });
 
   it('switches between major admin sections from the sidebar', async () => {
@@ -182,6 +189,9 @@ describe('AdminPage integration', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Supported themes' }));
     expect(await screen.findByRole('heading', { name: 'Supported themes' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Theme manager' }));
+    expect(await screen.findByRole('heading', { name: 'Theme manager' })).toBeInTheDocument();
   });
 
   it('uses navigation action from sidebar', async () => {

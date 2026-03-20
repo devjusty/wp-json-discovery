@@ -3,92 +3,92 @@ import PropTypes from 'prop-types';
 import { Card, CardContent, CardHeader } from '../../../atoms/Card.jsx';
 import Button from '../../../atoms/Button.jsx';
 
-function AdminPluginManagerSection({
-  sortPluginsMutation,
-  pluginsQuery,
-  managedPlugins,
-  pluginDraft,
-  setPluginDraft,
-  editingPluginId,
-  createPluginPending,
-  updatePluginPending,
-  onPluginSave,
-  onPluginReset,
-  pluginValidationError,
-  pluginSaveError,
+function AdminThemeManagerSection({
+  sortThemesMutation,
+  themesQuery,
+  managedThemes,
+  themeDraft,
+  setThemeDraft,
+  editingThemeId,
+  createThemePending,
+  updateThemePending,
+  onThemeSave,
+  onThemeReset,
+  themeValidationError,
+  themeSaveError,
   onOpenCreateModal,
   showCreateModal,
   onCloseCreateModal,
-  startEditing,
-  deletePluginMutation
+  startEditingTheme,
+  deleteThemeMutation
 }) {
-  const isSaving = createPluginPending || updatePluginPending;
+  const isSaving = createThemePending || updateThemePending;
 
   return (
     <section className="section">
       <Card>
         <CardHeader>
           <div>
-            <h2 id="admin-plugin-manager-main">Plugin manager</h2>
+            <h2 id="admin-theme-manager-main">Theme manager</h2>
             <p className="card__meta">
-              Add, edit, or remove plugins in the Turso-backed plugin registry.
+              Add, edit, or remove themes in the Turso-backed theme registry.
             </p>
           </div>
           <div className="card__actions">
             <Button type="button" size="sm" onClick={onOpenCreateModal}>
-              Add plugin
+              Add theme
             </Button>
             <span className="tooltip">
               <Button
                 type="button"
                 size="sm"
                 variant="ghost"
-                onClick={() => sortPluginsMutation.mutate()}
-                disabled={sortPluginsMutation.isPending || pluginsQuery.isLoading}
+                onClick={() => sortThemesMutation.mutate()}
+                disabled={sortThemesMutation.isPending || themesQuery.isLoading}
               >
-                {sortPluginsMutation.isPending ? 'Sorting…' : 'Sort plugins'}
+                {sortThemesMutation.isPending ? 'Sorting…' : 'Sort themes'}
               </Button>
               <span className="tooltip__content">
-                Alphabetize plugin entries by label.
+                Alphabetize theme entries by label.
               </span>
             </span>
           </div>
         </CardHeader>
         <CardContent>
-          {pluginsQuery.isLoading ? (
-            <p className="card__meta">Loading plugins…</p>
-          ) : pluginsQuery.isError ? (
+          {themesQuery.isLoading ? (
+            <p className="card__meta">Loading themes…</p>
+          ) : themesQuery.isError ? (
             <div className="card card--error">
               <div className="card__content">
-                <p>{pluginsQuery.error?.message ?? 'Failed to load plugins.'}</p>
+                <p>{themesQuery.error?.message ?? 'Failed to load themes.'}</p>
               </div>
             </div>
           ) : (
-            <div className="admin-table admin-table--plugins">
+            <div className="admin-table admin-table--theme-manager">
               <div className="admin-table__header">
-                <span>Plugin</span>
+                <span>Theme</span>
+                <span>Paths</span>
                 <span>Namespaces</span>
-                <span>Asset hints</span>
                 <span>Actions</span>
               </div>
-              {managedPlugins.map((plugin) => {
-                const isEditing = editingPluginId === plugin.id;
+              {managedThemes.map((theme) => {
+                const isEditing = editingThemeId === theme.id;
                 return (
-                  <div key={plugin.id} className="admin-table__row admin-table__row--expandable">
+                  <div key={theme.id} className="admin-table__row admin-table__row--expandable">
                     <span className="admin-table__cell admin-table__cell--expand">
-                      <strong>{plugin.label}</strong>
-                      <div className="muted">{plugin.id}</div>
-                      {plugin.pluginUrl ? (
+                      <strong>{theme.label}</strong>
+                      <div className="muted">{theme.id}</div>
+                      {theme.themeUrl ? (
                         <div>
-                          <a href={plugin.pluginUrl} target="_blank" rel="noreferrer">
+                          <a href={theme.themeUrl} target="_blank" rel="noreferrer">
                             Docs
                           </a>
                         </div>
                       ) : null}
-                      <div className="muted">{plugin.description || 'No description'}</div>
+                      <div className="muted">{theme.description || 'No description'}</div>
                     </span>
-                    <span>{plugin.namespaces?.length ?? 0}</span>
-                    <span>{plugin.assetHints?.length ?? 0}</span>
+                    <span>{theme.pathSignals?.length ?? 0}</span>
+                    <span>{theme.namespaceHints?.length ?? 0}</span>
                     <span>
                       <div className="button-group">
                         <Button
@@ -97,9 +97,9 @@ function AdminPluginManagerSection({
                           variant={isEditing ? 'secondary' : 'ghost'}
                           onClick={() => {
                             if (isEditing) {
-                              onPluginReset();
+                              onThemeReset();
                             } else {
-                              startEditing(plugin);
+                              startEditingTheme(theme);
                             }
                           }}
                         >
@@ -110,11 +110,11 @@ function AdminPluginManagerSection({
                           size="sm"
                           variant="ghost"
                           onClick={() => {
-                            if (window.confirm(`Delete plugin "${plugin.label}"?`)) {
-                              deletePluginMutation.mutate(plugin.id);
+                            if (window.confirm(`Delete theme "${theme.label}"?`)) {
+                              deleteThemeMutation.mutate(theme.id);
                             }
                           }}
-                          disabled={deletePluginMutation.isPending}
+                          disabled={deleteThemeMutation.isPending}
                         >
                           Delete
                         </Button>
@@ -122,25 +122,25 @@ function AdminPluginManagerSection({
                     </span>
                     {isEditing ? (
                       <div className="admin-table__details">
-                        <p className="card__meta">Editing {plugin.id}</p>
+                        <p className="card__meta">Editing {theme.id}</p>
                         <div className="registry-inline-editor">
-                          <PluginFormFields
-                            pluginDraft={pluginDraft}
-                            setPluginDraft={setPluginDraft}
+                          <ThemeFormFields
+                            themeDraft={themeDraft}
+                            setThemeDraft={setThemeDraft}
                             disableId
                           />
                           <div className="button-group registry-inline-editor__actions">
-                            <Button type="button" size="sm" onClick={onPluginSave} disabled={isSaving}>
-                              {updatePluginPending ? 'Saving…' : 'Save changes'}
+                            <Button type="button" size="sm" onClick={onThemeSave} disabled={isSaving}>
+                              {updateThemePending ? 'Saving…' : 'Save changes'}
                             </Button>
-                            <Button type="button" size="sm" variant="ghost" onClick={onPluginReset}>
+                            <Button type="button" size="sm" variant="ghost" onClick={onThemeReset}>
                               Cancel
                             </Button>
                           </div>
                         </div>
-                        {pluginSaveError ? <p className="card__meta">{pluginSaveError}</p> : null}
-                        {pluginValidationError ? (
-                          <p className="card__meta admin-validation-error">{pluginValidationError}</p>
+                        {themeSaveError ? <p className="card__meta">{themeSaveError}</p> : null}
+                        {themeValidationError ? (
+                          <p className="card__meta admin-validation-error">{themeValidationError}</p>
                         ) : null}
                       </div>
                     ) : null}
@@ -154,20 +154,20 @@ function AdminPluginManagerSection({
 
       {showCreateModal ? (
         <RegistryModal
-          title="Add plugin"
+          title="Add theme"
           onClose={onCloseCreateModal}
-          onSubmit={onPluginSave}
-          submitLabel={createPluginPending ? 'Adding…' : 'Add plugin'}
-          isSubmitting={createPluginPending}
+          onSubmit={onThemeSave}
+          submitLabel={createThemePending ? 'Adding…' : 'Add theme'}
+          isSubmitting={createThemePending}
         >
-          <PluginFormFields
-            pluginDraft={pluginDraft}
-            setPluginDraft={setPluginDraft}
+          <ThemeFormFields
+            themeDraft={themeDraft}
+            setThemeDraft={setThemeDraft}
             disableId={false}
           />
-          {pluginSaveError ? <p className="card__meta">{pluginSaveError}</p> : null}
-          {pluginValidationError ? (
-            <p className="card__meta admin-validation-error">{pluginValidationError}</p>
+          {themeSaveError ? <p className="card__meta">{themeSaveError}</p> : null}
+          {themeValidationError ? (
+            <p className="card__meta admin-validation-error">{themeValidationError}</p>
           ) : null}
         </RegistryModal>
       ) : null}
@@ -175,15 +175,15 @@ function AdminPluginManagerSection({
   );
 }
 
-function PluginFormFields({ pluginDraft, setPluginDraft, disableId }) {
+function ThemeFormFields({ themeDraft, setThemeDraft, disableId }) {
   return (
     <div className="registry-form-grid">
       <label className="stacked-form__label">
         ID
         <input
           type="text"
-          value={pluginDraft.id}
-          onChange={(event) => setPluginDraft((prev) => ({ ...prev, id: event.target.value }))}
+          value={themeDraft.id}
+          onChange={(event) => setThemeDraft((prev) => ({ ...prev, id: event.target.value }))}
           disabled={disableId}
           required
         />
@@ -192,41 +192,41 @@ function PluginFormFields({ pluginDraft, setPluginDraft, disableId }) {
         Label
         <input
           type="text"
-          value={pluginDraft.label}
-          onChange={(event) => setPluginDraft((prev) => ({ ...prev, label: event.target.value }))}
+          value={themeDraft.label}
+          onChange={(event) => setThemeDraft((prev) => ({ ...prev, label: event.target.value }))}
           required
         />
       </label>
       <label className="stacked-form__label registry-form-grid__full">
         Description
         <textarea
-          value={pluginDraft.description}
-          onChange={(event) => setPluginDraft((prev) => ({ ...prev, description: event.target.value }))}
+          value={themeDraft.description}
+          onChange={(event) => setThemeDraft((prev) => ({ ...prev, description: event.target.value }))}
         />
       </label>
       <label className="stacked-form__label registry-form-grid__full">
-        Plugin URL
+        Theme URL
         <input
           type="url"
-          value={pluginDraft.pluginUrl}
-          onChange={(event) => setPluginDraft((prev) => ({ ...prev, pluginUrl: event.target.value }))}
-          placeholder="https://wordpress.org/plugins/..."
+          value={themeDraft.themeUrl}
+          onChange={(event) => setThemeDraft((prev) => ({ ...prev, themeUrl: event.target.value }))}
+          placeholder="https://wordpress.org/themes/..."
         />
       </label>
       <label className="stacked-form__label">
-        Namespaces (comma or newline separated)
+        Namespace hints (comma or newline separated)
         <textarea
-          value={pluginDraft.namespaces}
-          onChange={(event) => setPluginDraft((prev) => ({ ...prev, namespaces: event.target.value }))}
-          placeholder="wc/v3\nwc/store/v1"
+          value={themeDraft.namespaceHints}
+          onChange={(event) => setThemeDraft((prev) => ({ ...prev, namespaceHints: event.target.value }))}
+          placeholder="astra-theme-css"
         />
       </label>
       <label className="stacked-form__label">
-        Asset hints (comma or newline separated)
+        Path signals (comma or newline separated)
         <textarea
-          value={pluginDraft.assetHints}
-          onChange={(event) => setPluginDraft((prev) => ({ ...prev, assetHints: event.target.value }))}
-          placeholder="woocommerce\nwc-analytics"
+          value={themeDraft.pathSignals}
+          onChange={(event) => setThemeDraft((prev) => ({ ...prev, pathSignals: event.target.value }))}
+          placeholder="/wp-content/themes/astra"
         />
       </label>
     </div>
@@ -312,60 +312,60 @@ function RegistryModal({ title, onClose, onSubmit, submitLabel, isSubmitting, ch
   );
 }
 
-AdminPluginManagerSection.propTypes = {
-  sortPluginsMutation: PropTypes.shape({
+AdminThemeManagerSection.propTypes = {
+  sortThemesMutation: PropTypes.shape({
     mutate: PropTypes.func.isRequired,
     isPending: PropTypes.bool
   }).isRequired,
-  pluginsQuery: PropTypes.shape({
+  themesQuery: PropTypes.shape({
     isLoading: PropTypes.bool,
     isError: PropTypes.bool,
     error: PropTypes.object
   }).isRequired,
-  managedPlugins: PropTypes.array,
-  pluginDraft: PropTypes.shape({
+  managedThemes: PropTypes.array,
+  themeDraft: PropTypes.shape({
     id: PropTypes.string,
     label: PropTypes.string,
     description: PropTypes.string,
-    pluginUrl: PropTypes.string,
-    namespaces: PropTypes.string,
-    assetHints: PropTypes.string
+    themeUrl: PropTypes.string,
+    namespaceHints: PropTypes.string,
+    pathSignals: PropTypes.string
   }).isRequired,
-  setPluginDraft: PropTypes.func.isRequired,
-  editingPluginId: PropTypes.string,
-  createPluginPending: PropTypes.bool,
-  updatePluginPending: PropTypes.bool,
-  onPluginSave: PropTypes.func.isRequired,
-  onPluginReset: PropTypes.func.isRequired,
-  pluginValidationError: PropTypes.string,
-  pluginSaveError: PropTypes.string,
+  setThemeDraft: PropTypes.func.isRequired,
+  editingThemeId: PropTypes.string,
+  createThemePending: PropTypes.bool,
+  updateThemePending: PropTypes.bool,
+  onThemeSave: PropTypes.func.isRequired,
+  onThemeReset: PropTypes.func.isRequired,
+  themeValidationError: PropTypes.string,
+  themeSaveError: PropTypes.string,
   onOpenCreateModal: PropTypes.func.isRequired,
   showCreateModal: PropTypes.bool,
   onCloseCreateModal: PropTypes.func.isRequired,
-  startEditing: PropTypes.func.isRequired,
-  deletePluginMutation: PropTypes.shape({
+  startEditingTheme: PropTypes.func.isRequired,
+  deleteThemeMutation: PropTypes.shape({
     mutate: PropTypes.func.isRequired,
     isPending: PropTypes.bool
   }).isRequired
 };
 
-AdminPluginManagerSection.defaultProps = {
-  managedPlugins: [],
-  editingPluginId: null,
-  createPluginPending: false,
-  updatePluginPending: false,
-  pluginValidationError: '',
-  pluginSaveError: '',
+AdminThemeManagerSection.defaultProps = {
+  managedThemes: [],
+  editingThemeId: null,
+  createThemePending: false,
+  updateThemePending: false,
+  themeValidationError: '',
+  themeSaveError: '',
   showCreateModal: false
 };
 
-PluginFormFields.propTypes = {
-  pluginDraft: PropTypes.object.isRequired,
-  setPluginDraft: PropTypes.func.isRequired,
+ThemeFormFields.propTypes = {
+  themeDraft: PropTypes.object.isRequired,
+  setThemeDraft: PropTypes.func.isRequired,
   disableId: PropTypes.bool
 };
 
-PluginFormFields.defaultProps = {
+ThemeFormFields.defaultProps = {
   disableId: false
 };
 
@@ -382,7 +382,7 @@ RegistryModal.defaultProps = {
   isSubmitting: false
 };
 
-export default AdminPluginManagerSection;
+export default AdminThemeManagerSection;
 
 function getFocusableElements(container) {
   return Array.from(

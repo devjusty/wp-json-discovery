@@ -24,6 +24,25 @@ function buildProps(overrides = {}) {
         assetHints: ['woocommerce']
       }
     ],
+    pluginDraft: {
+      id: '',
+      label: '',
+      description: '',
+      pluginUrl: '',
+      namespaces: '',
+      assetHints: ''
+    },
+    setPluginDraft: vi.fn(),
+    editingPluginId: null,
+    createPluginPending: false,
+    updatePluginPending: false,
+    onPluginSave: vi.fn(),
+    onPluginReset: vi.fn(),
+    pluginValidationError: '',
+    pluginSaveError: '',
+    onOpenCreateModal: vi.fn(),
+    showCreateModal: false,
+    onCloseCreateModal: vi.fn(),
     startEditing: vi.fn(),
     deletePluginMutation: {
       mutate: vi.fn(),
@@ -40,18 +59,22 @@ describe('AdminPluginManagerSection', () => {
 
   it('supports sort/edit/delete actions', async () => {
     const sortPluginsMutation = { mutate: vi.fn(), isPending: false };
+    const onOpenCreateModal = vi.fn();
     const startEditing = vi.fn();
     const deletePluginMutation = { mutate: vi.fn(), isPending: false };
     vi.spyOn(window, 'confirm').mockReturnValue(true);
 
     render(
-      <AdminPluginManagerSection
-        {...buildProps({ sortPluginsMutation, startEditing, deletePluginMutation })}
-      />
-    );
+        <AdminPluginManagerSection
+          {...buildProps({ sortPluginsMutation, onOpenCreateModal, startEditing, deletePluginMutation })}
+        />
+      );
 
     await userEvent.click(screen.getByRole('button', { name: 'Sort plugins' }));
     expect(sortPluginsMutation.mutate).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add plugin' }));
+    expect(onOpenCreateModal).toHaveBeenCalledTimes(1);
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
     expect(startEditing).toHaveBeenCalledWith(expect.objectContaining({ id: 'woocommerce' }));
