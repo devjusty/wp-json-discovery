@@ -47,6 +47,19 @@ describe('API routes', () => {
     expect(res.statusCode).not.toEqual(404);
   });
 
+  it('rejects proxy requests for IP literal domains', async () => {
+    const res = await request(app).get('/api/proxy?domain=127.0.0.1');
+    expect(res.statusCode).toEqual(400);
+    expect(res.body.error).toMatch(/invalid domain/i);
+  });
+
+  it('rejects proxy requests with scheme-relative endpoints', async () => {
+    const res = await request(app)
+      .get('/api/proxy?domain=example.com&endpoint=%2F%2Fevil.example%2Fwp-json%2F');
+    expect(res.statusCode).toEqual(400);
+    expect(res.body.error).toMatch(/relative path/i);
+  });
+
   it('should respond to /api/unsupported-plugins', async () => {
     const res = await request(app).get('/api/unsupported-plugins');
     expect(res.statusCode).not.toEqual(404);
@@ -65,6 +78,18 @@ describe('API routes', () => {
   it('should respond to /api/sitemap-scan', async () => {
     const res = await request(app).post('/api/sitemap-scan').send({ domain: 'example.com' });
     expect(res.statusCode).not.toEqual(404);
+  });
+
+  it('rejects sitemap scans when sitemap host does not match domain', async () => {
+    const res = await request(app)
+      .post('/api/sitemap-scan')
+      .send({
+        domain: 'example.com',
+        sitemapUrl: 'https://attacker.example/sitemap.xml'
+      });
+
+    expect(res.statusCode).toEqual(400);
+    expect(res.body.error).toMatch(/must match the requested domain/i);
   });
 
   it('should respond to /api/homepage-scan', async () => {

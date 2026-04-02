@@ -74,11 +74,10 @@ app.get('/api/proxy', wrapAsync(async (req, res) => {
     throw new ValidationError('Invalid domain provided');
   }
 
-  let targetUrl;
-  let normalizedEndpoint;
+  const normalizedEndpoint = normalizeProxyEndpoint(endpoint);
 
+  let targetUrl;
   try {
-    normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     targetUrl = new URL(normalizedEndpoint, `https://${sanitizedDomain}`).toString();
   } catch (error) {
     throw new ValidationError(`Invalid endpoint path: ${error.message}`);
@@ -526,9 +525,10 @@ app.post('/api/sitemap-scan', wrapAsync(async (req, res) => {
     ? Math.min(parsedPageLimit, MAX_SITEMAP_PAGES)
     : MAX_SITEMAP_PAGES;
 
-  const resolvedSitemapUrl = sitemapUrl
-    ? sitemapUrl
-    : `https://${sanitizedDomain}/sitemap.xml`;
+  const resolvedSitemapUrl = resolveSitemapUrl({
+    sitemapUrl,
+    domain: sanitizedDomain
+  });
 
   const { sitemapSummaries, seenPages } = await fetchAndParseSitemap(resolvedSitemapUrl, pageLimit);
   const pages = await fetchAndProcessPageDetails(Array.from(seenPages).slice(0, pageLimit), sanitizedDomain);
@@ -1075,6 +1075,54 @@ function parseBooleanQuery(value, defaultValue = false) {
   return defaultValue;
 }
 
+function normalizeProxyEndpoint(rawEndpoint) {
+  const endpoint = typeof rawEndpoint === 'string' && rawEndpoint.trim().length > 0
+    ? rawEndpoint.trim()
+    : '/wp-json/';
+
+  if (/^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(endpoint)) {
+    throw new ValidationError('Endpoint must be a relative path');
+  }
+
+  if (endpoint.startsWith('//')) {
+    throw new ValidationError('Endpoint must not start with double slashes');
+  }
+
+  return endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+}
+
+function normalizeForComparison(value) {
+  return value.replace(/^www\./i, '').toLowerCase();
+}
+
+function resolveSitemapUrl({ sitemapUrl, domain }) {
+  if (!sitemapUrl) {
+    return `https://${domain}/sitemap.xml`;
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(sitemapUrl);
+  } catch (error) {
+    throw new ValidationError(`Invalid sitemapUrl: ${error.message}`);
+  }
+
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new ValidationError('sitemapUrl must use http or https');
+  }
+
+  const sitemapHost = sanitizeDomain(parsed.hostname);
+  if (!sitemapHost) {
+    throw new ValidationError('sitemapUrl hostname is invalid');
+  }
+
+  if (normalizeForComparison(sitemapHost) !== normalizeForComparison(domain)) {
+    throw new ValidationError('sitemapUrl host must match the requested domain');
+  }
+
+  return parsed.toString();
+}
+
 function aggregateHomepageAssets(activityLogs = []) {
   const byPath = new Map();
 
@@ -1318,7 +1366,7 @@ async function collectStorageStats(dbPath, isRemote = true) {
       remote: isRemote
     },
     activityLog: {
-      path: path.join(__dirname, 'data', 'activity.log'),
+      path: path.join(__dirname, '..', 'data', 'activity.log'),
       sizeBytes: null
     }
   };
