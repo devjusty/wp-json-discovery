@@ -885,29 +885,29 @@ async function persistScanHistoryFromLog(entry) {
         unsupportedCount
       ]
     );
-    return;
   }
-
-  await execute(
-    `
-      update scan_domains
-      set
-        last_scanned_at = ?,
-        last_status = ?,
-        last_duration_ms = ?,
-        last_error_category = ?,
-        last_unsupported_count = ?
-      where domain = ?
-    `,
-    [
-      scannedAt,
-      status,
-      durationMs,
-      errorCategory,
-      unsupportedCount,
-      domain
-    ]
-  );
+  if (existing) {
+    await execute(
+      `
+        update scan_domains
+        set
+          last_scanned_at = ?,
+          last_status = ?,
+          last_duration_ms = ?,
+          last_error_category = ?,
+          last_unsupported_count = ?
+        where domain = ?
+      `,
+      [
+        scannedAt,
+        status,
+        durationMs,
+        errorCategory,
+        unsupportedCount,
+        domain
+      ]
+    );
+  }
 
   await execute(
     `

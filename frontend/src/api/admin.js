@@ -99,7 +99,7 @@ export async function createTheme(payload) {
     body: JSON.stringify(payload)
   });
   if (!result.ok) {
-    throw new Error(result.error ?? 'Failed to create theme');
+    throw new Error(result.data?.error ?? 'Failed to create theme');
   }
   return result.data;
 }
@@ -110,7 +110,7 @@ export async function updateTheme(id, payload) {
     body: JSON.stringify(payload)
   });
   if (!result.ok) {
-    throw new Error(result.error ?? 'Failed to update theme');
+    throw new Error(result.data?.error ?? 'Failed to update theme');
   }
   return result.data;
 }
@@ -120,7 +120,7 @@ export async function deleteTheme(id) {
     method: 'DELETE'
   });
   if (!result.ok) {
-    throw new Error(result.error ?? 'Failed to delete theme');
+    throw new Error(result.data?.error ?? 'Failed to delete theme');
   }
   return result.data;
 }
@@ -130,7 +130,7 @@ export async function sortThemes() {
     method: 'POST'
   });
   if (!result.ok) {
-    throw new Error(result.error ?? 'Failed to sort themes');
+    throw new Error(result.data?.error ?? 'Failed to sort themes');
   }
   return result.data;
 }

@@ -1,25 +1,9 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
-import { useMutation, useQuery } from '@tanstack/react-query';
 import AppLayout from '../templates/AppLayout.jsx';
 import AdminSidebarNav from './admin/AdminSidebarNav.jsx';
 import useAdminData from './admin/useAdminData.js';
-import {
-  fetchDbSnapshot,
-  pruneActivityLogs,
-  runDbMaintenance,
-  fetchPlugins,
-  fetchThemes,
-  createPlugin,
-  updatePlugin,
-  deletePlugin,
-  sortPlugins as sortPluginsApi,
-  createTheme,
-  updateTheme,
-  deleteTheme,
-  sortThemes as sortThemesApi
-} from '../../api/admin.js';
-import { fetchScanHistory } from '../../api/client.js';
+import useAdminQueries from './admin/useAdminQueries.js';
 
 const loadAdminMaintenanceSection = () => import('./admin/sections/AdminMaintenanceSection.jsx');
 const loadAdminDbSection = () => import('./admin/sections/AdminDbSection.jsx');
@@ -83,111 +67,6 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
   const [editingThemeId, setEditingThemeId] = useState(null);
   const [themeValidationError, setThemeValidationError] = useState('');
   const [showCreateThemeModal, setShowCreateThemeModal] = useState(false);
-  const snapshotQuery = useQuery({
-    queryKey: ['dbSnapshot'],
-    queryFn: () => fetchDbSnapshot(75),
-    refetchOnWindowFocus: false
-  });
-  const pruneMutation = useMutation({
-    mutationFn: pruneActivityLogs,
-    onSuccess: () => {
-      snapshotQuery.refetch();
-    }
-  });
-  const maintenanceMutation = useMutation({
-    mutationFn: runDbMaintenance,
-    onSuccess: () => {
-      snapshotQuery.refetch();
-    }
-  });
-  const pluginsQuery = useQuery({
-    queryKey: ['adminPlugins'],
-    queryFn: fetchPlugins,
-    enabled: activeSection === 'plugin-manager' || activeSection === 'plugins',
-    refetchOnWindowFocus: false
-  });
-  const themesQuery = useQuery({
-    queryKey: ['adminThemes'],
-    queryFn: fetchThemes,
-    enabled: activeSection === 'themes' || activeSection === 'theme-manager',
-    refetchOnWindowFocus: false
-  });
-  const domainsHistoryQuery = useQuery({
-    queryKey: ['adminDomainsHistory'],
-    queryFn: () => fetchScanHistory({
-      includeFailed: true,
-      sort: 'recent',
-      limit: 200,
-      offset: 0
-    }),
-    enabled: activeSection === 'domains',
-    refetchOnWindowFocus: false
-  });
-  const createPluginMutation = useMutation({
-    mutationFn: createPlugin,
-    onSuccess: () => {
-      pluginsQuery.refetch();
-      resetPluginDraft();
-      setShowCreatePluginModal(false);
-    }
-  });
-  const updatePluginMutation = useMutation({
-    mutationFn: ({ id, payload }) => updatePlugin(id, payload),
-    onSuccess: () => {
-      pluginsQuery.refetch();
-      resetPluginDraft();
-    }
-  });
-  const deletePluginMutation = useMutation({
-    mutationFn: deletePlugin,
-    onSuccess: () => {
-      pluginsQuery.refetch();
-      resetPluginDraft();
-    }
-  });
-  const sortPluginsMutation = useMutation({
-    mutationFn: sortPluginsApi,
-    onSuccess: () => {
-      pluginsQuery.refetch();
-    }
-  });
-  const createThemeMutation = useMutation({
-    mutationFn: createTheme,
-    onSuccess: () => {
-      themesQuery.refetch();
-      resetThemeDraft();
-      setShowCreateThemeModal(false);
-    }
-  });
-  const updateThemeMutation = useMutation({
-    mutationFn: ({ id, payload }) => updateTheme(id, payload),
-    onSuccess: () => {
-      themesQuery.refetch();
-      resetThemeDraft();
-    }
-  });
-  const deleteThemeMutation = useMutation({
-    mutationFn: deleteTheme,
-    onSuccess: () => {
-      themesQuery.refetch();
-      resetThemeDraft();
-    }
-  });
-  const sortThemesMutation = useMutation({
-    mutationFn: sortThemesApi,
-    onSuccess: () => {
-      themesQuery.refetch();
-    }
-  });
-  const managedPlugins = useMemo(
-    () => pluginsQuery.data?.plugins ?? [],
-    [pluginsQuery.data]
-  );
-  const managedThemes = useMemo(
-    () => themesQuery.data?.themes ?? [],
-    [themesQuery.data]
-  );
-
   const parseList = useCallback((value) => {
     return value
       .split(/[\n,]/)
@@ -235,7 +114,7 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
     }
   }, []);
 
-  const resetPluginDraft = () => {
+  const resetPluginDraft = useCallback(() => {
     setPluginDraft({
       id: '',
       label: '',
@@ -245,19 +124,14 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
       assetHints: ''
     });
     setPluginValidationError('');
-  };
+  }, []);
 
-  const cancelPluginEdit = () => {
+  const cancelPluginEdit = useCallback(() => {
     resetPluginDraft();
     setEditingPluginId(null);
-  };
+  }, [resetPluginDraft]);
 
-  const resetPluginMutationErrors = useCallback(() => {
-    createPluginMutation.reset();
-    updatePluginMutation.reset();
-  }, [createPluginMutation, updatePluginMutation]);
-
-  const resetThemeDraft = () => {
+  const resetThemeDraft = useCallback(() => {
     setThemeDraft({
       id: '',
       label: '',
@@ -267,12 +141,55 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
       pathSignals: ''
     });
     setThemeValidationError('');
-  };
+  }, []);
 
-  const cancelThemeEdit = () => {
+  const cancelThemeEdit = useCallback(() => {
     resetThemeDraft();
     setEditingThemeId(null);
-  };
+  }, [resetThemeDraft]);
+
+  const {
+    snapshotQuery,
+    pruneMutation,
+    maintenanceMutation,
+    pluginsQuery,
+    themesQuery,
+    domainsHistoryQuery,
+    createPluginMutation,
+    updatePluginMutation,
+    deletePluginMutation,
+    sortPluginsMutation,
+    createThemeMutation,
+    updateThemeMutation,
+    deleteThemeMutation,
+    sortThemesMutation
+  } = useAdminQueries({
+    activeSection,
+    onPluginCreated: () => {
+      resetPluginDraft();
+      setShowCreatePluginModal(false);
+    },
+    onPluginSaved: resetPluginDraft,
+    onThemeCreated: () => {
+      resetThemeDraft();
+      setShowCreateThemeModal(false);
+    },
+    onThemeSaved: resetThemeDraft
+  });
+
+  const resetPluginMutationErrors = useCallback(() => {
+    createPluginMutation.reset();
+    updatePluginMutation.reset();
+  }, [createPluginMutation, updatePluginMutation]);
+
+  const managedPlugins = useMemo(
+    () => pluginsQuery.data?.plugins ?? [],
+    [pluginsQuery.data]
+  );
+  const managedThemes = useMemo(
+    () => themesQuery.data?.themes ?? [],
+    [themesQuery.data]
+  );
 
   const startEditing = useCallback((plugin) => {
     setEditingPluginId(plugin.id);

@@ -5,6 +5,15 @@ const API_BASE_URL =
     ? import.meta.env.VITE_API_BASE_URL
     : DEFAULT_API_BASE_URL;
 
+const ADMIN_API_KEY =
+  typeof import.meta !== 'undefined' && import.meta.env?.VITE_ADMIN_API_KEY
+    ? import.meta.env.VITE_ADMIN_API_KEY
+    : '';
+
+function shouldAttachAdminKey(path) {
+  return path === '/api/logs' || path.startsWith('/api/logs/') || path.startsWith('/api/admin/');
+}
+
 export async function request(path, options = {}) {
   const url = `${API_BASE_URL}${path}`;
 
@@ -14,6 +23,10 @@ export async function request(path, options = {}) {
       headers.set('content-type', 'application/json');
     }
     headers.set('accept', 'application/json, text/plain, */*');
+
+    if (ADMIN_API_KEY && shouldAttachAdminKey(path)) {
+      headers.set('x-wpjd-admin-key', ADMIN_API_KEY);
+    }
 
     const response = await fetch(url, {
       ...options,

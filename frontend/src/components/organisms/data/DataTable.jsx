@@ -1,4 +1,4 @@
-import { memo, useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import clsx from 'clsx';
 import {
@@ -42,6 +42,7 @@ function DataTable({
 
   const data = useMemo(() => rows ?? [], [rows]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns,
@@ -344,4 +345,4 @@ DataTable.propTypes = {
   onToggleExpand: PropTypes.func
 };
 
-export default memo(DataTable);
+export default DataTable;

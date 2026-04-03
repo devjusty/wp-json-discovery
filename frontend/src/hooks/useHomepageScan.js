@@ -15,7 +15,13 @@ export function useHomepageScan() {
         metaCount: data.insights?.meta?.length ?? 0,
         assetCount: data.insights?.assets?.length ?? 0,
         frameworks: data.insights?.frameworks ?? [],
-        snapshot: data,
+        assetSample: (data.insights?.assets ?? []).slice(0, 20).map((asset) => ({
+          path: asset.path,
+          type: asset.type,
+          count: asset.count,
+          slug: asset.slug,
+          matches: asset.matches
+        })),
         snapshotBytes: JSON.stringify(data).length
       });
     },

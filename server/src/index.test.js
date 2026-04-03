@@ -5,9 +5,11 @@ import { execute, getDb } from './db/client.js';
 
 describe('API routes', () => {
   const originalFetch = global.fetch;
+  const adminHeaders = { 'x-wpjd-admin-key': 'test-admin-key' };
 
   beforeAll(() => {
     process.env.ADMIN_ENABLED = 'true';
+    process.env.ADMIN_API_KEY = 'test-admin-key';
     process.env.TURSO_DATABASE_URL = 'file::memory:';
     global.fetch = async (url) => {
       const target = String(url);
@@ -43,7 +45,7 @@ describe('API routes', () => {
   });
 
   it('should respond to /api/proxy', async () => {
-    const res = await request(app).get('/api/proxy?domain=example.com');
+    const res = await request(app).get('/api/proxy?domain=redirect-example.com');
     expect(res.statusCode).not.toEqual(404);
   });
 
@@ -71,8 +73,28 @@ describe('API routes', () => {
   });
 
   it('should respond to /api/logs', async () => {
-    const res = await request(app).post('/api/logs').send({ type: 'test' });
+    const res = await request(app).post('/api/logs').set(adminHeaders).send({
+      type: 'scan.started',
+      payload: { domain: 'example.com' }
+    });
     expect(res.statusCode).not.toEqual(404);
+  });
+
+  it('rejects /api/logs without admin key', async () => {
+    const res = await request(app).post('/api/logs').send({
+      type: 'scan.started',
+      payload: { domain: 'example.com' }
+    });
+    expect(res.statusCode).toEqual(401);
+  });
+
+  it('rejects unsupported client log event types', async () => {
+    const res = await request(app).post('/api/logs').set(adminHeaders).send({
+      type: 'test',
+      payload: {}
+    });
+    expect(res.statusCode).toEqual(400);
+    expect(res.body.error).toMatch(/unsupported log type/i);
   });
 
   it('should respond to /api/sitemap-scan', async () => {
@@ -98,8 +120,13 @@ describe('API routes', () => {
   });
 
   it('should respond to /api/logs/rotate', async () => {
-    const res = await request(app).post('/api/logs/rotate');
+    const res = await request(app).post('/api/logs/rotate').set(adminHeaders);
     expect(res.statusCode).not.toEqual(404);
+  });
+
+  it('rejects /api/admin routes without admin key', async () => {
+    const res = await request(app).get('/api/admin/db-snapshot');
+    expect(res.statusCode).toEqual(401);
   });
 
   it('returns public plugin registry payload', async () => {
@@ -118,9 +145,9 @@ describe('API routes', () => {
         metrics: { durationMs: 800 },
         unsupportedNamespaces: []
       }
-    });
+    }).set(adminHeaders);
 
-    await request(app).post('/api/logs').send({
+    await request(app).post('/api/logs').set(adminHeaders).send({
       type: 'scan.error',
       payload: {
         domain: 'failed-example.com',
@@ -138,7 +165,7 @@ describe('API routes', () => {
   });
 
   it('returns domain run timeline with includeFailed toggle', async () => {
-    await request(app).post('/api/logs').send({
+    await request(app).post('/api/logs').set(adminHeaders).send({
       type: 'scan.complete',
       payload: {
         domain: 'timeline-example.com',
@@ -147,7 +174,7 @@ describe('API routes', () => {
       }
     });
 
-    await request(app).post('/api/logs').send({
+    await request(app).post('/api/logs').set(adminHeaders).send({
       type: 'scan.error',
       payload: {
         domain: 'timeline-example.com',
@@ -166,7 +193,7 @@ describe('API routes', () => {
   });
 
   it('supports scan history pagination and sorting', async () => {
-    await request(app).post('/api/logs').send({
+    await request(app).post('/api/logs').set(adminHeaders).send({
       type: 'scan.complete',
       payload: {
         domain: 'paginate-a.com',
@@ -175,7 +202,7 @@ describe('API routes', () => {
       }
     });
 
-    await request(app).post('/api/logs').send({
+    await request(app).post('/api/logs').set(adminHeaders).send({
       type: 'scan.complete',
       payload: {
         domain: 'paginate-b.com',
@@ -193,6 +220,54 @@ describe('API routes', () => {
     expect(paged.body.items[0].domain).toBe('paginate-b.com');
   });
 
+  it('rejects proxy redirects to a different host', async () => {
+    const fallbackFetch = global.fetch;
+    let callCount = 0;
+    global.fetch = async (url) => {
+      if (callCount === 0) {
+        callCount += 1;
+        return new Response('', {
+          status: 302,
+          headers: { location: 'https://evil.example/wp-json/' }
+        });
+      }
+
+      return fallbackFetch(url);
+    };
+
+    const res = await request(app).get('/api/proxy?domain=example.com');
+    expect(res.statusCode).toEqual(502);
+    expect(res.body.error).toMatch(/host mismatch/i);
+
+    global.fetch = fallbackFetch;
+  });
+
+  it('rejects sitemap scans with cross-host child sitemaps', async () => {
+    const fallbackFetch = global.fetch;
+    global.fetch = async (url) => {
+      const target = String(url);
+      if (target.includes('cross-host.xml')) {
+        return new Response(
+          '<sitemapindex><sitemap><loc>https://evil.example/sitemap.xml</loc></sitemap></sitemapindex>',
+          {
+            status: 200,
+            headers: { 'content-type': 'application/xml' }
+          }
+        );
+      }
+
+      return fallbackFetch(url);
+    };
+
+    const res = await request(app)
+      .post('/api/sitemap-scan')
+      .send({ domain: 'example.com', sitemapUrl: 'https://example.com/cross-host.xml' });
+    expect(res.statusCode).toEqual(400);
+    expect(res.body.error).toMatch(/host must match requested domain/i);
+
+    global.fetch = fallbackFetch;
+  });
+
   it('returns admin db snapshot when enabled', async () => {
     process.env.ADMIN_ENABLED = 'true';
     await getDb();
@@ -202,7 +277,7 @@ describe('API routes', () => {
       [new Date().toISOString(), 'test.admin', '{"ok":true}']
     );
 
-    const res = await request(app).get('/api/admin/db-snapshot?limit=5');
+    const res = await request(app).get('/api/admin/db-snapshot?limit=5').set(adminHeaders);
     expect(res.statusCode).toEqual(200);
     expect(res.body).toHaveProperty('totals.activityLogs');
     expect(Array.isArray(res.body.activityLogs)).toBe(true);
@@ -211,7 +286,7 @@ describe('API routes', () => {
 
   it('returns seeded admin themes registry', async () => {
     process.env.ADMIN_ENABLED = 'true';
-    const res = await request(app).get('/api/admin/themes');
+    const res = await request(app).get('/api/admin/themes').set(adminHeaders);
     expect(res.statusCode).toEqual(200);
     expect(Array.isArray(res.body.themes)).toBe(true);
     expect(res.body.themes.length).toBeGreaterThan(0);
@@ -220,7 +295,7 @@ describe('API routes', () => {
 
   it('blocks admin snapshot when disabled', async () => {
     process.env.ADMIN_ENABLED = 'false';
-    const res = await request(app).get('/api/admin/db-snapshot');
+    const res = await request(app).get('/api/admin/db-snapshot').set(adminHeaders);
     expect(res.statusCode).toEqual(403);
   });
 });

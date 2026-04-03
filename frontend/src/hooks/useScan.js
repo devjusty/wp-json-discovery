@@ -71,7 +71,7 @@ export function useScan() {
           rejected: persistenceReport.filter(
             (item) => item.status === 'rejected'
           ).length,
-          details: persistenceReport
+          details: persistenceReport.slice(0, 25)
         });
       }
 
@@ -90,9 +90,8 @@ export function useScan() {
           namespaces: plugin.namespaces,
           routes: plugin.routes.length
         })),
-        unsupportedNamespaces: data.plugins.unsupportedNamespaces,
-        unsupportedPersistence: persistenceReport,
-        snapshot: data,
+        unsupportedNamespaces: data.plugins.unsupportedNamespaces.slice(0, 50),
+        unsupportedPersistence: persistenceReport.slice(0, 50),
         snapshotBytes: JSON.stringify(data).length
       });
     },

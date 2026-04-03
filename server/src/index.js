@@ -16,6 +16,7 @@ import { AppError, NetworkError, ValidationError } from './utils/errors.js';
 import { REQUEST_TIMEOUT_MS, HOMEPAGE_HTML_CAP_BYTES, DEFAULT_USER_AGENT, MAX_SITEMAP_PAGES, FRONTEND_ORIGIN_DEFAULT, EXPOSED_HEADERS_LIST, FORWARDED_RESPONSE_HEADERS_LIST, ACTIVITY_LOG_PRUNE_DEFAULTS } from './config.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { apiRateLimiter } from './middleware/rateLimiter.js';
+import { requireAdminApiKey } from './middleware/adminAuth.js';
 import { wrapAsync } from './utils/route.js';
 import { execute, getDb, queryAll, queryOne } from './db/client.js';
 import {
@@ -55,8 +56,24 @@ const PROXY_RESPONSE_SAMPLE_RATE = 20;
 const PROXY_RESPONSE_SLOW_MS = 1500;
 const TURSO_API_BASE_URL = 'https://api.turso.tech';
 const proxyCache = new Map();
+const ALLOWED_CLIENT_LOG_TYPES = new Set([
+  'scan.started',
+  'scan.complete',
+  'scan.error',
+  'unsupported.persist_attempt',
+  'unsupported.persist_failed',
+  'homepage.scan.started',
+  'homepage.scan.complete',
+  'homepage.scan.error',
+  'sitemap.scan.complete',
+  'sitemap.scan.error',
+  'logs.rotation_triggered',
+  'logs.rotation_failed'
+]);
 
 app.use('/api', apiRateLimiter);
+app.use('/api/admin', requireAdminApiKey);
+app.use('/api/logs', requireAdminApiKey);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
@@ -118,6 +135,7 @@ app.get('/api/proxy', wrapAsync(async (req, res) => {
     }
 
     const { response, finalUrl, redirects } = await fetchWithRedirects(targetUrl, {
+      allowedHost: sanitizedDomain,
       signal: controller.signal,
       headers: {
         'user-agent': DEFAULT_USER_AGENT
@@ -337,9 +355,15 @@ app.post('/api/logs', wrapAsync(async (req, res) => {
   }
 
   try {
-    await recordLog(type.trim(), payload ?? {});
+    const normalizedType = type.trim();
+    const normalizedPayload = normalizeClientLogPayload(normalizedType, payload);
+
+    await recordLog(normalizedType, normalizedPayload);
     res.status(202).json({ acknowledged: true });
   } catch (error) {
+    if (error instanceof ValidationError) {
+      throw error;
+    }
     const logError = new AppError('Failed to record log entry', 500);
     throw logError;
   }
@@ -576,6 +600,7 @@ app.post('/api/homepage-scan', wrapAsync(async (req, res) => {
     const { response, finalUrl, redirects } = await fetchWithRedirects(
       targetUrl,
       {
+        allowedHost: sanitizedDomain,
         signal: controller.signal,
         headers: {
           accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
@@ -1057,6 +1082,254 @@ function safeParseJson(raw) {
   } catch {
     return raw;
   }
+}
+
+function normalizeClientLogPayload(type, payload) {
+  if (!ALLOWED_CLIENT_LOG_TYPES.has(type)) {
+    throw new ValidationError(`Unsupported log type: ${type}`);
+  }
+
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new ValidationError('payload must be an object');
+  }
+
+  switch (type) {
+    case 'scan.started':
+    case 'homepage.scan.started':
+      return {
+        domain: requiredDomain(payload.domain),
+        triggeredAt: optionalIsoDate(payload.triggeredAt)
+      };
+    case 'scan.complete':
+      return {
+        domain: requiredDomain(payload.domain),
+        metrics: normalizeMetrics(payload.metrics),
+        coreSummary: normalizeCoreSummary(payload.coreSummary),
+        matchedPlugins: normalizeMatchedPlugins(payload.matchedPlugins),
+        unsupportedNamespaces: normalizeStringArray(payload.unsupportedNamespaces, 100),
+        unsupportedPersistence: normalizeUnsupportedPersistence(payload.unsupportedPersistence),
+        snapshotBytes: optionalInteger(payload.snapshotBytes)
+      };
+    case 'scan.error':
+      return {
+        domain: requiredDomain(payload.domain),
+        message: cleanString(payload.message, 500),
+        code: cleanString(payload.code, 120),
+        status: optionalInteger(payload.status),
+        details: normalizeErrorDetails(payload.details)
+      };
+    case 'unsupported.persist_attempt':
+      return {
+        domain: requiredDomain(payload.domain),
+        attempted: optionalInteger(payload.attempted),
+        fulfilled: optionalInteger(payload.fulfilled),
+        rejected: optionalInteger(payload.rejected),
+        details: normalizeUnsupportedPersistence(payload.details)
+      };
+    case 'unsupported.persist_failed':
+      return {
+        domain: requiredDomain(payload.domain),
+        namespace: cleanString(payload.namespace, 250),
+        message: cleanString(payload.message, 500)
+      };
+    case 'homepage.scan.complete':
+      return {
+        domain: requiredDomain(payload.domain),
+        source: normalizeSource(payload.source),
+        metaCount: optionalInteger(payload.metaCount),
+        assetCount: optionalInteger(payload.assetCount),
+        frameworks: normalizeStringArray(payload.frameworks, 25),
+        assetSample: normalizeAssetSample(payload.assetSample),
+        snapshotBytes: optionalInteger(payload.snapshotBytes)
+      };
+    case 'homepage.scan.error':
+    case 'sitemap.scan.error':
+    case 'logs.rotation_failed':
+      return {
+        message: cleanString(payload.message, 500),
+        domain: optionalDomain(payload.domain)
+      };
+    case 'sitemap.scan.complete':
+      return {
+        domain: requiredDomain(payload.domain),
+        totals: normalizeSitemapTotals(payload.totals),
+        sitemapCount: optionalInteger(payload.sitemapCount),
+        pages: normalizeSitemapPages(payload.pages)
+      };
+    case 'logs.rotation_triggered':
+      return {
+        filename: cleanString(payload.filename, 255),
+        triggeredAt: optionalIsoDate(payload.triggeredAt)
+      };
+    default:
+      return {};
+  }
+}
+
+function requiredDomain(value) {
+  const domain = sanitizeDomain(value);
+  if (!domain) {
+    throw new ValidationError('payload.domain must be a valid domain');
+  }
+  return domain;
+}
+
+function optionalDomain(value) {
+  if (typeof value !== 'string') return null;
+  return sanitizeDomain(value) ?? null;
+}
+
+function cleanString(value, maxLength = 300) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed.length > maxLength ? trimmed.slice(0, maxLength) : trimmed;
+}
+
+function optionalInteger(value) {
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+  return Math.trunc(value);
+}
+
+function optionalIsoDate(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) {
+    return null;
+  }
+  return new Date(parsed).toISOString();
+}
+
+function normalizeStringArray(value, limit = 50) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .slice(0, limit)
+    .map((item) => cleanString(item, 250))
+    .filter(Boolean);
+}
+
+function normalizeMetrics(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  return {
+    durationMs: optionalInteger(value.durationMs),
+    startedAt: optionalIsoDate(value.startedAt),
+    completedAt: optionalIsoDate(value.completedAt)
+  };
+}
+
+function normalizeCoreSummary(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.slice(0, 20).map((item) => ({
+    key: cleanString(item?.key, 80),
+    status: cleanString(item?.status, 80),
+    rows: optionalInteger(item?.rows),
+    durationMs: optionalInteger(item?.durationMs)
+  }));
+}
+
+function normalizeMatchedPlugins(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.slice(0, 50).map((item) => ({
+    id: cleanString(item?.id, 120),
+    namespaces: normalizeStringArray(item?.namespaces, 20),
+    routes: optionalInteger(item?.routes)
+  }));
+}
+
+function normalizeUnsupportedPersistence(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.slice(0, 100).map((item) => ({
+    namespace: cleanString(item?.namespace, 250),
+    status: cleanString(item?.status, 40),
+    message: cleanString(item?.message, 500)
+  }));
+}
+
+function normalizeErrorDetails(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  return {
+    statusCode: optionalInteger(value.statusCode),
+    code: cleanString(value.code, 120),
+    endpoint: cleanString(value.endpoint, 300)
+  };
+}
+
+function normalizeSource(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  return {
+    statusCode: optionalInteger(value.statusCode),
+    finalUrl: cleanString(value.finalUrl, 500),
+    contentType: cleanString(value.contentType, 120),
+    sizeBytes: optionalInteger(value.sizeBytes),
+    durationMs: optionalInteger(value.durationMs),
+    redirects: optionalInteger(value.redirects),
+    truncated: Boolean(value.truncated),
+    ok: Boolean(value.ok)
+  };
+}
+
+function normalizeAssetSample(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.slice(0, 30).map((item) => ({
+    path: cleanString(item?.path, 500),
+    type: cleanString(item?.type, 40),
+    count: optionalInteger(item?.count),
+    slug: cleanString(item?.slug, 120),
+    matches: Array.isArray(item?.matches)
+      ? item.matches.slice(0, 10).map((match) => ({
+        id: cleanString(match?.id, 120),
+        label: cleanString(match?.label, 120),
+        type: cleanString(match?.type, 40),
+        slug: cleanString(match?.slug, 120)
+      }))
+      : []
+  }));
+}
+
+function normalizeSitemapTotals(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  return {
+    pagesScanned: optionalInteger(value.pagesScanned),
+    invalidSchema: optionalInteger(value.invalidSchema),
+    noindex: optionalInteger(value.noindex)
+  };
+}
+
+function normalizeSitemapPages(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.slice(0, 50).map((item) => ({
+    url: cleanString(item?.url, 500),
+    statusCode: optionalInteger(item?.statusCode),
+    flags: normalizeStringArray(item?.flags, 20)
+  }));
 }
 
 function parseBooleanQuery(value, defaultValue = false) {

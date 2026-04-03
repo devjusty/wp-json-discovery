@@ -107,35 +107,40 @@ export async function readUnsupportedPlugins() {
   return withPluginsLock(async () => {
     await seedFromJsonIfEmpty();
 
-    const plugins = await queryAll(
+    const rows = await queryAll(
       `
-        select id, namespace, first_detected_at, last_detected_at
-        from unsupported_plugins
-        order by namespace asc
+        select
+          up.id,
+          up.namespace,
+          up.first_detected_at,
+          up.last_detected_at,
+          upd.domain
+        from unsupported_plugins up
+        left join unsupported_plugin_domains upd
+          on upd.plugin_id = up.id
+        order by up.namespace asc, upd.domain asc
       `
     );
 
-    const result = [];
-    for (const plugin of plugins) {
-      const domains = await queryAll(
-        `
-          select domain
-          from unsupported_plugin_domains
-          where plugin_id = ?
-          order by domain asc
-        `,
-        [plugin.id]
-      );
+    const byPluginId = new Map();
 
-      result.push({
-        namespace: plugin.namespace,
-        firstDetectedAt: plugin.first_detected_at,
-        lastDetectedAt: plugin.last_detected_at,
-        domains: domains.map((row) => row.domain)
-      });
+    for (const row of rows) {
+      const pluginId = Number(row.id);
+      const existing = byPluginId.get(pluginId) ?? {
+        namespace: row.namespace,
+        firstDetectedAt: row.first_detected_at,
+        lastDetectedAt: row.last_detected_at,
+        domains: []
+      };
+
+      if (typeof row.domain === 'string' && row.domain.trim().length > 0) {
+        existing.domains.push(row.domain);
+      }
+
+      byPluginId.set(pluginId, existing);
     }
 
-    return result;
+    return Array.from(byPluginId.values());
   });
 }
 

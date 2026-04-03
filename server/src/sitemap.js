@@ -4,12 +4,15 @@ import { fetchWithRedirects } from './utils/fetch.js';
 import { AppError, NetworkError, ValidationError } from './utils/errors.js';
 import { MAX_PAGE_BODY_BYTES, DEFAULT_USER_AGENT } from './config.js';
 import { logSilently } from './logger.js'; // Import logSilently
+import { sanitizeDomain } from './utils/domain.js';
 
 const MAX_PAGE_BYTES = MAX_PAGE_BODY_BYTES;
 const DEFAULT_UA = DEFAULT_USER_AGENT;
 
 export async function fetchSitemap(url) {
+  const expectedHost = getExpectedHost(url);
   const { response, finalUrl, redirects } = await fetchWithRedirects(url, {
+    allowedHost: expectedHost,
     headers: {
       accept: 'application/xml,text/xml;q=0.9,*/*;q=0.8',
       'user-agent': DEFAULT_UA
@@ -57,7 +60,9 @@ export function parseSitemap(xmlString) {
 
 export async function fetchPageDetails(url, { signal, userAgent = DEFAULT_UA } = {}) {
   const start = Date.now();
+  const expectedHost = getExpectedHost(url);
   const { response, finalUrl, redirects } = await fetchWithRedirects(url, {
+    allowedHost: expectedHost,
     signal,
     headers: {
       accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -252,20 +257,22 @@ const REQUIRED_FIELDS = {
 };
 
 export async function fetchAndParseSitemap(targetUrl, maxPages = 50) {
+  const expectedHost = getExpectedHost(targetUrl);
   const sitemapSummaries = [];
   const seenSitemaps = new Set();
   const seenPages = new Set();
   const pageLimit = Math.min(Math.max(Number(maxPages) || 0, 1), 200);
 
   async function processSitemap(url) {
-    if (seenSitemaps.has(url)) return;
-    seenSitemaps.add(url);
+    const canonicalUrl = toCanonicalSameHostUrl(url, expectedHost, 'sitemap URL');
+    if (seenSitemaps.has(canonicalUrl)) return;
+    seenSitemaps.add(canonicalUrl);
 
-    const sitemapFetch = await fetchSitemap(url);
+    const sitemapFetch = await fetchSitemap(canonicalUrl);
     const parsed = parseSitemap(sitemapFetch.body ?? '');
 
     sitemapSummaries.push({
-      url,
+      url: canonicalUrl,
       statusCode: sitemapFetch.status,
       redirects: sitemapFetch.redirects,
       finalUrl: sitemapFetch.finalUrl,
@@ -275,13 +282,18 @@ export async function fetchAndParseSitemap(targetUrl, maxPages = 50) {
 
     if (parsed.type === 'index') {
       for (const child of parsed.sitemapUrls.slice(0, 10)) {
-        await processSitemap(child);
+        await processSitemap(toCanonicalSameHostUrl(child, expectedHost, 'child sitemap URL', canonicalUrl));
       }
     }
 
     parsed.urls.forEach((entry) => {
-      if (seenPages.size < pageLimit && entry.loc && !seenPages.has(entry.loc)) {
-        seenPages.add(entry.loc);
+      if (!entry.loc || seenPages.size >= pageLimit) {
+        return;
+      }
+
+      const pageUrl = toCanonicalSameHostUrl(entry.loc, expectedHost, 'sitemap page URL', canonicalUrl);
+      if (!seenPages.has(pageUrl)) {
+        seenPages.add(pageUrl);
       }
     });
   }
@@ -289,6 +301,46 @@ export async function fetchAndParseSitemap(targetUrl, maxPages = 50) {
   await processSitemap(targetUrl);
 
   return { sitemapSummaries, seenPages };
+}
+
+function getExpectedHost(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch (error) {
+    throw new ValidationError(`Invalid URL: ${error.message}`);
+  }
+
+  const host = sanitizeDomain(parsed.hostname);
+  if (!host) {
+    throw new ValidationError('URL hostname is invalid');
+  }
+
+  return host;
+}
+
+function toCanonicalSameHostUrl(value, expectedHost, label, baseUrl) {
+  let parsed;
+  try {
+    parsed = new URL(value, baseUrl);
+  } catch (error) {
+    throw new ValidationError(`Invalid ${label}: ${error.message}`);
+  }
+
+  const host = sanitizeDomain(parsed.hostname);
+  if (!host) {
+    throw new ValidationError(`${label} hostname is invalid`);
+  }
+
+  if (normalizeForComparison(host) !== normalizeForComparison(expectedHost)) {
+    throw new ValidationError(`${label} host must match requested domain`);
+  }
+
+  return parsed.toString();
+}
+
+function normalizeForComparison(value) {
+  return value.replace(/^www\./i, '').toLowerCase();
 }
 
 export async function fetchAndProcessPageDetails(pageUrls, sanitizedDomain) {
