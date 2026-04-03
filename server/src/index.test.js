@@ -293,6 +293,30 @@ describe('API routes', () => {
     expect(res.body.themes.some((theme) => theme.id === 'astra')).toBe(true);
   });
 
+  it('reconciles unsupported namespaces after plugin creation', async () => {
+    await request(app)
+      .post('/api/unsupported-plugins')
+      .send({ namespace: 'cleanup/v1', domain: 'example.com' });
+
+    const createRes = await request(app)
+      .post('/api/admin/plugins')
+      .set(adminHeaders)
+      .send({
+        id: 'cleanup-plugin',
+        label: 'Cleanup Plugin',
+        description: 'Used in tests',
+        pluginUrl: 'https://wordpress.org/plugins/cleanup-plugin/',
+        namespaces: ['cleanup/v1'],
+        assetHints: ['cleanup-plugin']
+      });
+
+    expect(createRes.statusCode).toEqual(201);
+
+    const unsupportedRes = await request(app).get('/api/unsupported-plugins');
+    expect(unsupportedRes.statusCode).toEqual(200);
+    expect(unsupportedRes.body.some((entry) => entry.namespace === 'cleanup/v1')).toBe(false);
+  });
+
   it('blocks admin snapshot when disabled', async () => {
     process.env.ADMIN_ENABLED = 'false';
     const res = await request(app).get('/api/admin/db-snapshot').set(adminHeaders);

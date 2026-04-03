@@ -7,7 +7,8 @@ import {
   fetchDbSnapshot,
   fetchPlugins,
   fetchThemes,
-  createPlugin
+  createPlugin,
+  updatePlugin
 } from '../../api/admin.js';
 import { fetchScanHistory } from '../../api/client.js';
 
@@ -180,6 +181,15 @@ describe('AdminPage integration', () => {
     fetchThemes.mockResolvedValue({ themes: [] });
     fetchScanHistory.mockResolvedValue({ items: [] });
     createPlugin.mockResolvedValue({ plugin: { id: 'convertkit' }, plugins: [] });
+    updatePlugin.mockResolvedValue({
+      plugin: {
+        id: 'convertkit',
+        label: 'ConvertKit Updated',
+        namespaces: ['ck/v1'],
+        assetHints: ['convertkit']
+      },
+      plugins: []
+    });
   });
 
   it('switches between major admin sections from the sidebar', async () => {
@@ -244,6 +254,10 @@ describe('AdminPage integration', () => {
       namespaces: [],
       assetHints: ['convertkit']
     }));
+
+    await waitFor(() => {
+      expect(fetchDbSnapshot.mock.calls.length).toBeGreaterThan(1);
+    });
   });
 
   it('opens edit mode when asset-only slug already exists', async () => {
@@ -267,5 +281,40 @@ describe('AdminPage integration', () => {
 
     expect(await screen.findByText('Editing convertkit')).toBeInTheDocument();
     expect(screen.queryByRole('dialog', { name: 'Add plugin' })).not.toBeInTheDocument();
+  });
+
+  it('closes inline plugin editor after save succeeds', async () => {
+    fetchPlugins.mockResolvedValue({
+      plugins: [{
+        id: 'convertkit',
+        label: 'ConvertKit',
+        description: 'Existing plugin',
+        pluginUrl: 'https://wordpress.org/plugins/convertkit/',
+        namespaces: ['ck/v1'],
+        assetHints: ['convertkit']
+      }]
+    });
+
+    renderPage();
+
+    await screen.findByRole('heading', { name: 'Database' });
+    await userEvent.click(screen.getByRole('button', { name: 'Unsupported plugins' }));
+    await screen.findByRole('heading', { name: 'Unsupported plugins' });
+    await userEvent.click(screen.getByRole('button', { name: 'Create plugin entry' }));
+
+    expect(await screen.findByText('Editing convertkit')).toBeInTheDocument();
+
+    const labelInput = screen.getByLabelText('Label');
+    await userEvent.clear(labelInput);
+    await userEvent.type(labelInput, 'ConvertKit Updated');
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => {
+      expect(updatePlugin).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Editing convertkit')).not.toBeInTheDocument();
+    });
   });
 });

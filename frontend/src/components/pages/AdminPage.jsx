@@ -169,12 +169,18 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
       resetPluginDraft();
       setShowCreatePluginModal(false);
     },
-    onPluginSaved: resetPluginDraft,
+    onPluginSaved: () => {
+      resetPluginDraft();
+      setEditingPluginId(null);
+    },
     onThemeCreated: () => {
       resetThemeDraft();
       setShowCreateThemeModal(false);
     },
-    onThemeSaved: resetThemeDraft
+    onThemeSaved: () => {
+      resetThemeDraft();
+      setEditingThemeId(null);
+    }
   });
 
   const resetPluginMutationErrors = useCallback(() => {

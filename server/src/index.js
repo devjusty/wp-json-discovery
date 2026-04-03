@@ -11,7 +11,11 @@ import { sanitizeDomain } from './utils/domain.js';
 import { fetchWithRedirects } from './utils/fetch.js';
 import { readBodyWithLimit } from './utils/http.js';
 import { extractHomepageInsights } from './utils/html.js';
-import { readUnsupportedPlugins, upsertUnsupportedPluginRecord } from './utils/plugins.js';
+import {
+  readUnsupportedPlugins,
+  upsertUnsupportedPluginRecord,
+  reconcileUnsupportedPluginsForRegistryEntry
+} from './utils/plugins.js';
 import { AppError, NetworkError, ValidationError } from './utils/errors.js';
 import { REQUEST_TIMEOUT_MS, HOMEPAGE_HTML_CAP_BYTES, DEFAULT_USER_AGENT, MAX_SITEMAP_PAGES, FRONTEND_ORIGIN_DEFAULT, EXPOSED_HEADERS_LIST, FORWARDED_RESPONSE_HEADERS_LIST, ACTIVITY_LOG_PRUNE_DEFAULTS } from './config.js';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -901,10 +905,12 @@ app.post('/api/admin/plugins', wrapAsync(async (req, res) => {
   }
 
   const updated = await savePlugins([...existing, plugin]);
+  const reconciliation = await reconcileUnsupportedPluginsForRegistryEntry(plugin);
   logSilently('admin.plugins.updated', {
     action: 'create',
     pluginId: plugin.id,
-    total: updated.length
+    total: updated.length,
+    reconciliation
   });
   res.status(201).json({ plugins: updated, plugin });
 }));
@@ -929,10 +935,12 @@ app.put('/api/admin/plugins/:id', wrapAsync(async (req, res) => {
   const next = [...existing];
   next[index] = { ...existing[index], ...plugin, id: pluginId };
   const updated = await savePlugins(next);
+  const reconciliation = await reconcileUnsupportedPluginsForRegistryEntry(next[index]);
   logSilently('admin.plugins.updated', {
     action: 'update',
     pluginId,
-    total: updated.length
+    total: updated.length,
+    reconciliation
   });
   res.json({ plugins: updated, plugin: next[index] });
 }));

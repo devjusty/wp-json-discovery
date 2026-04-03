@@ -200,3 +200,67 @@ export async function upsertUnsupportedPluginRecord({ namespace, domain }) {
     };
   });
 }
+
+export async function reconcileUnsupportedPluginsForRegistryEntry(plugin = {}) {
+  return withPluginsLock(async () => {
+    await seedFromJsonIfEmpty();
+
+    const namespaces = Array.isArray(plugin.namespaces)
+      ? plugin.namespaces
+      : [];
+    const normalizedNamespaces = Array.from(new Set(
+      namespaces
+        .map((value) => (typeof value === 'string' ? value.trim().toLowerCase() : ''))
+        .filter(Boolean)
+    ));
+
+    if (!normalizedNamespaces.length) {
+      return {
+        removedNamespaces: 0,
+        removedDomains: 0
+      };
+    }
+
+    const rows = await queryAll(
+      'select id, namespace from unsupported_plugins'
+    );
+
+    const idsToDelete = rows
+      .filter((row) => shouldRemoveNamespace(row.namespace, normalizedNamespaces))
+      .map((row) => Number(row.id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+
+    if (!idsToDelete.length) {
+      return {
+        removedNamespaces: 0,
+        removedDomains: 0
+      };
+    }
+
+    const placeholders = idsToDelete.map(() => '?').join(', ');
+    const removedDomains = await execute(
+      `delete from unsupported_plugin_domains where plugin_id in (${placeholders})`,
+      idsToDelete
+    );
+    const removedNamespaces = await execute(
+      `delete from unsupported_plugins where id in (${placeholders})`,
+      idsToDelete
+    );
+
+    return {
+      removedNamespaces: removedNamespaces?.rowsAffected ?? 0,
+      removedDomains: removedDomains?.rowsAffected ?? 0
+    };
+  });
+}
+
+function shouldRemoveNamespace(namespace, normalizedPrefixes) {
+  if (typeof namespace !== 'string' || namespace.trim().length === 0) {
+    return false;
+  }
+
+  const candidate = namespace.trim().toLowerCase();
+  return normalizedPrefixes.some((prefix) => (
+    candidate === prefix || candidate.startsWith(`${prefix}/`)
+  ));
+}

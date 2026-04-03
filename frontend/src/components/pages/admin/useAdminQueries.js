@@ -73,6 +73,7 @@ export default function useAdminQueries({
     mutationFn: createPlugin,
     onSuccess: () => {
       pluginsQuery.refetch();
+      snapshotQuery.refetch();
       onPluginCreated?.();
     }
   });
@@ -81,6 +82,7 @@ export default function useAdminQueries({
     mutationFn: ({ id, payload }) => updatePlugin(id, payload),
     onSuccess: () => {
       pluginsQuery.refetch();
+      snapshotQuery.refetch();
       onPluginSaved?.();
     }
   });
@@ -89,6 +91,7 @@ export default function useAdminQueries({
     mutationFn: deletePlugin,
     onSuccess: () => {
       pluginsQuery.refetch();
+      snapshotQuery.refetch();
       onPluginSaved?.();
     }
   });
@@ -97,6 +100,7 @@ export default function useAdminQueries({
     mutationFn: sortPluginsApi,
     onSuccess: () => {
       pluginsQuery.refetch();
+      snapshotQuery.refetch();
     }
   });
 

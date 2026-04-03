@@ -40,11 +40,64 @@ function useAdminData({
     [data]
   );
 
+  const supportedPluginLookup = useMemo(() => {
+    const ids = new Set();
+    const namespacePrefixes = new Set();
+    const assetHints = new Set();
+
+    supportedPlugins.forEach((plugin) => {
+      if (typeof plugin?.id === 'string' && plugin.id.trim().length > 0) {
+        ids.add(plugin.id.trim().toLowerCase());
+      }
+
+      const namespaces = Array.isArray(plugin?.namespaces) ? plugin.namespaces : [];
+      namespaces.forEach((namespace) => {
+        if (typeof namespace === 'string' && namespace.trim().length > 0) {
+          namespacePrefixes.add(namespace.trim().toLowerCase());
+        }
+      });
+
+      const hints = Array.isArray(plugin?.assetHints) ? plugin.assetHints : [];
+      hints.forEach((hint) => {
+        if (typeof hint === 'string' && hint.trim().length > 0) {
+          assetHints.add(hint.trim().toLowerCase());
+        }
+      });
+    });
+
+    return {
+      ids,
+      namespacePrefixes,
+      assetHints
+    };
+  }, [supportedPlugins]);
+
+  const unresolvedUnsupportedEntries = useMemo(() => {
+    if (!supportedPluginLookup.namespacePrefixes.size) {
+      return unsupportedEntries;
+    }
+
+    return unsupportedEntries.filter((entry) => {
+      const namespace = (entry?.namespace ?? '').toLowerCase();
+      if (!namespace) {
+        return true;
+      }
+
+      for (const prefix of supportedPluginLookup.namespacePrefixes) {
+        if (namespace === prefix || namespace.startsWith(`${prefix}/`)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [unsupportedEntries, supportedPluginLookup]);
+
   const filteredUnsupportedEntries = useMemo(() => {
     const prefix = unsupportedNamespacePrefix.trim().toLowerCase();
     const base = prefix
-      ? unsupportedEntries.filter((entry) => (entry.namespace ?? '').toLowerCase().startsWith(prefix))
-      : unsupportedEntries;
+      ? unresolvedUnsupportedEntries.filter((entry) => (entry.namespace ?? '').toLowerCase().startsWith(prefix))
+      : unresolvedUnsupportedEntries;
     const sorted = [...base];
     sorted.sort((a, b) => {
       if (unsupportedSort === 'namespaceAsc') {
@@ -56,7 +109,7 @@ function useAdminData({
       return Date.parse(b.lastDetectedAt ?? '') - Date.parse(a.lastDetectedAt ?? '');
     });
     return sorted;
-  }, [unsupportedEntries, unsupportedNamespacePrefix, unsupportedSort]);
+  }, [unresolvedUnsupportedEntries, unsupportedNamespacePrefix, unsupportedSort]);
 
   const filteredDomainEntries = useMemo(() => {
     const query = domainsQuery.trim().toLowerCase();
@@ -158,6 +211,10 @@ function useAdminData({
       }
 
       const slug = match[1].toLowerCase();
+      if (supportedPluginLookup.ids.has(slug) || supportedPluginLookup.assetHints.has(slug)) {
+        return;
+      }
+
       const existing = bySlug.get(slug) ?? {
         slug,
         occurrences: 0,
@@ -176,14 +233,14 @@ function useAdminData({
         pathCount: entry.paths.size
       }))
       .sort((a, b) => b.occurrences - a.occurrences || a.slug.localeCompare(b.slug));
-  }, [data]);
+  }, [data, supportedPluginLookup]);
 
   return {
     isSnapshotBackedSection,
     activityLogs,
     logTypes,
     filteredActivityLogs,
-    unsupportedEntries,
+    unsupportedEntries: unresolvedUnsupportedEntries,
     filteredUnsupportedEntries,
     filteredDomainEntries,
     recentScans,

@@ -108,4 +108,20 @@ describe('useAdminData', () => {
     expect(result.current.recentScans).toEqual([]);
     expect(result.current.unknownPluginAssetHints).toEqual([]);
   });
+
+  it('hides unsupported signals already covered by supported plugins', () => {
+    const { result } = renderHook(() => useAdminData(buildInput({
+      unsupportedNamespacePrefix: '',
+      supportedPlugins: [
+        {
+          id: 'convertkit',
+          namespaces: ['wc/v3'],
+          assetHints: ['convertkit']
+        }
+      ]
+    })));
+
+    expect(result.current.unsupportedEntries.map((entry) => entry.namespace)).toEqual(['yoast/v1']);
+    expect(result.current.unknownPluginAssetHints).toEqual([]);
+  });
 });
