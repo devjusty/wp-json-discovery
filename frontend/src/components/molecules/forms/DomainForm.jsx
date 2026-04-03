@@ -75,6 +75,8 @@ function DomainForm({
           />
           <Button
             type="submit"
+            variant="primary"
+            size="lg"
             className="domain-form__button"
             disabled={isScanning || !isValidDomain}
           >

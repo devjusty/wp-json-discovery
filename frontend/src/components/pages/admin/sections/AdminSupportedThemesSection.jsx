@@ -52,6 +52,7 @@ function AdminSupportedThemesSection({
             <label className="admin-filter-field">
               Sort
               <select
+                className="select-input"
                 value={themeCatalogSort}
                 onChange={(event) => setThemeCatalogSort(event.target.value)}
               >

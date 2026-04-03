@@ -73,6 +73,32 @@
 
   --color-modal-backdrop: rgba(2, 6, 23, 0.72);
 
+  --overlay-surface-subtle: rgba(148, 163, 184, 0.1);
+  --overlay-surface-soft: rgba(148, 163, 184, 0.12);
+  --overlay-surface-muted: rgba(148, 163, 184, 0.2);
+  --overlay-surface-strong: rgba(148, 163, 184, 0.4);
+  --overlay-surface-border: rgba(148, 163, 184, 0.45);
+  --overlay-brand-soft: rgba(59, 130, 246, 0.2);
+  --overlay-brand-border: rgba(59, 130, 246, 0.6);
+  --overlay-brand-tint: rgba(96, 165, 250, 0.14);
+  --overlay-brand-focus: rgba(96, 165, 250, 0.2);
+  --overlay-brand-strong: rgba(96, 165, 250, 0.9);
+  --overlay-slate-panel: rgba(11, 18, 32, 0.84);
+  --overlay-slate-soft: rgba(71, 85, 105, 0.14);
+
+  --shadow-elev-1: 0 6px 18px rgba(15, 23, 42, 0.05);
+  --shadow-elev-2: 0 10px 30px rgba(15, 23, 42, 0.08);
+  --shadow-elev-3: 0 12px 34px rgba(15, 23, 42, 0.2);
+  --shadow-elev-4: 0 8px 20px rgba(15, 23, 42, 0.25);
+  --shadow-elev-5: 0 24px 54px rgba(15, 23, 42, 0.3);
+
+  --ring-focus-soft: 0 0 0 3px rgba(96, 165, 250, 0.2);
+  --ring-focus-strong: 0 0 0 4px rgba(37, 99, 235, 0.15);
+
+  --inset-highlight-subtle: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --inset-highlight-soft: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --inset-highlight-strong: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+
   --shadow-card: 0 14px 34px rgba(2, 6, 23, 0.4);
   --shadow-card-strong: 0 20px 44px rgba(2, 6, 23, 0.56);
 

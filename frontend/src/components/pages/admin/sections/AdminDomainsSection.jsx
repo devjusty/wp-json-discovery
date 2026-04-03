@@ -40,6 +40,7 @@ function AdminDomainsSection({
             <label className="admin-filter-field">
               Sort
               <select
+                className="select-input"
                 value={domainsSort}
                 onChange={(event) => setDomainsSort(event.target.value)}
               >

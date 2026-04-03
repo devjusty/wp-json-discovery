@@ -300,6 +300,7 @@ function DataTable({
                   <label htmlFor={pageSizeSelectId}>
                     Rows per page
                     <select
+                      className="select-input"
                       id={pageSizeSelectId}
                       value={pageSize}
                       onChange={(event) => {

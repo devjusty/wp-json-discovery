@@ -307,6 +307,7 @@ function AdminDbSection({
                 <label className="admin-filter-field admin-filter-field--compact">
                   Type
                   <select
+                    className="select-input"
                     value={logTypeFilter}
                     onChange={(event) => setLogTypeFilter(event.target.value)}
                   >

@@ -134,6 +134,7 @@ function HistoryPage({ headerActions, onRescan, onUseDomain }) {
             <label className="history-controls__field" htmlFor="history-sort">
               Sort by
               <select
+                className="select-input"
                 id="history-sort"
                 value={sort}
                 onChange={(event) => setSort(event.target.value)}
@@ -146,6 +147,7 @@ function HistoryPage({ headerActions, onRescan, onUseDomain }) {
 
             <label className="history-controls__toggle" htmlFor="history-show-failed">
               <input
+                className="checkbox-input"
                 id="history-show-failed"
                 type="checkbox"
                 checked={includeFailed}

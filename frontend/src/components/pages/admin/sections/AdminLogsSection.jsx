@@ -63,6 +63,7 @@ function AdminLogsSection({
                 <label className="admin-filter-field">
                   Type
                   <select
+                    className="select-input"
                     value={logTypeFilter}
                     onChange={(event) => setLogTypeFilter(event.target.value)}
                   >

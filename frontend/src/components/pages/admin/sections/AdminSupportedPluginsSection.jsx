@@ -52,6 +52,7 @@ function AdminSupportedPluginsSection({
             <label className="admin-filter-field">
               Sort
               <select
+                className="select-input"
                 value={pluginCatalogSort}
                 onChange={(event) => setPluginCatalogSort(event.target.value)}
               >

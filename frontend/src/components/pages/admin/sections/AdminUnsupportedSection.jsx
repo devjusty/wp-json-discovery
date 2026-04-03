@@ -75,6 +75,7 @@ function AdminUnsupportedSection({
                 <label className="admin-filter-field">
                   Sort
                   <select
+                    className="select-input"
                     value={unsupportedSort}
                     onChange={(event) => setUnsupportedSort(event.target.value)}
                   >
