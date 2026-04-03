@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types';
 import { Card, CardContent, CardHeader } from '../../../atoms/Card.jsx';
 import Button from '../../../atoms/Button.jsx';
+import TextInput from '../../../atoms/TextInput.jsx';
 import { formatFullTimestamp, formatShortDate } from '../utils.js';
 
 function AdminUnsupportedSection({
@@ -58,13 +59,13 @@ function AdminUnsupportedSection({
             <p className="card__meta">No unknown plugin asset signals currently detected.</p>
           )}
 
-          <h3 style={{ marginTop: '16px' }}>Namespace unsupported plugins</h3>
+          <h3 className="section-heading-spaced">Namespace unsupported plugins</h3>
           {unsupportedEntries.length ? (
             <>
               <div className="admin-filters">
                 <label className="admin-filter-field">
                   Namespace prefix
-                  <input
+                  <TextInput
                     type="text"
                     value={unsupportedNamespacePrefix}
                     onChange={(event) => setUnsupportedNamespacePrefix(event.target.value)}

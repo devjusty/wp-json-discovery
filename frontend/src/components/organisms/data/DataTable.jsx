@@ -9,6 +9,7 @@ import {
   useReactTable
 } from '@tanstack/react-table';
 import Button from '../../atoms/Button.jsx';
+import TextInput from '../../atoms/TextInput.jsx';
 import {
   Card,
   CardActions,
@@ -242,7 +243,8 @@ function DataTable({
                     <label htmlFor={`${datasetKey}-page-input`}>
                       Page
                     </label>
-                    <input
+                    <TextInput
+                      size="sm"
                       id={`${datasetKey}-page-input`}
                       type="number"
                       min={1}

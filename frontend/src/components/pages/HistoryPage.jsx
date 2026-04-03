@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import AppLayout from '../templates/AppLayout.jsx';
 import Button from '../atoms/Button.jsx';
+import TextInput from '../atoms/TextInput.jsx';
 import StatusBadge from '../molecules/StatusBadge.jsx';
 import { fetchDomainScanHistory, fetchScanHistory } from '../../api/client.js';
 import { formatDate } from '../../utils/format.js';
@@ -121,10 +122,9 @@ function HistoryPage({ headerActions, onRescan, onUseDomain }) {
           <div className="history-controls">
             <label className="history-controls__field" htmlFor="history-search">
               Search domains
-              <input
+              <TextInput
                 id="history-search"
                 type="text"
-                className="text-input"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="example.com"

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 import Button from '../../atoms/Button.jsx';
+import TextInput from '../../atoms/TextInput.jsx';
 import StatusBadge from '../../molecules/StatusBadge.jsx';
 import {
   Card,
@@ -37,25 +38,24 @@ function SitemapScanPanel({ domain, onScan, isRunning, result, sitemapProbe, sit
           </p>
         </div>
         <div className="card__actions">
-          <input
+          <TextInput
+            size="sm"
             type="number"
             min={1}
             max={200}
             value={maxPages}
             onChange={(e) => setMaxPages(Number(e.target.value) || 1)}
-            className="text-input"
-            style={{ width: '5.5rem' }}
+            className="sitemap-scan__max-pages"
             aria-label="Max pages"
           />
-          <input
+          <TextInput
             type="text"
             value={sitemapUrl}
             onChange={(e) => setSitemapUrl(e.target.value)}
             placeholder={
               placeholderUrl || 'Override sitemap URL (optional)'
             }
-            className="text-input"
-            style={{ minWidth: '28rem' }}
+            className="sitemap-scan__url-input"
           />
           <Button
             type="button"

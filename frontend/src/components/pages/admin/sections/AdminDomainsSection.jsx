@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types';
 import { Card, CardContent, CardHeader } from '../../../atoms/Card.jsx';
 import Button from '../../../atoms/Button.jsx';
+import TextInput from '../../../atoms/TextInput.jsx';
 import { formatFullTimestamp } from '../utils.js';
 
 function AdminDomainsSection({
@@ -29,7 +30,7 @@ function AdminDomainsSection({
           <div className="admin-filters">
             <label className="admin-filter-field">
               Domain contains
-              <input
+              <TextInput
                 type="text"
                 value={domainsQuery}
                 onChange={(event) => setDomainsQuery(event.target.value)}

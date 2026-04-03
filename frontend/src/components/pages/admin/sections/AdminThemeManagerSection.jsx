@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { Card, CardContent, CardHeader } from '../../../atoms/Card.jsx';
 import Button from '../../../atoms/Button.jsx';
+import TextInput from '../../../atoms/TextInput.jsx';
 
 function AdminThemeManagerSection({
   sortThemesMutation,
@@ -180,7 +181,7 @@ function ThemeFormFields({ themeDraft, setThemeDraft, disableId }) {
     <div className="registry-form-grid">
       <label className="stacked-form__label">
         ID
-        <input
+        <TextInput
           type="text"
           value={themeDraft.id}
           onChange={(event) => setThemeDraft((prev) => ({ ...prev, id: event.target.value }))}
@@ -190,7 +191,7 @@ function ThemeFormFields({ themeDraft, setThemeDraft, disableId }) {
       </label>
       <label className="stacked-form__label">
         Label
-        <input
+        <TextInput
           type="text"
           value={themeDraft.label}
           onChange={(event) => setThemeDraft((prev) => ({ ...prev, label: event.target.value }))}
@@ -206,7 +207,7 @@ function ThemeFormFields({ themeDraft, setThemeDraft, disableId }) {
       </label>
       <label className="stacked-form__label registry-form-grid__full">
         Theme URL
-        <input
+        <TextInput
           type="url"
           value={themeDraft.themeUrl}
           onChange={(event) => setThemeDraft((prev) => ({ ...prev, themeUrl: event.target.value }))}

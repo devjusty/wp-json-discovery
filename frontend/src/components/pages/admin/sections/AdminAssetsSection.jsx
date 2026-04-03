@@ -14,11 +14,11 @@ function AdminAssetsSection({ data }) {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="muted" style={{ marginBottom: '12px' }}>
+          <div className="muted section-note">
             <strong>{data?.homepageAssets?.totalPaths ?? 0}</strong> total paths ·{' '}
             <strong>{data?.homepageAssets?.unknownPaths ?? 0}</strong> unknown
           </div>
-          <p className="card__meta" style={{ marginBottom: '12px' }}>
+          <p className="card__meta section-note">
             Unknown assets may not appear in Unsupported plugins when a plugin does not expose a discoverable `/wp-json/` namespace.
           </p>
 
@@ -42,7 +42,7 @@ function AdminAssetsSection({ data }) {
             <p className="card__meta">No unknown assets detected in recent scans.</p>
           )}
 
-          <h3 id="admin-assets-all" style={{ marginTop: '16px' }}>All assets</h3>
+          <h3 id="admin-assets-all" className="section-heading-spaced">All assets</h3>
           {data?.homepageAssets?.all?.length ? (
             <div className="admin-table admin-table--assets-all">
               <div className="admin-table__header">

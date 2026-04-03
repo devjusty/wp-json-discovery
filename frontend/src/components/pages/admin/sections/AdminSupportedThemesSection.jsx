@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types';
 import { Card, CardContent, CardHeader } from '../../../atoms/Card.jsx';
+import TextInput from '../../../atoms/TextInput.jsx';
 
 function AdminSupportedThemesSection({
   totalThemes,
@@ -41,7 +42,7 @@ function AdminSupportedThemesSection({
           <div className="admin-filters">
             <label className="admin-filter-field">
               Search
-              <input
+              <TextInput
                 type="text"
                 value={themeCatalogQuery}
                 onChange={(event) => setThemeCatalogQuery(event.target.value)}

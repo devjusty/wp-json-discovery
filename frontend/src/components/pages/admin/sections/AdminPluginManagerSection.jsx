@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { Card, CardContent, CardHeader } from '../../../atoms/Card.jsx';
 import Button from '../../../atoms/Button.jsx';
+import TextInput from '../../../atoms/TextInput.jsx';
 
 function AdminPluginManagerSection({
   sortPluginsMutation,
@@ -180,7 +181,7 @@ function PluginFormFields({ pluginDraft, setPluginDraft, disableId }) {
     <div className="registry-form-grid">
       <label className="stacked-form__label">
         ID
-        <input
+        <TextInput
           type="text"
           value={pluginDraft.id}
           onChange={(event) => setPluginDraft((prev) => ({ ...prev, id: event.target.value }))}
@@ -190,7 +191,7 @@ function PluginFormFields({ pluginDraft, setPluginDraft, disableId }) {
       </label>
       <label className="stacked-form__label">
         Label
-        <input
+        <TextInput
           type="text"
           value={pluginDraft.label}
           onChange={(event) => setPluginDraft((prev) => ({ ...prev, label: event.target.value }))}
@@ -206,7 +207,7 @@ function PluginFormFields({ pluginDraft, setPluginDraft, disableId }) {
       </label>
       <label className="stacked-form__label registry-form-grid__full">
         Plugin URL
-        <input
+        <TextInput
           type="url"
           value={pluginDraft.pluginUrl}
           onChange={(event) => setPluginDraft((prev) => ({ ...prev, pluginUrl: event.target.value }))}

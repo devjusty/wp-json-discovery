@@ -61,7 +61,7 @@ function AdminHeartbeatSection({ data, heartbeatP95Series, heartbeatErrorSeries 
                 />
               </div>
 
-              <h3 id="admin-heartbeat-errors" style={{ marginTop: '16px' }}>Errors by category</h3>
+              <h3 id="admin-heartbeat-errors" className="section-heading-spaced">Errors by category</h3>
               {data.heartbeat.latest.payload?.errors?.perCategory?.length ? (
                 <div className="admin-table admin-table--heartbeat-errors">
                   <div className="admin-table__header">
@@ -81,7 +81,7 @@ function AdminHeartbeatSection({ data, heartbeatP95Series, heartbeatErrorSeries 
                 <p className="card__meta">No errors recorded in latest heartbeat window.</p>
               )}
 
-              <h3 id="admin-heartbeat-failing-domains" style={{ marginTop: '16px' }}>Top failing domains</h3>
+              <h3 id="admin-heartbeat-failing-domains" className="section-heading-spaced">Top failing domains</h3>
               {data.heartbeat.latest.payload?.errors?.topFailingDomains?.length ? (
                 <div className="admin-table admin-table--heartbeat-failing">
                   <div className="admin-table__header">
@@ -99,7 +99,7 @@ function AdminHeartbeatSection({ data, heartbeatP95Series, heartbeatErrorSeries 
                 <p className="card__meta">No failing domains in latest heartbeat window.</p>
               )}
 
-              <h3 id="admin-heartbeat-unsupported" style={{ marginTop: '16px' }}>Top unsupported namespaces</h3>
+              <h3 id="admin-heartbeat-unsupported" className="section-heading-spaced">Top unsupported namespaces</h3>
               {data.heartbeat.latest.payload?.unsupportedPlugins?.topNamespaces?.length ? (
                 <div className="admin-table admin-table--heartbeat-unsupported">
                   <div className="admin-table__header">
@@ -123,7 +123,7 @@ function AdminHeartbeatSection({ data, heartbeatP95Series, heartbeatErrorSeries 
             </p>
           )}
 
-          <h3 id="admin-heartbeat-recent" style={{ marginTop: '16px' }}>Recent heartbeat events</h3>
+          <h3 id="admin-heartbeat-recent" className="section-heading-spaced">Recent heartbeat events</h3>
           {data?.heartbeat?.recent?.length ? (
             <div className="admin-table admin-table--heartbeat-recent">
               <div className="admin-table__header">
