@@ -5,6 +5,7 @@ import {
   CardContent,
   CardHeader
 } from '../../atoms/Card.jsx';
+import { formatDurationMs } from '../../../utils/format.js';
 
 function ContentOverviewPanel({ overview }) {
   if (!overview) {
@@ -39,7 +40,7 @@ function ContentOverviewPanel({ overview }) {
                 {formatCount(item.count)}
               </div>
               <div className="stat-chip__hint">
-                {formatDuration(item.durationMs)} · {item.endpoint}
+                {formatDurationMs(item.durationMs)} · {item.endpoint}
               </div>
             </div>
           ))}
@@ -78,16 +79,6 @@ function formatCount(value) {
     return '—';
   }
   return value.toLocaleString();
-}
-
-function formatDuration(durationMs) {
-  if (!durationMs && durationMs !== 0) {
-    return '—';
-  }
-  if (durationMs >= 1000) {
-    return `${(durationMs / 1000).toFixed(1)}s`;
-  }
-  return `${durationMs}ms`;
 }
 
 ContentOverviewPanel.propTypes = {

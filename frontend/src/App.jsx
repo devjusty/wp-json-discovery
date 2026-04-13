@@ -1,7 +1,7 @@
 import { Suspense, lazy, useMemo } from 'react';
 import Button from './components/atoms/Button.jsx';
 import './App.css';
-import { ScanProvider, useScanContext } from './context/ScanContext.jsx';
+import { ScanProvider, useScanShellContext } from './context/ScanContext.jsx';
 
 const loadScanPage = () => import('./components/pages/ScanPage.jsx');
 const loadAdminPage = () => import('./components/pages/AdminPage.jsx');
@@ -19,11 +19,10 @@ function AppContent() {
     setDomain,
     startScan,
     activeDomain,
-    scanResult,
     isRotatingLogs,
     rotateLogs
-  } = useScanContext();
-  const currentScanDomain = scanResult?.domain || activeDomain || '';
+  } = useScanShellContext();
+  const currentScanDomain = activeDomain || '';
 
   const prefetchPage = (page) => {
     if (page === 'scan') {

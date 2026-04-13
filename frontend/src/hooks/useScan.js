@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { scanDomain } from '../services/scan.js';
-import { upsertUnsupportedPlugin } from '../api/client.js'; // fetchUnsupportedPlugins is not used here
+import { upsertUnsupportedPlugin } from '../api/client.js';
 import { logEvent, rotateActivityLog } from '../services/logger.js';
 
 export function useScan() {
@@ -59,7 +59,7 @@ export function useScan() {
         );
 
         if (hasSuccess) {
-          queryClient.invalidateQueries(['unsupportedPlugins']); // Invalidate to refetch
+          queryClient.invalidateQueries({ queryKey: ['unsupportedPlugins'] });
         }
 
         logEvent('unsupported.persist_attempt', {

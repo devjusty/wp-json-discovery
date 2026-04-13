@@ -37,6 +37,12 @@ frontend/src/
 
 Follow the atomic boundaries: keep domain logic inside services/config, and render-only concerns inside components.
 
+### Admin page internals
+
+- The admin view is split across focused modules in `frontend/src/components/pages/admin/`.
+- For responsibilities and extension patterns, read `frontend/src/components/pages/admin/README.md`.
+- In short: queries/mutations live in hooks, derived view-model data lives in `useAdminData.js`, and section UI routing lives in `AdminSections.jsx` plus `section-renderers/`.
+
 ## Styling & State
 
 - Global state lives in hook-based providers under `components/templates`—prefer composition over new global stores.

@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { useQuery } from '@tanstack/react-query';
 import AppLayout from '../templates/AppLayout.jsx';
 import DomainForm from '../molecules/forms/DomainForm.jsx';
 import { fetchScanHistory, fetchUnsupportedPlugins } from '../../api/client.js';
 import { useSitemapScan } from '../../hooks/useSitemapScan.js';
-import { useScanContext } from '../../context/ScanContext.jsx';
+import {
+  useScanResultsContext,
+  useScanShellContext
+} from '../../context/ScanContext.jsx';
 import ScanSidebarNav from './scan/ScanSidebarNav.jsx';
 import ScanSectionContent from './scan/ScanSectionContent.jsx';
 import RecentDomainsCard from './scan/RecentDomainsCard.jsx';
@@ -17,14 +20,16 @@ function ScanPage({ headerActions }) {
     handleDomainChange: onDomainChange,
     setActivePage,
     startScan,
+    activeDomain
+  } = useScanShellContext();
+  const {
     scanResult,
     isScanning,
     scanError,
-    activeDomain,
     homepageResult,
     homepageIsRunning,
     homepageError
-  } = useScanContext();
+  } = useScanResultsContext();
 
   const {
     startSitemapScan,
@@ -52,6 +57,7 @@ function ScanPage({ headerActions }) {
     queryFn: fetchUnsupportedPlugins,
     initialData: []
   });
+  const { refetch: refetchUnsupported } = unsupportedQuery;
 
   const recentHistoryQuery = useQuery({
     queryKey: ['scanHistoryRecent'],
@@ -67,15 +73,34 @@ function ScanPage({ headerActions }) {
     }
   }, [scanResult]);
 
-  const sidebar = (
-    <ScanSidebarNav
-      activeSection={activeSection}
-      hasScanResult={Boolean(scanResult)}
-      homepageNavSummary={homepageNavSummary}
-      onSectionChange={setActiveSection}
-      onOpenHistory={() => setActivePage('history')}
-      onOpenAdmin={() => setActivePage('admin')}
-    />
+  const handleOpenHistory = useCallback(() => {
+    setActivePage('history');
+  }, [setActivePage]);
+
+  const handleOpenAdmin = useCallback(() => {
+    setActivePage('admin');
+  }, [setActivePage]);
+
+  const handleToggleRecentDomainsExpanded = useCallback(() => {
+    setRecentDomainsExpanded((value) => !value);
+  }, []);
+
+  const handleRefreshUnsupported = useCallback(() => {
+    refetchUnsupported();
+  }, [refetchUnsupported]);
+
+  const sidebar = useMemo(
+    () => (
+      <ScanSidebarNav
+        activeSection={activeSection}
+        hasScanResult={Boolean(scanResult)}
+        homepageNavSummary={homepageNavSummary}
+        onSectionChange={setActiveSection}
+        onOpenHistory={handleOpenHistory}
+        onOpenAdmin={handleOpenAdmin}
+      />
+    ),
+    [activeSection, scanResult, homepageNavSummary, handleOpenHistory, handleOpenAdmin]
   );
 
   return (
@@ -98,8 +123,8 @@ function ScanPage({ headerActions }) {
         items={recentItems}
         isScanning={isScanning}
         isExpanded={recentDomainsExpanded}
-        onToggleExpanded={() => setRecentDomainsExpanded((value) => !value)}
-        onOpenHistory={() => setActivePage('history')}
+        onToggleExpanded={handleToggleRecentDomainsExpanded}
+        onOpenHistory={handleOpenHistory}
         onRescan={startScan}
       />
 
@@ -123,7 +148,7 @@ function ScanPage({ headerActions }) {
         setSitemapFilter={setSitemapFilter}
         unsupportedPlugins={unsupportedQuery.data ?? []}
         unsupportedIsLoading={unsupportedQuery.isLoading}
-        onRefreshUnsupported={() => unsupportedQuery.refetch()}
+        onRefreshUnsupported={handleRefreshUnsupported}
       />
     </AppLayout>
   );

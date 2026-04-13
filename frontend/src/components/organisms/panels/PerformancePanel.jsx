@@ -5,6 +5,7 @@ import {
   CardContent,
   CardHeader
 } from '../../atoms/Card.jsx';
+import { formatDurationMs } from '../../../utils/format.js';
 
 function PerformancePanel({ performance }) {
   if (!performance) {
@@ -55,7 +56,7 @@ function PerformancePanel({ performance }) {
                 <div>
                   <div className="perf-card__metric-label">Latency</div>
                   <div className="perf-card__metric-value">
-                    {formatDuration(row.data?.durationMs)}
+                    {formatDurationMs(row.data?.durationMs)}
                   </div>
                 </div>
                 <div>
@@ -108,16 +109,6 @@ function PerformancePanel({ performance }) {
       </CardContent>
     </Card>
   );
-}
-
-function formatDuration(durationMs) {
-  if (!durationMs && durationMs !== 0) {
-    return '—';
-  }
-  if (durationMs >= 1000) {
-    return `${(durationMs / 1000).toFixed(1)}s`;
-  }
-  return `${durationMs}ms`;
 }
 
 PerformancePanel.propTypes = {

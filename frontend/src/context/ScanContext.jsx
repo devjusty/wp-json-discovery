@@ -2,7 +2,8 @@ import { createContext, useContext, useState, useMemo, useCallback } from 'react
 import { useScan } from '../hooks/useScan.js';
 import { useHomepageScan } from '../hooks/useHomepageScan.js';
 
-const ScanContext = createContext(undefined);
+const ScanShellContext = createContext(undefined);
+const ScanResultsContext = createContext(undefined);
 
 export function ScanProvider({ children }) {
   const [activePage, setActivePage] = useState('scan');
@@ -35,49 +36,69 @@ export function ScanProvider({ children }) {
     startHomepageScan(value);
   }, [runScan, startHomepageScan]);
 
-  const value = useMemo(
+  const shellValue = useMemo(
     () => ({
       activePage,
       setActivePage,
       domain,
       setDomain,
-      scanResult,
-      isScanning,
-      scanError,
       startScan: handleStartScan,
       isRotatingLogs,
       rotateLogs,
       activeDomain: domain || scanActiveDomain,
-      homepageResult,
-      homepageIsRunning,
-      homepageError,
       handleDomainChange
     }),
     [
       activePage,
       domain,
-      scanResult,
-      isScanning,
-      scanError,
       isRotatingLogs,
       rotateLogs,
       scanActiveDomain,
-      homepageResult,
-      homepageIsRunning,
-      homepageError,
       handleStartScan,
       handleDomainChange
     ]
   );
 
-  return <ScanContext.Provider value={value}>{children}</ScanContext.Provider>;
+  const resultsValue = useMemo(
+    () => ({
+      scanResult,
+      isScanning,
+      scanError,
+      homepageResult,
+      homepageIsRunning,
+      homepageError
+    }),
+    [
+      scanResult,
+      isScanning,
+      scanError,
+      homepageResult,
+      homepageIsRunning,
+      homepageError
+    ]
+  );
+
+  return (
+    <ScanShellContext.Provider value={shellValue}>
+      <ScanResultsContext.Provider value={resultsValue}>{children}</ScanResultsContext.Provider>
+    </ScanShellContext.Provider>
+  );
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
-export function useScanContext() {
-  const context = useContext(ScanContext);
+export function useScanShellContext() {
+  const context = useContext(ScanShellContext);
   if (context === undefined) {
-    throw new Error('useScanContext must be used within a ScanProvider');
+    throw new Error('useScanShellContext must be used within a ScanProvider');
+  }
+  return context;
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function useScanResultsContext() {
+  const context = useContext(ScanResultsContext);
+  if (context === undefined) {
+    throw new Error('useScanResultsContext must be used within a ScanProvider');
   }
   return context;
 }

@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   fetchDbSnapshot,
   pruneActivityLogs,
@@ -17,12 +17,15 @@ import {
 import { fetchScanHistory } from '../../../api/client.js';
 
 export default function useAdminQueries({
-  activeSection,
-  onPluginCreated,
-  onPluginSaved,
-  onThemeCreated,
-  onThemeSaved
+  activeSection
 }) {
+  const queryClient = useQueryClient();
+
+  // Invalidate keys instead of chaining refetches to let React Query dedupe requests.
+  const invalidateSnapshot = () => queryClient.invalidateQueries({ queryKey: ['dbSnapshot'] });
+  const invalidatePlugins = () => queryClient.invalidateQueries({ queryKey: ['adminPlugins'] });
+  const invalidateThemes = () => queryClient.invalidateQueries({ queryKey: ['adminThemes'] });
+
   const snapshotQuery = useQuery({
     queryKey: ['dbSnapshot'],
     queryFn: () => fetchDbSnapshot(75),
@@ -32,14 +35,14 @@ export default function useAdminQueries({
   const pruneMutation = useMutation({
     mutationFn: pruneActivityLogs,
     onSuccess: () => {
-      snapshotQuery.refetch();
+      invalidateSnapshot();
     }
   });
 
   const maintenanceMutation = useMutation({
     mutationFn: runDbMaintenance,
     onSuccess: () => {
-      snapshotQuery.refetch();
+      invalidateSnapshot();
     }
   });
 
@@ -71,67 +74,57 @@ export default function useAdminQueries({
 
   const createPluginMutation = useMutation({
     mutationFn: createPlugin,
-    onSuccess: () => {
-      pluginsQuery.refetch();
-      snapshotQuery.refetch();
-      onPluginCreated?.();
+    onSuccess: async () => {
+      await Promise.all([invalidatePlugins(), invalidateSnapshot()]);
     }
   });
 
   const updatePluginMutation = useMutation({
     mutationFn: ({ id, payload }) => updatePlugin(id, payload),
-    onSuccess: () => {
-      pluginsQuery.refetch();
-      snapshotQuery.refetch();
-      onPluginSaved?.();
+    onSuccess: async () => {
+      await Promise.all([invalidatePlugins(), invalidateSnapshot()]);
     }
   });
 
   const deletePluginMutation = useMutation({
     mutationFn: deletePlugin,
-    onSuccess: () => {
-      pluginsQuery.refetch();
-      snapshotQuery.refetch();
-      onPluginSaved?.();
+    onSuccess: async () => {
+      await Promise.all([invalidatePlugins(), invalidateSnapshot()]);
     }
   });
 
   const sortPluginsMutation = useMutation({
     mutationFn: sortPluginsApi,
-    onSuccess: () => {
-      pluginsQuery.refetch();
-      snapshotQuery.refetch();
+    onSuccess: async () => {
+      await Promise.all([invalidatePlugins(), invalidateSnapshot()]);
     }
   });
 
   const createThemeMutation = useMutation({
     mutationFn: createTheme,
-    onSuccess: () => {
-      themesQuery.refetch();
-      onThemeCreated?.();
+    onSuccess: async () => {
+      await invalidateThemes();
     }
   });
 
   const updateThemeMutation = useMutation({
     mutationFn: ({ id, payload }) => updateTheme(id, payload),
-    onSuccess: () => {
-      themesQuery.refetch();
-      onThemeSaved?.();
+    onSuccess: async () => {
+      await invalidateThemes();
     }
   });
 
   const deleteThemeMutation = useMutation({
     mutationFn: deleteTheme,
-    onSuccess: () => {
-      themesQuery.refetch();
-      onThemeSaved?.();
+    onSuccess: async () => {
+      await invalidateThemes();
     }
   });
 
   const sortThemesMutation = useMutation({
     mutationFn: sortThemesApi,
     onSuccess: () => {
-      themesQuery.refetch();
+      invalidateThemes();
     }
   });
 

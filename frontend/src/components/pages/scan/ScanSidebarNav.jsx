@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import PropTypes from 'prop-types';
 
 const loadAdminPage = () => import('../AdminPage.jsx');
@@ -102,4 +103,4 @@ ScanSidebarNav.defaultProps = {
   hasScanResult: false
 };
 
-export default ScanSidebarNav;
+export default memo(ScanSidebarNav);

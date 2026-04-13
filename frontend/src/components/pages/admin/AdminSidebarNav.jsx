@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import PropTypes from 'prop-types';
 
 const ADMIN_SECTION_ANCHORS = {
@@ -138,4 +139,4 @@ AdminSidebarNav.defaultProps = {
   onPrefetchSection: () => {}
 };
 
-export default AdminSidebarNav;
+export default memo(AdminSidebarNav);

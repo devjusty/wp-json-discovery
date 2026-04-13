@@ -85,25 +85,6 @@ export function formatWalSummary(walCheckpoint) {
     .join(' · ') || 'Completed';
 }
 
-export function deriveDomainsFromUnsupported(unsupported = []) {
-  const map = new Map();
-  unsupported.forEach((entry) => {
-    (entry.domains ?? []).forEach((domain) => {
-      const record = map.get(domain) ?? { domain, namespaceSet: new Set() };
-      if (entry.namespace) {
-        record.namespaceSet.add(entry.namespace);
-      }
-      map.set(domain, record);
-    });
-  });
-  return Array.from(map.values())
-    .map((record) => ({
-      domain: record.domain,
-      namespaces: Array.from(record.namespaceSet).sort()
-    }))
-    .sort((a, b) => a.domain.localeCompare(b.domain));
-}
-
 export function deriveHeartbeatSeries(recent = [], getValue) {
   if (!recent.length) return [];
   return [...recent]

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import PropTypes from 'prop-types';
 import ExposurePanel from '../../organisms/panels/ExposurePanel.jsx';
 import PerformancePanel from '../../organisms/panels/PerformancePanel.jsx';
@@ -124,4 +125,4 @@ ScanSectionContent.defaultProps = {
   unsupportedIsLoading: false
 };
 
-export default ScanSectionContent;
+export default memo(ScanSectionContent);

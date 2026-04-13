@@ -1,10 +1,6 @@
 import { fetchPluginRegistry, proxyRequest } from '../api/client.js';
 import { CORE_COLLECTIONS } from '../config/core.js';
 import {
-  SUPPORTED_PLUGINS,
-  CORE_NAMESPACES
-} from '../config/plugins.js';
-import {
   extractErrorMessage,
   normalizeDomain
 } from '../utils/format.js';
@@ -14,9 +10,10 @@ const REGISTRY_CACHE_TTL_MS = 60 * 1000;
 
 let registryCache = {
   expiresAt: 0,
-  plugins: SUPPORTED_PLUGINS,
-  coreNamespaces: CORE_NAMESPACES
+  plugins: [],
+  coreNamespaces: []
 };
+let fallbackRegistryPromise = null;
 const PLUGIN_VERSION_HINTS = {
   woocommerce: { minVersion: '7.0.0', note: 'Older WooCommerce releases often miss security fixes.' },
   yoast: { minVersion: '20.0.0', note: 'Major SEO updates shipped post-20.x.' },
@@ -268,7 +265,7 @@ function matchSupportedPlugins(namespaces, routes, supportedPlugins = []) {
   }).filter(Boolean);
 }
 
-function detectUnsupportedNamespaces(namespaces, pluginMatches, coreNamespaces = CORE_NAMESPACES) {
+function detectUnsupportedNamespaces(namespaces, pluginMatches, coreNamespaces = []) {
   const supportedNamespaces = new Set([
     ...coreNamespaces,
     ...pluginMatches.flatMap(({ namespaces }) => namespaces)
@@ -296,10 +293,11 @@ async function loadPluginRegistry() {
 
   try {
     const data = await fetchPluginRegistry();
-    const plugins = Array.isArray(data?.plugins) ? data.plugins : SUPPORTED_PLUGINS;
+    const fallbackRegistry = await loadFallbackRegistry();
+    const plugins = Array.isArray(data?.plugins) ? data.plugins : fallbackRegistry.plugins;
     const coreNamespaces = Array.isArray(data?.coreNamespaces)
       ? data.coreNamespaces
-      : CORE_NAMESPACES;
+      : fallbackRegistry.coreNamespaces;
 
     registryCache = {
       expiresAt: now + REGISTRY_CACHE_TTL_MS,
@@ -307,10 +305,11 @@ async function loadPluginRegistry() {
       coreNamespaces
     };
   } catch {
+    const fallbackRegistry = await loadFallbackRegistry();
     registryCache = {
       expiresAt: now + REGISTRY_CACHE_TTL_MS,
-      plugins: SUPPORTED_PLUGINS,
-      coreNamespaces: CORE_NAMESPACES
+      plugins: fallbackRegistry.plugins,
+      coreNamespaces: fallbackRegistry.coreNamespaces
     };
   }
 
@@ -318,6 +317,18 @@ async function loadPluginRegistry() {
     plugins: registryCache.plugins,
     coreNamespaces: registryCache.coreNamespaces
   };
+}
+
+async function loadFallbackRegistry() {
+  if (!fallbackRegistryPromise) {
+    // Load the static registry only when API-backed registry data is unavailable.
+    fallbackRegistryPromise = import('../config/plugins.js').then((module) => ({
+      plugins: module.SUPPORTED_PLUGINS,
+      coreNamespaces: module.CORE_NAMESPACES
+    }));
+  }
+
+  return fallbackRegistryPromise;
 }
 
 function extractArgs(endpoints = []) {

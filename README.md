@@ -15,6 +15,7 @@ WP JSON Discovery is a Vite-powered React application backed by a lightweight Ex
 - **Atomic design system** – UI is composed using Brad Frost’s atoms → molecules → organisms → templates → pages to encourage reuse and scalability.
 - **Homepage source scan (opt-in)** – Single GET to `/` (1 MB cap) to extract generators, builder hints, asset paths, and framework signals without crawling sub-resources. Full asset paths are logged for follow-up.
 - **Admin views** – Built-in Admin tab to inspect Turso-backed persistence (unsupported plugins, recent logs, homepage asset paths) and supported plugin/theme registries.
+- **Modular admin architecture** – Admin orchestration now uses focused hooks + renderer modules for easier extension and safer refactors.
 
 ---
 
@@ -44,6 +45,11 @@ root/
 3. Scan service enumerates namespaces, triggers core collection fetches, and collects plugin route metadata.
 4. Newly detected namespaces without handlers are POSTed to `/api/unsupported-plugins` and persisted to Turso (seeded from the legacy JSON).
 5. Results render into tables, summaries, plugin panels, and admin views; CSV exports leverage `papaparse`. Homepage scans also capture asset paths plus matches and surface them in Admin for mapping.
+
+### Admin architecture notes
+
+- Admin responsibilities are documented in `frontend/src/components/pages/admin/README.md`.
+- Use this guide before changing `frontend/src/components/pages/AdminPage.jsx` or adding new admin sections.
 
 ---
 

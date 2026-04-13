@@ -3,6 +3,9 @@ import {
   deriveHeartbeatSeries
 } from './utils.js';
 
+const SNAPSHOT_BACKED_SECTIONS = new Set(['unsupported', 'logs', 'heartbeat', 'assets']);
+const WP_PLUGIN_ASSET_PATH_REGEX = /\/wp-content\/plugins\/([^/]+)/i;
+
 function useAdminData({
   data,
   activeSection,
@@ -19,7 +22,7 @@ function useAdminData({
   themeCatalogSort,
   supportedThemes = []
 }) {
-  const isSnapshotBackedSection = ['unsupported', 'logs', 'heartbeat', 'assets'].includes(activeSection);
+  const isSnapshotBackedSection = SNAPSHOT_BACKED_SECTIONS.has(activeSection);
 
   const activityLogs = useMemo(
     () => data?.activityLogs ?? [],
@@ -205,7 +208,7 @@ function useAdminData({
         return;
       }
 
-      const match = asset.path.match(/\/wp-content\/plugins\/([^/]+)/i);
+      const match = asset.path.match(WP_PLUGIN_ASSET_PATH_REGEX);
       if (!match?.[1]) {
         return;
       }

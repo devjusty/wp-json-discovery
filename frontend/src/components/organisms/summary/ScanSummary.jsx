@@ -7,6 +7,7 @@ import {
 } from '../../atoms/Card.jsx';
 import Button from '../../atoms/Button.jsx';
 import { CORE_NAMESPACES } from '../../../config/plugins.js';
+import { formatDurationMs } from '../../../utils/format.js';
 
 const MAX_NAMESPACES_VISIBLE = 12;
 
@@ -35,7 +36,7 @@ function ScanSummary({
     return [
       {
         label: 'Duration',
-        value: formatDuration(metrics?.durationMs),
+        value: formatDurationMs(metrics?.durationMs),
         hint: 'Total time to collect root, core, and plugin data.'
       },
       {
@@ -273,16 +274,6 @@ function ScanSummary({
       </CardContent>
     </Card>
   );
-}
-
-function formatDuration(durationMs) {
-  if (!durationMs && durationMs !== 0) {
-    return '—';
-  }
-  if (durationMs >= 1000) {
-    return `${(durationMs / 1000).toFixed(1)}s`;
-  }
-  return `${durationMs}ms`;
 }
 
 function formatContentTotals(totals) {

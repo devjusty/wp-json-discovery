@@ -48,6 +48,18 @@ export function formatDate(value) {
   });
 }
 
+export function formatDurationMs(durationMs) {
+  if (!Number.isFinite(durationMs)) {
+    return '—';
+  }
+
+  if (durationMs >= 1000) {
+    return `${(durationMs / 1000).toFixed(1)}s`;
+  }
+
+  return `${durationMs}ms`;
+}
+
 export function toCsvFilename(domain, key) {
   const safeDomain = domain.replace(/[^a-z0-9.-]/gi, '-');
   const safeKey = key.replace(/[^a-z0-9.-]/gi, '-');

@@ -4,6 +4,7 @@
 - The pnpm workspace splits logic into `server/` (Express proxy, persistence) and `frontend/` (Vite + React client). Run scans through `server/src/index.js`; persisted artifacts live under `server/data/` (`activity.log`, `unsupported-plugins.json`).
 - React follows atomic design: `frontend/src/components/atoms|molecules|organisms|templates|pages` compose the UI, while `frontend/src/services/scan.js` orchestrates crawl logic and `frontend/src/config/plugins.js` defines plugin namespaces.
 - Shared helpers sit in `frontend/src/utils/` and API wrappers in `frontend/src/api/`. Keep new modules aligned with this layering to avoid bypassing the design system.
+- Admin page orchestration is modularized under `frontend/src/components/pages/admin/` (queries, editor state, section state builder, renderers). Review `frontend/src/components/pages/admin/README.md` before expanding admin features.
 
 ## Build, Test, and Development Commands
 - `pnpm install` – bootstrap all workspaces.

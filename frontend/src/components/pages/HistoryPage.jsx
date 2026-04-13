@@ -1,15 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import AppLayout from '../templates/AppLayout.jsx';
 import Button from '../atoms/Button.jsx';
 import TextInput from '../atoms/TextInput.jsx';
 import StatusBadge from '../molecules/StatusBadge.jsx';
 import { fetchDomainScanHistory, fetchScanHistory } from '../../api/client.js';
-import { formatDate } from '../../utils/format.js';
+import { formatDate, formatDurationMs } from '../../utils/format.js';
 
 const PAGE_SIZE = 20;
+const EMPTY_ITEMS = [];
 
 function HistoryPage({ headerActions, onRescan, onUseDomain }) {
   const initialState = getInitialHistoryState();
@@ -19,19 +20,23 @@ function HistoryPage({ headerActions, onRescan, onUseDomain }) {
   const [page, setPage] = useState(initialState.page);
   const [activeDomain, setActiveDomain] = useState('');
   const [copiedDomain, setCopiedDomain] = useState('');
+  // Defer network-heavy filtering while the user types to keep input responsive.
+  const deferredQuery = useDeferredValue(query);
 
   const historyQuery = useQuery({
-    queryKey: ['scanHistory', { query, sort, includeFailed, page }],
+    queryKey: ['scanHistory', { query: deferredQuery, sort, includeFailed, page }],
     queryFn: () => fetchScanHistory({
-      q: query,
+      q: deferredQuery,
       sort,
       includeFailed,
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE
-    })
+    }),
+    staleTime: 30000,
+    placeholderData: keepPreviousData
   });
 
-  const items = useMemo(() => historyQuery.data?.items ?? [], [historyQuery.data?.items]);
+  const items = historyQuery.data?.items ?? EMPTY_ITEMS;
   const total = Number(historyQuery.data?.pagination?.total ?? 0);
 
   const domainHistoryQuery = useQuery({
@@ -40,25 +45,35 @@ function HistoryPage({ headerActions, onRescan, onUseDomain }) {
     enabled: Boolean(activeDomain)
   });
 
-  const statusMeta = useMemo(() => {
-    const successful = items.filter((item) => item.lastStatus === 'success').length;
-    const failed = items.filter((item) => item.lastStatus === 'failed').length;
-    return { successful, failed };
-  }, [items]);
-
-  const trendMeta = useMemo(() => {
+  const historyMetrics = useMemo(() => {
     const totalItems = items.length;
-    const successCount = items.filter((item) => item.lastStatus === 'success').length;
-    const failedCount = items.filter((item) => item.lastStatus === 'failed').length;
-    const avgDuration = items
-      .map((item) => Number(item.lastDurationMs))
-      .filter((value) => Number.isFinite(value) && value >= 0);
+    let successCount = 0;
+    let failedCount = 0;
+    let durationTotal = 0;
+    let durationSamples = 0;
+
+    for (const item of items) {
+      if (item.lastStatus === 'success') {
+        successCount += 1;
+      }
+      if (item.lastStatus === 'failed') {
+        failedCount += 1;
+      }
+
+      const duration = Number(item.lastDurationMs);
+      if (Number.isFinite(duration) && duration >= 0) {
+        durationTotal += duration;
+        durationSamples += 1;
+      }
+    }
 
     return {
+      successful: successCount,
+      failed: failedCount,
       successRate: totalItems > 0 ? Math.round((successCount / totalItems) * 100) : null,
       failedCount,
-      averageDuration: avgDuration.length
-        ? Math.round(avgDuration.reduce((sum, value) => sum + value, 0) / avgDuration.length)
+      averageDuration: durationSamples
+        ? Math.round(durationTotal / durationSamples)
         : null
     };
   }, [items]);
@@ -158,19 +173,19 @@ function HistoryPage({ headerActions, onRescan, onUseDomain }) {
           </div>
 
           <p className="card__meta">
-            Showing {items.length} of {total} scanned domains. Success: {statusMeta.successful}
-            {includeFailed ? ` · Failed: ${statusMeta.failed}` : ''}
+            Showing {items.length} of {total} scanned domains. Success: {historyMetrics.successful}
+            {includeFailed ? ` · Failed: ${historyMetrics.failed}` : ''}
           </p>
 
           <div className="history-trends">
             <span className="history-trends__item">
-              Success rate: {trendMeta.successRate === null ? '—' : `${trendMeta.successRate}%`}
+              Success rate: {historyMetrics.successRate === null ? '—' : `${historyMetrics.successRate}%`}
             </span>
             <span className="history-trends__item">
-              Avg duration: {formatDuration(trendMeta.averageDuration)}
+              Avg duration: {formatDurationMs(historyMetrics.averageDuration)}
             </span>
             <span className="history-trends__item">
-              Failed in view: {trendMeta.failedCount}
+              Failed in view: {historyMetrics.failedCount}
             </span>
           </div>
         </div>
@@ -218,7 +233,7 @@ function HistoryPage({ headerActions, onRescan, onUseDomain }) {
               </div>
               <div>
                 <dt>Duration</dt>
-                <dd>{formatDuration(item.lastDurationMs)}</dd>
+                <dd>{formatDurationMs(item.lastDurationMs)}</dd>
               </div>
               <div>
                 <dt>Unsupported namespaces</dt>
@@ -304,7 +319,7 @@ function HistoryPage({ headerActions, onRescan, onUseDomain }) {
                       />
                     </div>
                     <p className="card__meta">
-                      Duration: {formatDuration(run.durationMs)} · Unsupported: {Number(run.unsupportedCount ?? 0)}
+                      Duration: {formatDurationMs(run.durationMs)} · Unsupported: {Number(run.unsupportedCount ?? 0)}
                     </p>
                     {run.errorCategory || run.errorMessage ? (
                       <p className="card__meta">
@@ -321,18 +336,6 @@ function HistoryPage({ headerActions, onRescan, onUseDomain }) {
       ) : null}
     </AppLayout>
   );
-}
-
-function formatDuration(durationMs) {
-  if (!Number.isFinite(durationMs)) {
-    return '—';
-  }
-
-  if (durationMs >= 1000) {
-    return `${(durationMs / 1000).toFixed(1)}s`;
-  }
-
-  return `${durationMs}ms`;
 }
 
 function formatHistoryDate(value) {
