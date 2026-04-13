@@ -227,16 +227,3 @@ export async function execute(sql, args = []) {
         : Number(result.lastInsertRowid)
   };
 }
-
-export async function executeBatch(statements = []) {
-  const db = await getDb();
-  return db.batch(
-    statements.map((statement) => {
-      if (typeof statement === 'string') {
-        return { sql: statement };
-      }
-      return statement;
-    }),
-    'write'
-  );
-}
