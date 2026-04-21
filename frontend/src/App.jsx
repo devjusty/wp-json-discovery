@@ -4,10 +4,12 @@ import './App.css';
 import { ScanProvider, useScanShellContext } from './context/ScanContext.jsx';
 
 const loadScanPage = () => import('./components/pages/ScanPage.jsx');
+const loadDomainsPage = () => import('./components/pages/DomainsPage.jsx');
 const loadAdminPage = () => import('./components/pages/AdminPage.jsx');
 const loadHistoryPage = () => import('./components/pages/HistoryPage.jsx');
 
 const ScanPage = lazy(loadScanPage);
+const DomainsPage = lazy(loadDomainsPage);
 const AdminPage = lazy(loadAdminPage);
 const HistoryPage = lazy(loadHistoryPage);
 
@@ -33,6 +35,10 @@ function AppContent() {
       void loadHistoryPage();
       return;
     }
+    if (page === 'domains') {
+      void loadDomainsPage();
+      return;
+    }
     if (page === 'admin') {
       void loadAdminPage();
     }
@@ -52,6 +58,16 @@ function AppContent() {
               aria-current={activePage === 'scan' ? 'page' : undefined}
             >
               Current scan
+            </button>
+            <button
+              type="button"
+              className={`app__nav-link ${activePage === 'domains' ? 'is-active' : ''}`}
+              onClick={() => setActivePage('domains')}
+              onMouseEnter={() => prefetchPage('domains')}
+              onFocus={() => prefetchPage('domains')}
+              aria-current={activePage === 'domains' ? 'page' : undefined}
+            >
+              Domains
             </button>
             <button
               type="button"
@@ -124,6 +140,14 @@ function AppContent() {
             setActivePage('scan');
           }}
         />
+      </Suspense>
+    );
+  }
+
+  if (activePage === 'domains') {
+    return (
+      <Suspense fallback={<PageLoadingState label="Loading domains workspace..." />}>
+        <DomainsPage headerActions={headerActions} />
       </Suspense>
     );
   }
