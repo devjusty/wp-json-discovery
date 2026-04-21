@@ -3,8 +3,13 @@
 This is the active execution backlog.
 
 Related docs:
+
 - Strategic direction: `docs/product-roadmap.md`
 - Current capabilities: `docs/scan-capabilities.md`
+
+## Notes and Tasks
+
+- [ ] **History Page:** view runs/hide runs doesn't seem to work.
 
 ## High Priority
 
@@ -24,3 +29,8 @@ Related docs:
 
 - [ ] **Codebase docs sweep:** Add targeted JSDoc for high-complexity modules (`server/src/index.js`, logger helpers, admin data hooks).
 - [ ] **UI polish backlog:** Add compact badges for asset-only plugin entries and heartbeat health-state chip for at-a-glance triage.
+
+## ETC
+
+- [ ] Verify wordpress.org URLs when auto-filling on the create plugin forms and update plugin forms. Same for themes
+- [ ] Add Keyboard shortcuts to enhance navigation
