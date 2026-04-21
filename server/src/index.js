@@ -24,6 +24,18 @@ import { requireAdminApiKey } from './middleware/adminAuth.js';
 import { wrapAsync } from './utils/route.js';
 import { execute, getDb, queryAll, queryOne } from './db/client.js';
 import {
+  mapEnvelopeRow,
+  mapWarningRow,
+  normalizeEnvelope,
+  normalizeTrustWarningStatus,
+} from './trust/contracts.js';
+import { evaluateConsistency } from './trust/consistency.js';
+import {
+  createDeepAuditJob,
+  getDeepAuditJob,
+  updateDeepAuditJobState,
+} from './jobs/deepAuditQueue.js';
+import {
   assertPluginRegistryReady,
   loadPlugins,
   loadCoreNamespaces,
@@ -71,6 +83,7 @@ const ALLOWED_CLIENT_LOG_TYPES = new Set([
   'homepage.scan.error',
   'sitemap.scan.complete',
   'sitemap.scan.error',
+  'scan.trust.sync_error',
   'logs.rotation_triggered',
   'logs.rotation_failed'
 ]);
@@ -535,6 +548,48 @@ app.get('/api/scan-history/:domain', wrapAsync(async (req, res) => {
   });
 }));
 
+app.post('/api/deep-audit/jobs', wrapAsync(async (req, res) => {
+  const { domain, sitemapUrl, maxPages = MAX_SITEMAP_PAGES } = req.body ?? {};
+  const sanitizedDomain = sanitizeDomain(domain);
+  if (!sanitizedDomain) {
+    throw new ValidationError('domain is required');
+  }
+
+  const parsedPageLimit = Number.parseInt(maxPages, 10);
+  const pageLimit = Number.isFinite(parsedPageLimit) && parsedPageLimit > 0
+    ? Math.min(parsedPageLimit, MAX_SITEMAP_PAGES)
+    : MAX_SITEMAP_PAGES;
+
+  const resolvedSitemapUrl = resolveSitemapUrl({
+    sitemapUrl,
+    domain: sanitizedDomain,
+  });
+
+  const job = await createDeepAuditJob({
+    domain: sanitizedDomain,
+    sitemapUrl: resolvedSitemapUrl,
+    maxPages: pageLimit,
+  });
+
+  triggerDeepAuditWorker(job.jobId).catch((error) => {
+    logSilently('deep-audit.worker_error', {
+      jobId: job.jobId,
+      domain: job.domain,
+      message: error.message,
+    });
+  });
+
+  res.status(202).json({ job });
+}));
+
+app.get('/api/deep-audit/jobs/:jobId', wrapAsync(async (req, res) => {
+  const job = await getDeepAuditJob(req.params.jobId);
+  if (!job) {
+    throw new AppError('Deep audit job not found', 404);
+  }
+  res.json({ job });
+}));
+
 app.post('/api/sitemap-scan', wrapAsync(async (req, res) => {
   const { domain, sitemapUrl, maxPages = MAX_SITEMAP_PAGES } = req.body ?? {};
 
@@ -582,6 +637,67 @@ app.post('/api/sitemap-scan', wrapAsync(async (req, res) => {
     }
   });
 }));
+
+async function triggerDeepAuditWorker(jobId) {
+  setTimeout(async () => {
+    await runDeepAuditWorker(jobId);
+  }, 0);
+}
+
+async function runDeepAuditWorker(jobId) {
+  const existing = await getDeepAuditJob(jobId);
+  if (!existing) {
+    return;
+  }
+
+  await updateDeepAuditJobState(jobId, {
+    status: 'running',
+    startedAt: new Date().toISOString(),
+  });
+
+  try {
+    const startedAt = Date.now();
+    const { sitemapSummaries, seenPages } = await fetchAndParseSitemap(existing.sitemapUrl, existing.maxPages);
+    const pages = await fetchAndProcessPageDetails(
+      Array.from(seenPages).slice(0, existing.maxPages),
+      existing.domain,
+    );
+
+    const completedAt = Date.now();
+    const invalidSchemaCount = pages.filter((page) => page.flags.includes('schema_invalid')).length;
+    const noindexCount = pages.filter((page) => page.flags.includes('noindex')).length;
+
+    const result = {
+      domain: existing.domain,
+      startedAt: new Date(startedAt).toISOString(),
+      completedAt: new Date(completedAt).toISOString(),
+      durationMs: completedAt - startedAt,
+      sitemap: {
+        root: existing.sitemapUrl,
+        sitemaps: sitemapSummaries,
+      },
+      pages,
+      totals: {
+        pagesScanned: pages.length,
+        invalidSchema: invalidSchemaCount,
+        noindex: noindexCount,
+      },
+    };
+
+    await updateDeepAuditJobState(jobId, {
+      status: pages.length >= existing.maxPages ? 'capped' : 'completed',
+      completedAt: new Date().toISOString(),
+      result,
+      errorMessage: null,
+    });
+  } catch (error) {
+    await updateDeepAuditJobState(jobId, {
+      status: 'failed',
+      completedAt: new Date().toISOString(),
+      errorMessage: error.message,
+    });
+  }
+}
 
 app.post('/api/homepage-scan', wrapAsync(async (req, res) => {
   const { domain } = req.body ?? {};
@@ -702,6 +818,329 @@ app.post('/api/logs/rotate', wrapAsync(async (_req, res) => {
     const rotateError = new AppError('Failed to rotate activity log', 500);
     throw rotateError;
   }
+}));
+
+app.post('/api/admin/trust/envelopes', wrapAsync(async (req, res) => {
+  if (process.env.ADMIN_ENABLED === 'false') {
+    throw new AppError('Admin endpoints are disabled', 403);
+  }
+
+  const envelope = normalizeEnvelope(req.body ?? {});
+  await execute(
+    `
+      insert into trust_envelopes (
+        envelope_id,
+        domain,
+        scan_run_id,
+        scanned_at,
+        schema_version,
+        core_findings_json,
+        trust_inputs_json,
+        created_at
+      )
+      values (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    [
+      envelope.envelopeId,
+      envelope.domain,
+      envelope.scanRunId,
+      envelope.scannedAt,
+      envelope.schemaVersion,
+      JSON.stringify(envelope.coreFindings),
+      JSON.stringify(envelope.trustInputs),
+      envelope.createdAt,
+    ],
+  );
+
+  res.status(201).json({ envelope });
+}));
+
+app.get('/api/admin/trust/envelopes', wrapAsync(async (req, res) => {
+  if (process.env.ADMIN_ENABLED === 'false') {
+    throw new AppError('Admin endpoints are disabled', 403);
+  }
+
+  const domain = typeof req.query.domain === 'string'
+    ? sanitizeDomain(req.query.domain)
+    : null;
+
+  const limitRaw = Number.parseInt(req.query.limit ?? '100', 10);
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0
+    ? Math.min(limitRaw, 500)
+    : 100;
+
+  const rows = domain
+    ? await queryAll(
+      `
+        select
+          envelope_id,
+          domain,
+          scan_run_id,
+          scanned_at,
+          schema_version,
+          core_findings_json,
+          trust_inputs_json,
+          created_at
+        from trust_envelopes
+        where domain = ?
+        order by scanned_at desc
+        limit ?
+      `,
+      [domain, limit],
+    )
+    : await queryAll(
+      `
+        select
+          envelope_id,
+          domain,
+          scan_run_id,
+          scanned_at,
+          schema_version,
+          core_findings_json,
+          trust_inputs_json,
+          created_at
+        from trust_envelopes
+        order by scanned_at desc
+        limit ?
+      `,
+      [limit],
+    );
+
+  res.json({ envelopes: rows.map(mapEnvelopeRow) });
+}));
+
+app.get('/api/admin/trust/domains/:domain', wrapAsync(async (req, res) => {
+  if (process.env.ADMIN_ENABLED === 'false') {
+    throw new AppError('Admin endpoints are disabled', 403);
+  }
+
+  const domain = sanitizeDomain(req.params.domain);
+  if (!domain) {
+    throw new ValidationError('domain must be a valid domain');
+  }
+
+  const envelopeRow = await queryOne(
+    `
+      select
+        envelope_id,
+        domain,
+        scan_run_id,
+        scanned_at,
+        schema_version,
+        core_findings_json,
+        trust_inputs_json,
+        created_at
+      from trust_envelopes
+      where domain = ?
+      order by scanned_at desc
+      limit 1
+    `,
+    [domain],
+  );
+
+  const warningsRows = envelopeRow
+    ? await queryAll(
+      `
+        select
+          id,
+          envelope_id,
+          rule_code,
+          severity,
+          status,
+          entity_ref_json,
+          reason,
+          remediation_hint,
+          emitted_at,
+          resolved_at
+        from trust_warnings
+        where envelope_id = ?
+        order by emitted_at desc, id desc
+      `,
+      [envelopeRow.envelope_id],
+    )
+    : [];
+
+  res.json({
+    domain,
+    envelope: mapEnvelopeRow(envelopeRow),
+    warnings: warningsRows.map(mapWarningRow),
+  });
+}));
+
+app.post('/api/admin/trust/evaluate', wrapAsync(async (req, res) => {
+  if (process.env.ADMIN_ENABLED === 'false') {
+    throw new AppError('Admin endpoints are disabled', 403);
+  }
+
+  const envelopeId = typeof req.body?.envelopeId === 'string'
+    ? req.body.envelopeId.trim()
+    : '';
+  if (!envelopeId) {
+    throw new ValidationError('envelopeId is required');
+  }
+
+  const envelope = await queryOne(
+    'select envelope_id, domain from trust_envelopes where envelope_id = ? limit 1',
+    [envelopeId],
+  );
+  if (!envelope) {
+    throw new AppError('Trust envelope not found', 404);
+  }
+
+  const warnings = evaluateConsistency({
+    envelopeId,
+    domain: sanitizeDomain(req.body?.domain) ?? envelope.domain,
+    findings: req.body?.findings,
+    catalog: req.body?.catalog,
+    history: req.body?.history,
+  });
+
+  for (const warning of warnings) {
+    await execute(
+      `
+        insert into trust_warnings (
+          envelope_id,
+          rule_code,
+          severity,
+          status,
+          entity_ref_json,
+          reason,
+          remediation_hint,
+          emitted_at
+        )
+        values (?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        warning.envelopeId,
+        warning.ruleCode,
+        warning.severity,
+        warning.status,
+        JSON.stringify(warning.entityRef),
+        warning.reason,
+        warning.remediationHint,
+        warning.emittedAt,
+      ],
+    );
+  }
+
+  const persisted = await queryAll(
+    `
+      select
+        id,
+        envelope_id,
+        rule_code,
+        severity,
+        status,
+        entity_ref_json,
+        reason,
+        remediation_hint,
+        emitted_at,
+        resolved_at
+      from trust_warnings
+      where envelope_id = ?
+      order by emitted_at desc, id desc
+    `,
+    [envelopeId],
+  );
+
+  res.json({ warnings: persisted.map(mapWarningRow) });
+}));
+
+app.get('/api/admin/trust/warnings', wrapAsync(async (req, res) => {
+  if (process.env.ADMIN_ENABLED === 'false') {
+    throw new AppError('Admin endpoints are disabled', 403);
+  }
+
+  const statusFilter = typeof req.query.status === 'string'
+    ? req.query.status.trim()
+    : '';
+
+  const rows = statusFilter
+    ? await queryAll(
+      `
+        select
+          id,
+          envelope_id,
+          rule_code,
+          severity,
+          status,
+          entity_ref_json,
+          reason,
+          remediation_hint,
+          emitted_at,
+          resolved_at
+        from trust_warnings
+        where status = ?
+        order by emitted_at desc, id desc
+      `,
+      [statusFilter],
+    )
+    : await queryAll(
+      `
+        select
+          id,
+          envelope_id,
+          rule_code,
+          severity,
+          status,
+          entity_ref_json,
+          reason,
+          remediation_hint,
+          emitted_at,
+          resolved_at
+        from trust_warnings
+        order by emitted_at desc, id desc
+      `,
+    );
+
+  res.json({ warnings: rows.map(mapWarningRow) });
+}));
+
+app.put('/api/admin/trust/warnings/:id', wrapAsync(async (req, res) => {
+  if (process.env.ADMIN_ENABLED === 'false') {
+    throw new AppError('Admin endpoints are disabled', 403);
+  }
+
+  const warningId = Number.parseInt(req.params.id, 10);
+  if (!Number.isFinite(warningId) || warningId <= 0) {
+    throw new ValidationError('warning id must be a positive integer');
+  }
+
+  const status = normalizeTrustWarningStatus(req.body?.status);
+  await execute(
+    `
+      update trust_warnings
+      set status = ?, resolved_at = ?
+      where id = ?
+    `,
+    [status, status === 'open' ? null : new Date().toISOString(), warningId],
+  );
+
+  const warning = await queryOne(
+    `
+      select
+        id,
+        envelope_id,
+        rule_code,
+        severity,
+        status,
+        entity_ref_json,
+        reason,
+        remediation_hint,
+        emitted_at,
+        resolved_at
+      from trust_warnings
+      where id = ?
+      limit 1
+    `,
+    [warningId],
+  );
+
+  if (!warning) {
+    throw new AppError('Trust warning not found', 404);
+  }
+
+  res.json({ warning: mapWarningRow(warning) });
 }));
 
 app.get('/api/admin/db-snapshot', wrapAsync(async (req, res) => {

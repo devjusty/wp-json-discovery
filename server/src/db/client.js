@@ -109,6 +109,59 @@ const MIGRATIONS = [
       `create index if not exists idx_plugin_registry_label on plugin_registry(label);`,
       `create index if not exists idx_theme_registry_label on theme_registry(label);`
     ]
+  },
+  {
+    version: 5,
+    statements: [
+      `
+      create table if not exists trust_envelopes (
+        envelope_id text primary key,
+        domain text not null,
+        scan_run_id text not null,
+        scanned_at text not null,
+        schema_version integer not null,
+        core_findings_json text not null,
+        trust_inputs_json text not null,
+        created_at text not null
+      );
+      `,
+      `create index if not exists idx_trust_envelopes_domain_scanned on trust_envelopes(domain, scanned_at desc);`,
+      `
+      create table if not exists trust_warnings (
+        id integer primary key autoincrement,
+        envelope_id text not null references trust_envelopes(envelope_id) on delete cascade,
+        rule_code text not null,
+        severity text not null,
+        status text not null,
+        entity_ref_json text not null,
+        reason text not null,
+        remediation_hint text not null,
+        emitted_at text not null,
+        resolved_at text
+      );
+      `,
+      `create index if not exists idx_trust_warnings_open on trust_warnings(status, severity, emitted_at desc);`
+    ]
+  },
+  {
+    version: 6,
+    statements: [
+      `
+      create table if not exists deep_audit_jobs (
+        job_id text primary key,
+        domain text not null,
+        sitemap_url text not null,
+        status text not null,
+        max_pages integer not null,
+        started_at text,
+        completed_at text,
+        error_message text,
+        result_json text,
+        created_at text not null
+      );
+      `,
+      `create index if not exists idx_deep_audit_jobs_domain_created on deep_audit_jobs(domain, created_at desc);`
+    ]
   }
 ];
 

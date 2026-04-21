@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { scanDomain } from '../services/scan.js';
 import { upsertUnsupportedPlugin } from '../api/client.js';
+import { createTrustEnvelope, evaluateTrustEnvelope } from '../api/trust.js';
 import { logEvent, rotateActivityLog } from '../services/logger.js';
 
 export function useScan() {
@@ -94,6 +95,44 @@ export function useScan() {
         unsupportedPersistence: persistenceReport.slice(0, 50),
         snapshotBytes: JSON.stringify(data).length
       });
+
+      try {
+        const envelopeResponse = await createTrustEnvelope({
+          domain: data.domain,
+          scanRunId: `scan_${Date.now()}`,
+          scannedAt: data.fetchedAt,
+          schemaVersion: 1,
+          coreFindings: {
+            namespaces: data.namespaces,
+            matchedPluginIds: data.plugins.matched.map(({ plugin }) => plugin?.id).filter(Boolean)
+          },
+          trustInputs: {
+            metrics: data.metrics,
+            unsupportedNamespaces: data.plugins.unsupportedNamespaces
+          }
+        });
+
+        const envelopeId = envelopeResponse?.envelope?.envelopeId;
+        if (envelopeId) {
+          const knownCatalogNamespaces = data.plugins.matched.flatMap(({ namespaces }) => namespaces ?? []);
+          await evaluateTrustEnvelope({
+            envelopeId,
+            domain: data.domain,
+            findings: {
+              namespaces: data.namespaces
+            },
+            catalog: {
+              namespaces: knownCatalogNamespaces
+            }
+          });
+          queryClient.invalidateQueries({ queryKey: ['trust', data.domain] });
+        }
+      } catch (trustError) {
+        logEvent('scan.trust.sync_error', {
+          domain: data.domain,
+          message: trustError?.message ?? 'Failed to sync trust envelope'
+        });
+      }
     },
     onError: (error) => {
       const friendlyMessage =

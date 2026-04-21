@@ -293,6 +293,117 @@ describe('API routes', () => {
     expect(res.body.themes.some((theme) => theme.id === 'astra')).toBe(true);
   });
 
+  it('persists and returns trust envelope records', async () => {
+    process.env.ADMIN_ENABLED = 'true';
+
+    const createRes = await request(app)
+      .post('/api/admin/trust/envelopes')
+      .set(adminHeaders)
+      .send({
+        domain: 'example.com',
+        scanRunId: 'run_123',
+        scannedAt: '2026-04-21T12:00:00.000Z',
+        schemaVersion: 1,
+        coreFindings: { namespaces: ['wp/v2'] },
+        trustInputs: { projectionLagMs: 0 }
+      });
+
+    expect(createRes.statusCode).toBe(201);
+    expect(createRes.body.envelope.domain).toBe('example.com');
+    expect(createRes.body.envelope.envelopeId).toBeTruthy();
+
+    const listRes = await request(app)
+      .get('/api/admin/trust/envelopes?domain=example.com')
+      .set(adminHeaders);
+
+    expect(listRes.statusCode).toBe(200);
+    expect(Array.isArray(listRes.body.envelopes)).toBe(true);
+    expect(listRes.body.envelopes.length).toBeGreaterThan(0);
+    expect(listRes.body.envelopes[0].domain).toBe('example.com');
+  });
+
+  it('emits SCAN_CATALOG_MISMATCH warning when namespace lacks catalog support', async () => {
+    process.env.ADMIN_ENABLED = 'true';
+
+    const createEnvelopeRes = await request(app)
+      .post('/api/admin/trust/envelopes')
+      .set(adminHeaders)
+      .send({
+        domain: 'mismatch-example.com',
+        scanRunId: 'run_mismatch',
+        scannedAt: '2026-04-21T13:00:00.000Z',
+      });
+
+    expect(createEnvelopeRes.statusCode).toBe(201);
+    const { envelopeId } = createEnvelopeRes.body.envelope;
+
+    const evaluateRes = await request(app)
+      .post('/api/admin/trust/evaluate')
+      .set(adminHeaders)
+      .send({
+        envelopeId,
+        domain: 'mismatch-example.com',
+        findings: { namespaces: ['unknown-plugin/v1'] },
+        catalog: { namespaces: ['wp/v2'] }
+      });
+
+    expect(evaluateRes.statusCode).toBe(200);
+    expect(Array.isArray(evaluateRes.body.warnings)).toBe(true);
+    expect(evaluateRes.body.warnings.some((warning) => warning.ruleCode === 'SCAN_CATALOG_MISMATCH')).toBe(true);
+  });
+
+  it('updates trust warning status transitions', async () => {
+    process.env.ADMIN_ENABLED = 'true';
+
+    const createEnvelopeRes = await request(app)
+      .post('/api/admin/trust/envelopes')
+      .set(adminHeaders)
+      .send({
+        domain: 'warning-status-example.com',
+        scanRunId: 'run_warning_status',
+      });
+
+    const evaluateRes = await request(app)
+      .post('/api/admin/trust/evaluate')
+      .set(adminHeaders)
+      .send({
+        envelopeId: createEnvelopeRes.body.envelope.envelopeId,
+        domain: 'warning-status-example.com',
+        findings: { namespaces: ['unknown-status/v1'] },
+        catalog: { namespaces: [] }
+      });
+
+    const warningId = evaluateRes.body.warnings?.[0]?.id;
+    const updateRes = await request(app)
+      .put(`/api/admin/trust/warnings/${warningId}`)
+      .set(adminHeaders)
+      .send({ status: 'resolved' });
+
+    expect(updateRes.statusCode).toBe(200);
+    expect(updateRes.body.warning.status).toBe('resolved');
+    expect(updateRes.body.warning.resolvedAt).toBeTruthy();
+  });
+
+  it('creates deep-audit job and returns queued status', async () => {
+    const createRes = await request(app)
+      .post('/api/deep-audit/jobs')
+      .send({
+        domain: 'example.com',
+        sitemapUrl: 'https://example.com/sitemap.xml',
+        maxPages: 25,
+      });
+
+    expect(createRes.statusCode).toBe(202);
+    expect(createRes.body.job.status).toBe('queued');
+    expect(createRes.body.job.jobId).toBeTruthy();
+
+    const getRes = await request(app)
+      .get(`/api/deep-audit/jobs/${createRes.body.job.jobId}`);
+
+    expect(getRes.statusCode).toBe(200);
+    expect(getRes.body.job.jobId).toBe(createRes.body.job.jobId);
+  });
+
   it('reconciles unsupported namespaces after plugin creation', async () => {
     await request(app)
       .post('/api/unsupported-plugins')
