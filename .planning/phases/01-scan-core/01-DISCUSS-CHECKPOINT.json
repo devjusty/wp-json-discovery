@@ -1,0 +1,37 @@
+{
+  "phase": "1",
+  "phase_name": "Scan Core",
+  "timestamp": "2026-05-14T00:00:00Z",
+  "areas_completed": ["Scan landing state"],
+  "areas_remaining": ["WordPress proof", "Evidence density", "Failure states", "Homepage/source clues"],
+  "decisions": {
+    "Scan landing state": [
+      {
+        "question": "For Phase 1, how should the scan landing state behave after a domain is submitted?",
+        "answer": "Result first",
+        "options_presented": ["Stay inline", "Result first", "Staged reveal"]
+      },
+      {
+        "question": "Should Phase 1 keep the scan on the same page or move focus to a dedicated results view?",
+        "answer": "Dedicated view",
+        "options_presented": ["Same page", "Dedicated view", "Pinned shell"]
+      },
+      {
+        "question": "What should the dedicated Phase 1 results view prioritize?",
+        "answer": "Minimal proof",
+        "options_presented": ["Minimal proof", "Investigative shell", "Verdict + rail"]
+      }
+    ]
+  },
+  "deferred_ideas": [
+    "WordPress proof threshold and which exact signals constitute a confident 'appears to be WordPress' verdict.",
+    "How much raw route/core collection data should remain visible versus summarized.",
+    "Auth-restricted, unreachable, and non-WordPress failure-state wording and treatment.",
+    "Whether homepage HTML/source clues should be promoted into Phase 1 or remain a Phase 2 concern."
+  ],
+  "canonical_refs": [
+    ".planning/ROADMAP.md",
+    ".planning/REQUIREMENTS.md",
+    ".planning/PROJECT.md"
+  ]
+}
