@@ -4,7 +4,7 @@ function EmptyScanState() {
       <div className="card__content">
         <p>
           Enter a domain to discover available REST endpoints, review core
-          content, and track unsupported plugin namespaces.
+          content, and detect themes and plugins.
         </p>
       </div>
     </div>
