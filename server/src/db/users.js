@@ -3,10 +3,7 @@ import { queryAll, queryOne, execute } from './client.js';
 export async function findOrCreateUser(id, email, displayName, role) {
   const existing = await findUserById(id);
   if (existing) {
-    if (role && role !== existing.role) {
-      await updateUserRole(id, role);
-    }
-    return findUserById(id);
+    return existing;
   }
 
   const now = new Date().toISOString();

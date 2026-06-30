@@ -137,15 +137,17 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
         onDomainChange={onDomainChange}
       />
 
-      <RecentDomainsCard
-        isLoading={isAuthenticated ? recentUserScansQuery.isLoading : false}
-        items={recentItems}
-        isScanning={isScanning}
-        isExpanded={recentDomainsExpanded}
-        onToggleExpanded={handleToggleRecentDomainsExpanded}
-        onOpenHistory={isAdmin ? handleOpenHistory : null}
-        onRescan={startScan}
-      />
+      {isAuthenticated && (
+        <RecentDomainsCard
+          isLoading={recentUserScansQuery.isLoading}
+          items={recentItems}
+          isScanning={isScanning}
+          isExpanded={recentDomainsExpanded}
+          onToggleExpanded={handleToggleRecentDomainsExpanded}
+          onOpenHistory={isAdmin ? handleOpenHistory : null}
+          onRescan={startScan}
+        />
+      )}
 
       <ScanStatusStack
         isScanning={isScanning}

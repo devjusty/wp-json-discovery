@@ -21,7 +21,7 @@ import { REQUEST_TIMEOUT_MS, HOMEPAGE_HTML_CAP_BYTES, DEFAULT_USER_AGENT, MAX_SI
 import { errorHandler } from './middleware/errorHandler.js';
 import { apiRateLimiter } from './middleware/rateLimiter.js';
 import { requireAdminApiKey, requireAdminOrToken } from './middleware/adminAuth.js';
-import requireAuthMiddleware from './middleware/requireAuth.js';
+import createRequireAuthMiddleware from './middleware/requireAuth.js';
 import { wrapAsync } from './utils/route.js';
 import createUserScanRoutes from './routes/userScans.js';
 import createUserNotesRoutes from './routes/userNotes.js';
@@ -44,6 +44,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 loadEnvFile(path.join(__dirname, '..', '.env'));
+
+const requireAuthMiddleware = createRequireAuthMiddleware();
+
+console.log('[startup] AUTH0_DOMAIN:', process.env.AUTH0_DOMAIN, 'AUTH0_AUDIENCE:', process.env.AUTH0_AUDIENCE);
 
 const app = express();
 const PORT = process.env.PORT ?? 4100;

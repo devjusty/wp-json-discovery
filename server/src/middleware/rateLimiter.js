@@ -17,7 +17,11 @@ export function rateLimitKey(req) {
   if (req.user?.sub) {
     return `user:${req.user.sub}`;
   }
-  return `ip:${req.ip}`;
+  const ip = req.headers?.['x-forwarded-for']?.split(',')[0]?.trim()
+    || req.connection?.remoteAddress
+    || req.socket?.remoteAddress
+    || 'unknown';
+  return `ip:${ip}`;
 }
 
 export const apiRateLimiter = rateLimit({

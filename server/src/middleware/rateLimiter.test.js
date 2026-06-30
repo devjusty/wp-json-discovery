@@ -36,7 +36,7 @@ describe('rateLimitKey', () => {
   });
 
   it('uses IP for unauthenticated requests', () => {
-    const key = rateLimitKey({ user: null, ip: '1.2.3.4' });
+    const key = rateLimitKey({ user: null, headers: {}, ip: '1.2.3.4', connection: { remoteAddress: '1.2.3.4' } });
     expect(key).toBe('ip:1.2.3.4');
   });
 });
