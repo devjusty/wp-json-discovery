@@ -87,6 +87,15 @@ function AdminSidebarNav({
           <li>
             <button
               type="button"
+              className="sidebar__link"
+              onClick={() => onNavigate('history')}
+            >
+              View scan history
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
               className="sidebar__link is-active"
               onClick={() => onNavigate('admin')}
               aria-current="page"

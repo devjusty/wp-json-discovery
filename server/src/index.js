@@ -25,6 +25,7 @@ import requireAuthMiddleware from './middleware/requireAuth.js';
 import { wrapAsync } from './utils/route.js';
 import createUserScanRoutes from './routes/userScans.js';
 import createUserNotesRoutes from './routes/userNotes.js';
+import createUserMeRoute from './routes/userMe.js';
 import { execute, getDb, queryAll, queryOne } from './db/client.js';
 import {
   assertPluginRegistryReady,
@@ -91,6 +92,11 @@ app.use('/api/user/notes', (req, res, next) => {
   if (!req.user) return res.status(401).json({ error: 'Authentication required' });
   next();
 }, createUserNotesRoutes());
+
+app.use('/api/user/me', (req, res, next) => {
+  if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+  next();
+}, createUserMeRoute());
 
 app.use('/api/admin', requireAdminOrToken);
 app.use('/api/logs', requireAdminOrToken);

@@ -31,15 +31,17 @@ function RecentDomainsCard({
           <Button type="button" variant="ghost" size="sm" onClick={onToggleExpanded}>
             {buttonLabel}
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="recent-domains__history-button"
-            onClick={onOpenHistory}
-          >
-            Open history
-          </Button>
+          {onOpenHistory && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="recent-domains__history-button"
+              onClick={onOpenHistory}
+            >
+              Open history
+            </Button>
+          )}
         </div>
       </div>
       {isExpanded ? (
@@ -82,7 +84,7 @@ RecentDomainsCard.propTypes = {
   isScanning: PropTypes.bool,
   isExpanded: PropTypes.bool,
   onToggleExpanded: PropTypes.func.isRequired,
-  onOpenHistory: PropTypes.func.isRequired,
+  onOpenHistory: PropTypes.func,
   onRescan: PropTypes.func.isRequired
 };
 

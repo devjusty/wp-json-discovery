@@ -15,7 +15,7 @@ import RecentDomainsCard from './scan/RecentDomainsCard.jsx';
 import ScanStatusStack from './scan/ScanStatusStack.jsx';
 import SaveScanButton from '../organisms/panels/SaveScanButton.jsx';
 
-function ScanPage({ headerActions, onNavigate }) {
+function ScanPage({ headerActions, onNavigate, isAdmin }) {
   const {
     domain,
     handleDomainChange: onDomainChange,
@@ -97,11 +97,11 @@ function ScanPage({ headerActions, onNavigate }) {
         hasScanResult={Boolean(scanResult)}
         homepageNavSummary={homepageNavSummary}
         onSectionChange={setActiveSection}
-        onOpenHistory={handleOpenHistory}
-        onOpenAdmin={handleOpenAdmin}
+        onOpenHistory={isAdmin ? handleOpenHistory : null}
+        onOpenAdmin={isAdmin ? handleOpenAdmin : null}
       />
     ),
-    [activeSection, scanResult, homepageNavSummary, handleOpenHistory, handleOpenAdmin]
+    [activeSection, scanResult, homepageNavSummary, handleOpenHistory, handleOpenAdmin, isAdmin]
   );
 
   return (
@@ -126,7 +126,7 @@ function ScanPage({ headerActions, onNavigate }) {
         isScanning={isScanning}
         isExpanded={recentDomainsExpanded}
         onToggleExpanded={handleToggleRecentDomainsExpanded}
-        onOpenHistory={handleOpenHistory}
+        onOpenHistory={isAdmin ? handleOpenHistory : null}
         onRescan={startScan}
       />
 
@@ -162,12 +162,14 @@ function ScanPage({ headerActions, onNavigate }) {
 
 ScanPage.propTypes = {
   headerActions: PropTypes.node,
-  onNavigate: PropTypes.func
+  onNavigate: PropTypes.func,
+  isAdmin: PropTypes.bool
 };
 
 ScanPage.defaultProps = {
   headerActions: null,
-  onNavigate: undefined
+  onNavigate: undefined,
+  isAdmin: false
 };
 
 export default ScanPage;

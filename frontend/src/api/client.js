@@ -192,3 +192,11 @@ export async function fetchPluginRegistry() {
   }
   return result.data;
 }
+
+export async function fetchUserProfile() {
+  const result = await request('/api/user/me');
+  if (!result.ok) {
+    throw new Error('Failed to load user profile');
+  }
+  return result.data;
+}

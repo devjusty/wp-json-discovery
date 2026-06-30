@@ -5,16 +5,16 @@ const loadAdminPage = () => import('../AdminPage.jsx');
 const loadHistoryPage = () => import('../HistoryPage.jsx');
 
 const SCAN_SECTIONS = [
-  { id: 'overview', label: 'Overview', requiresScan: true },
-  { id: 'exposure', label: 'Exposure', requiresScan: true },
-  { id: 'performance', label: 'Performance', requiresScan: true },
-  { id: 'content', label: 'Content footprint', requiresScan: true },
-  { id: 'versions', label: 'Versions', requiresScan: true },
-  { id: 'homepage', label: 'Homepage source', requiresScan: true },
-  { id: 'sitemap', label: 'Sitemap scan', requiresScan: true },
-  { id: 'core', label: 'Core data', requiresScan: true },
-  { id: 'plugins', label: 'Plugins', requiresScan: true },
-  { id: 'unsupported', label: 'Unsupported', requiresScan: true }
+  { id: "overview", label: "Overview", requiresScan: true },
+  { id: "homepage", label: "Homepage source", requiresScan: true },
+  { id: "exposure", label: "Exposure", requiresScan: true },
+  { id: "performance", label: "Performance", requiresScan: true },
+  { id: "content", label: "Content footprint", requiresScan: true },
+  { id: "versions", label: "Versions", requiresScan: true },
+  { id: "sitemap", label: "Sitemap scan", requiresScan: true },
+  { id: "core", label: "Core data", requiresScan: true },
+  { id: "plugins", label: "Plugins", requiresScan: true },
+  { id: "unsupported", label: "Unsupported", requiresScan: true },
 ];
 
 function ScanSidebarNav({
@@ -54,36 +54,40 @@ function ScanSidebarNav({
               </li>
             );
           })}
-          <li>
-            <button
-              type="button"
-              className="sidebar__link"
-              onClick={onOpenHistory}
-              onMouseEnter={() => {
-                void loadHistoryPage();
-              }}
-              onFocus={() => {
-                void loadHistoryPage();
-              }}
-            >
-              History view
-            </button>
-          </li>
-          <li>
-            <button
-              type="button"
-              className="sidebar__link"
-              onClick={onOpenAdmin}
-              onMouseEnter={() => {
-                void loadAdminPage();
-              }}
-              onFocus={() => {
-                void loadAdminPage();
-              }}
-            >
-              Admin view
-            </button>
-          </li>
+          {onOpenHistory && (
+            <li>
+              <button
+                type="button"
+                className="sidebar__link"
+                onClick={onOpenHistory}
+                onMouseEnter={() => {
+                  void loadHistoryPage();
+                }}
+                onFocus={() => {
+                  void loadHistoryPage();
+                }}
+              >
+                History view
+              </button>
+            </li>
+          )}
+          {onOpenAdmin && (
+            <li>
+              <button
+                type="button"
+                className="sidebar__link"
+                onClick={onOpenAdmin}
+                onMouseEnter={() => {
+                  void loadAdminPage();
+                }}
+                onFocus={() => {
+                  void loadAdminPage();
+                }}
+              >
+                Admin view
+              </button>
+            </li>
+          )}
         </ul>
       </div>
     </nav>
@@ -95,8 +99,8 @@ ScanSidebarNav.propTypes = {
   hasScanResult: PropTypes.bool,
   homepageNavSummary: PropTypes.string.isRequired,
   onSectionChange: PropTypes.func.isRequired,
-  onOpenHistory: PropTypes.func.isRequired,
-  onOpenAdmin: PropTypes.func.isRequired
+  onOpenHistory: PropTypes.func,
+  onOpenAdmin: PropTypes.func
 };
 
 ScanSidebarNav.defaultProps = {
