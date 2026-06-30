@@ -1,15 +1,18 @@
 import { queryAll, queryOne, execute } from './client.js';
 
-export async function findOrCreateUser(id, email, displayName) {
+export async function findOrCreateUser(id, email, displayName, role) {
   const existing = await findUserById(id);
   if (existing) {
-    return existing;
+    if (role && role !== existing.role) {
+      await updateUserRole(id, role);
+    }
+    return findUserById(id);
   }
 
   const now = new Date().toISOString();
   await execute(
-    'insert into users (id, email, display_name, role, created_at) values (?, ?, ?, \'standard\', ?)',
-    [id, email, displayName, now]
+    'insert into users (id, email, display_name, role, created_at) values (?, ?, ?, ?, ?)',
+    [id, email, displayName, role || 'standard', now]
   );
 
   return findUserById(id);

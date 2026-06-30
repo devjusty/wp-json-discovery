@@ -52,7 +52,7 @@ export function createRequireAuth(options = {}) {
       const displayName = decoded.name || decoded.nickname || email;
       const role = decoded['https://wp-json-discovery/roles'] || 'standard';
 
-      const user = await findOrCreateUser(sub, email, displayName);
+      const user = await findOrCreateUser(sub, email, displayName, role);
       req.user = { ...user };
 
       next();
