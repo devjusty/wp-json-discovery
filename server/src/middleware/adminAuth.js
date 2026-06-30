@@ -46,3 +46,11 @@ export function requireAdminApiKey(req, res, next) {
 
   next();
 }
+
+export function requireAdminOrToken(req, res, next) {
+  if (req.user?.role === 'admin') {
+    return next();
+  }
+
+  return requireAdminApiKey(req, res, next);
+}
