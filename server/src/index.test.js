@@ -42,6 +42,7 @@ describe('API routes', () => {
     const res = await request(app).get('/health');
     expect(res.statusCode).toEqual(200);
     expect(res.body).toEqual({ status: 'ok' });
+    expect(res.headers['x-powered-by']).toBeUndefined();
   });
 
   it('should respond to /api/proxy', async () => {
@@ -67,9 +68,31 @@ describe('API routes', () => {
     expect(res.statusCode).not.toEqual(404);
   });
 
-  it('should respond to /api/unsupported-plugins', async () => {
+  it('rejects unsupported plugin writes without auth', async () => {
     const res = await request(app).post('/api/unsupported-plugins').send({ namespace: 'test' });
+    expect(res.statusCode).toEqual(401);
+  });
+
+  it('should respond to /api/unsupported-plugins with admin key', async () => {
+    const res = await request(app)
+      .post('/api/unsupported-plugins')
+      .set(adminHeaders)
+      .send({ namespace: 'test' });
     expect(res.statusCode).not.toEqual(404);
+  });
+
+  it('hides unsupported plugin domains from anonymous requests', async () => {
+    await request(app).post('/api/unsupported-plugins').set(adminHeaders).send({
+      namespace: 'public-domain-test',
+      domain: 'example.com'
+    });
+
+    const res = await request(app).get('/api/unsupported-plugins');
+    expect(res.statusCode).toEqual(200);
+
+    const entry = res.body.find((item) => item.namespace === 'public-domain-test');
+    expect(entry).toBeDefined();
+    expect(Object.prototype.hasOwnProperty.call(entry, 'domains')).toBe(false);
   });
 
   it('should respond to /api/logs', async () => {
@@ -137,6 +160,11 @@ describe('API routes', () => {
     expect(res.body.plugins.length).toBeGreaterThan(0);
   });
 
+  it('rejects scan history without admin access', async () => {
+    const res = await request(app).get('/api/scan-history');
+    expect(res.statusCode).toEqual(401);
+  });
+
   it('hides failed scans from history by default', async () => {
     await request(app).post('/api/logs').send({
       type: 'scan.complete',
@@ -155,11 +183,11 @@ describe('API routes', () => {
       }
     });
 
-    const hiddenFailed = await request(app).get('/api/scan-history');
+    const hiddenFailed = await request(app).get('/api/scan-history').set(adminHeaders);
     expect(hiddenFailed.statusCode).toEqual(200);
     expect(hiddenFailed.body.items.some((item) => item.domain === 'failed-example.com')).toBe(false);
 
-    const includeFailed = await request(app).get('/api/scan-history?includeFailed=true');
+    const includeFailed = await request(app).get('/api/scan-history?includeFailed=true').set(adminHeaders);
     expect(includeFailed.statusCode).toEqual(200);
     expect(includeFailed.body.items.some((item) => item.domain === 'failed-example.com')).toBe(true);
   });
@@ -183,11 +211,11 @@ describe('API routes', () => {
       }
     });
 
-    const defaultTimeline = await request(app).get('/api/scan-history/timeline-example.com');
+    const defaultTimeline = await request(app).get('/api/scan-history/timeline-example.com').set(adminHeaders);
     expect(defaultTimeline.statusCode).toEqual(200);
     expect(defaultTimeline.body.runs.every((run) => run.status !== 'failed')).toBe(true);
 
-    const allTimeline = await request(app).get('/api/scan-history/timeline-example.com?includeFailed=true');
+    const allTimeline = await request(app).get('/api/scan-history/timeline-example.com?includeFailed=true').set(adminHeaders);
     expect(allTimeline.statusCode).toEqual(200);
     expect(allTimeline.body.runs.some((run) => run.status === 'failed')).toBe(true);
   });
@@ -211,7 +239,7 @@ describe('API routes', () => {
       }
     });
 
-    const paged = await request(app).get('/api/scan-history?includeFailed=true&sort=domain&q=paginate-&limit=1&offset=1');
+    const paged = await request(app).get('/api/scan-history?includeFailed=true&sort=domain&q=paginate-&limit=1&offset=1').set(adminHeaders);
 
     expect(paged.statusCode).toEqual(200);
     expect(Array.isArray(paged.body.items)).toBe(true);

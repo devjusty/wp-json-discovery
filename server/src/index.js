@@ -48,6 +48,7 @@ loadEnvFile(path.join(__dirname, '..', '.env'));
 const requireAuthMiddleware = createRequireAuthMiddleware();
 
 const app = express();
+app.disable('x-powered-by');
 const PORT = process.env.PORT ?? 4100;
 
 const EXPOSED_HEADERS = EXPOSED_HEADERS_LIST;
@@ -102,6 +103,7 @@ app.use('/api/user/me', (req, res, next) => {
 
 app.use('/api/admin', requireAdminOrToken);
 app.use('/api/logs', requireAdminOrToken);
+app.use('/api/scan-history', requireAdminOrToken);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
@@ -332,10 +334,19 @@ function stableHash(value = '') {
   return hash;
 }
 
-app.get('/api/unsupported-plugins', wrapAsync(async (_req, res) => {
+app.get('/api/unsupported-plugins', wrapAsync(async (req, res) => {
   try {
     const plugins = await readUnsupportedPlugins();
-    res.json(plugins);
+    if (req.user?.role === 'admin') {
+      res.json(plugins);
+      return;
+    }
+
+    res.json(plugins.map((plugin) => ({
+      namespace: plugin.namespace,
+      firstDetectedAt: plugin.firstDetectedAt,
+      lastDetectedAt: plugin.lastDetectedAt
+    })));
   } catch (error) {
     logSilently('unsupported_plugins.read_error', {
       message: error.message
@@ -345,7 +356,14 @@ app.get('/api/unsupported-plugins', wrapAsync(async (_req, res) => {
   }
 }));
 
-app.post('/api/unsupported-plugins', wrapAsync(async (req, res) => {
+app.post('/api/unsupported-plugins', (req, res, next) => {
+  if (req.user) {
+    next();
+    return;
+  }
+
+  requireAdminApiKey(req, res, next);
+}, wrapAsync(async (req, res) => {
   const { namespace, domain } = req.body ?? {};
 
   if (typeof namespace !== 'string' || namespace.trim().length === 0) {

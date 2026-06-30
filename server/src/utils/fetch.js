@@ -1,4 +1,5 @@
 import { sanitizeDomain } from './domain.js';
+import { assertHostResolvesToPublicAddresses } from './network.js';
 
 export async function fetchWithRedirects(targetUrl, options = {}, maxRedirects = 3) {
   const { allowedHost, ...fetchOptions } = options;
@@ -6,6 +7,8 @@ export async function fetchWithRedirects(targetUrl, options = {}, maxRedirects =
   let currentUrl = targetUrl;
   let redirects = 0;
   const expectedHost = resolveExpectedHost(targetUrl, allowedHost);
+
+  await assertHostResolvesToPublicAddresses(expectedHost, options);
 
   while (redirects <= maxRedirects) {
     const response = await fetch(currentUrl, {
@@ -23,6 +26,7 @@ export async function fetchWithRedirects(targetUrl, options = {}, maxRedirects =
     redirects += 1;
     const redirectedUrl = new URL(location, currentUrl);
     assertHostAllowed(redirectedUrl, expectedHost);
+    await assertHostResolvesToPublicAddresses(redirectedUrl.hostname, options);
     currentUrl = redirectedUrl.toString();
   }
 

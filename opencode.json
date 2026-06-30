@@ -3,20 +3,17 @@
   "mcp": {
     "chrome-devtools": {
       "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "chrome-devtools-mcp@latest"
-      ],
+      "command": ["npx", "-y", "chrome-devtools-mcp@latest"],
       "enabled": false
+    },
+    "hugeicons": {
+      "type": "local",
+      "command": ["npx", "-y", "@hugeicons/mcp-server"],
+      "enabled": true
     },
     "netlify": {
       "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "@netlify/mcp"
-      ],
+      "command": ["npx", "-y", "@netlify/mcp"],
       "enabled": true
     },
     "render": {
@@ -29,11 +26,7 @@
     },
     "shadcn": {
       "type": "local",
-      "command": [
-        "npx",
-        "shadcn@latest",
-        "mcp"
-      ],
+      "command": ["npx", "shadcn@latest", "mcp"],
       "enabled": true
     }
   }

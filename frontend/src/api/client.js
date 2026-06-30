@@ -40,7 +40,7 @@ export async function request(path, options = {}) {
     }
 
     if (globalGetAccessToken && (
-      path.startsWith('/api/user/') || path.startsWith('/api/admin/') || path.startsWith('/api/logs/')
+      path.startsWith('/api/user/') || path.startsWith('/api/admin/') || path.startsWith('/api/logs/') || path.startsWith('/api/scan-history') || path.startsWith('/api/unsupported-plugins')
     )) {
       try {
         const token = await globalGetAccessToken();

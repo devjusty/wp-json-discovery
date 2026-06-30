@@ -24,9 +24,11 @@ describe('findOrCreateUser', () => {
 
   it('returns existing user without duplicating', async () => {
     const first = await findOrCreateUser('auth0|test2', 'test2@example.com', 'Test Two');
-    const second = await findOrCreateUser('auth0|test2', 'test2@example.com', 'Test Two');
+    const second = await findOrCreateUser('auth0|test2', 'changed@example.com', 'Changed Name');
     expect(second.id).toBe(first.id);
     expect(second.created_at).toBe(first.created_at);
+    expect(second.email).toBe('test2@example.com');
+    expect(second.display_name).toBe('Test Two');
   });
 });
 

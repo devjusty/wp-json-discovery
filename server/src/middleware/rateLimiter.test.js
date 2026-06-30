@@ -39,4 +39,15 @@ describe('rateLimitKey', () => {
     const key = rateLimitKey({ user: null, headers: {}, ip: '1.2.3.4', connection: { remoteAddress: '1.2.3.4' } });
     expect(key).toBe('ip:1.2.3.4');
   });
+
+  it('does not trust spoofed x-forwarded-for headers', () => {
+    const key = rateLimitKey({
+      user: null,
+      headers: { 'x-forwarded-for': '9.9.9.9' },
+      connection: { remoteAddress: '1.2.3.4' },
+      socket: { remoteAddress: '1.2.3.4' }
+    });
+
+    expect(key).toBe('ip:1.2.3.4');
+  });
 });

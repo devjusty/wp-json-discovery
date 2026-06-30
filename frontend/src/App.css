@@ -41,6 +41,34 @@ body {
   min-width: 0;
 }
 
+.app__header-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.app__header-brand svg {
+  flex: none;
+}
+
+.app__header-brand:hover,
+.app__header-brand:focus-visible {
+  color: var(--color-ink);
+}
+
+.app__header-brand:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
 .app__header h1 {
   margin-bottom: 0.35rem;
   font-size: var(--font-size-hero);

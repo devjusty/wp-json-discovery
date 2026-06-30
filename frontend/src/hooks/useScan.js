@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth0 } from '@auth0/auth0-react';
 import toast from 'react-hot-toast';
 import { scanDomain } from '../services/scan.js';
 import { upsertUnsupportedPlugin } from '../api/client.js';
 import { logEvent, rotateActivityLog } from '../services/logger.js';
 
 export function useScan() {
+  const { isAuthenticated } = useAuth0();
   const queryClient = useQueryClient();
   const [result, setResult] = useState(null);
   const [activeDomain, setActiveDomain] = useState('');
@@ -16,7 +18,7 @@ export function useScan() {
       setResult(data);
       let persistenceReport = [];
 
-      if (data.plugins.unsupportedNamespaces.length > 0) {
+      if (isAuthenticated && data.plugins.unsupportedNamespaces.length > 0) {
         const persistenceOutcomes = await Promise.allSettled(
           data.plugins.unsupportedNamespaces.map((namespace) =>
             upsertUnsupportedPlugin({
@@ -34,6 +36,7 @@ export function useScan() {
               status: 'fulfilled'
             };
           }
+
           const message =
             outcome.reason?.message ??
             (typeof outcome.reason === 'string'

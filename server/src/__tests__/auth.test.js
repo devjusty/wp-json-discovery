@@ -58,6 +58,7 @@ describe('createRequireAuth', () => {
     expect(nextCalled).toBe(true);
     expect(req.user).toBeDefined();
     expect(req.user.id).toBe('auth0|valid');
+    expect(req.user.sub).toBe('auth0|valid');
     expect(req.user.email).toBe('valid@test.com');
     expect(req.user.role).toBe('standard');
   });
