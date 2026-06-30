@@ -7,7 +7,7 @@ import {
   CardHeader
 } from '../../atoms/Card.jsx';
 
-function UnsupportedPluginsPanel({ plugins, isLoading, onRefresh }) {
+function UnsupportedPluginsPanel({ plugins, isLoading, onRefresh, showDomains }) {
   return (
     <Card>
       <CardHeader>
@@ -53,7 +53,7 @@ function UnsupportedPluginsPanel({ plugins, isLoading, onRefresh }) {
                       : '—'}
                   </span>
                 </div>
-                {plugin.domains?.length ? (
+                {showDomains && plugin.domains?.length ? (
                   <p className="card__meta">
                     Domains: {plugin.domains.join(', ')}
                   </p>
@@ -77,12 +77,14 @@ UnsupportedPluginsPanel.propTypes = {
     })
   ).isRequired,
   isLoading: PropTypes.bool,
-  onRefresh: PropTypes.func
+  onRefresh: PropTypes.func,
+  showDomains: PropTypes.bool
 };
 
 UnsupportedPluginsPanel.defaultProps = {
   isLoading: false,
-  onRefresh: () => {}
+  onRefresh: () => {},
+  showDomains: false
 };
 
 export default UnsupportedPluginsPanel;

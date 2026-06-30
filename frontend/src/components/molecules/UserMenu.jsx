@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
+import { Button } from '@/components/ui/button';
 
 function UserMenu({ onNavigate }) {
   const { user, logout, isAuthenticated } = useAuth0();
@@ -25,17 +26,19 @@ function UserMenu({ onNavigate }) {
 
   return (
     <div className="user-menu" ref={menuRef}>
-      <button
-        className="user-menu__trigger"
+      <Button
+        variant="ghost"
+        size="sm"
+        className="user-menu__trigger gap-2 px-2 h-8"
         onClick={() => setOpen(!open)}
         aria-haspopup="true"
         aria-expanded={open}
       >
         {avatarUrl ? (
-          <img src={avatarUrl} alt="" className="user-menu__avatar" width="24" height="24" />
+          <img src={avatarUrl} alt="" className="rounded-full size-5" />
         ) : null}
         <span className="user-menu__name">{displayName}</span>
-      </button>
+      </Button>
       {open ? (
         <div className="user-menu__dropdown" role="menu">
           <button

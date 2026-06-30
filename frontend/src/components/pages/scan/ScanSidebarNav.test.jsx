@@ -29,7 +29,7 @@ describe('ScanSidebarNav', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Admin view' }));
     expect(onOpenAdmin).toHaveBeenCalledTimes(1);
 
-    expect(screen.getByRole('button', { name: 'Unsupported' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Unsupported' })).not.toBeInTheDocument();
     expect(onSectionChange).not.toHaveBeenCalled();
   });
 
@@ -44,6 +44,7 @@ describe('ScanSidebarNav', () => {
         onSectionChange={onSectionChange}
         onOpenHistory={vi.fn()}
         onOpenAdmin={vi.fn()}
+        isAdmin
       />
     );
 

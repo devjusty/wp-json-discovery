@@ -27,7 +27,7 @@ function PluginsSection({ scanResult }) {
         )}
       </div>
       {scanResult.plugins.unsupportedNamespaces.length > 0 ? (
-        <div className="card card--info">
+        <div className="card card--info" style={{ marginTop: '1rem' }}>
           <div className="card__content">
             <p>
               Unsupported namespaces recorded:{' '}

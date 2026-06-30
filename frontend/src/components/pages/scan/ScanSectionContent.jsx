@@ -24,7 +24,8 @@ function ScanSectionContent({
   setSitemapFilter,
   unsupportedPlugins,
   unsupportedIsLoading,
-  onRefreshUnsupported
+  onRefreshUnsupported,
+  showDomains
 }) {
   if (!scanResult) {
     return <EmptyScanState />;
@@ -93,6 +94,7 @@ function ScanSectionContent({
           unsupportedPlugins={unsupportedPlugins}
           unsupportedIsLoading={unsupportedIsLoading}
           onRefreshUnsupported={onRefreshUnsupported}
+          showDomains={showDomains}
         />
       );
     default:
@@ -112,7 +114,8 @@ ScanSectionContent.propTypes = {
   setSitemapFilter: PropTypes.func.isRequired,
   unsupportedPlugins: PropTypes.array,
   unsupportedIsLoading: PropTypes.bool,
-  onRefreshUnsupported: PropTypes.func.isRequired
+  onRefreshUnsupported: PropTypes.func.isRequired,
+  showDomains: PropTypes.bool
 };
 
 ScanSectionContent.defaultProps = {
@@ -122,7 +125,8 @@ ScanSectionContent.defaultProps = {
   sitemapResult: null,
   isSitemapRunning: false,
   unsupportedPlugins: [],
-  unsupportedIsLoading: false
+  unsupportedIsLoading: false,
+  showDomains: false
 };
 
 export default memo(ScanSectionContent);

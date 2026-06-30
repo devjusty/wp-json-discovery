@@ -1,7 +1,7 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo } from 'react';
+import { Suspense, lazy, useEffect, useMemo } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useQuery } from '@tanstack/react-query';
-import Button from './components/atoms/Button.jsx';
+import { Button } from '@/components/ui/button';
 import './App.css';
 import { ScanProvider, useScanShellContext } from './context/ScanContext.jsx';
 import { setTokenProvider, fetchUserProfile } from './api/client.js';
@@ -61,55 +61,60 @@ function AppContent() {
       <div className="app__topbar">
         <div className="app__topbar-actions">
           <nav className="app__nav" aria-label="Primary">
-            <button
+            <Button
               type="button"
-              className={`app__nav-link ${activePage === 'scan' ? 'is-active' : ''}`}
+              variant={activePage === 'scan' ? 'secondary' : 'ghost'}
+              size="sm"
               onClick={() => setActivePage('scan')}
               onMouseEnter={() => prefetchPage('scan')}
               onFocus={() => prefetchPage('scan')}
               aria-current={activePage === 'scan' ? 'page' : undefined}
             >
               Current scan
-            </button>
+            </Button>
             {isAuthenticated && (
-              <button
+              <Button
                 type="button"
-                className={`app__nav-link ${activePage === 'my-scans' ? 'is-active' : ''}`}
+                variant={activePage === 'my-scans' ? 'secondary' : 'ghost'}
+                size="sm"
                 onClick={() => setActivePage('my-scans')}
                 onMouseEnter={() => prefetchPage('my-scans')}
                 onFocus={() => prefetchPage('my-scans')}
                 aria-current={activePage === 'my-scans' ? 'page' : undefined}
               >
                 My scans
-              </button>
+              </Button>
             )}
             {isAdmin && (
-              <button
+              <Button
                 type="button"
-                className={`app__nav-link ${activePage === 'history' ? 'is-active' : ''}`}
+                variant={activePage === 'history' ? 'secondary' : 'ghost'}
+                size="sm"
                 onClick={() => setActivePage('history')}
                 onMouseEnter={() => prefetchPage('history')}
                 onFocus={() => prefetchPage('history')}
                 aria-current={activePage === 'history' ? 'page' : undefined}
               >
                 History
-              </button>
+              </Button>
             )}
             {isAdmin && (
-              <button
+              <Button
                 type="button"
-                className={`app__nav-link ${activePage === 'admin' ? 'is-active' : ''}`}
+                variant={activePage === 'admin' ? 'secondary' : 'ghost'}
+                size="sm"
                 onClick={() => setActivePage('admin')}
                 onMouseEnter={() => prefetchPage('admin')}
                 onFocus={() => prefetchPage('admin')}
                 aria-current={activePage === 'admin' ? 'page' : undefined}
               >
                 Admin
-              </button>
+              </Button>
             )}
           </nav>
           <Button
             type="button"
+            variant="default"
             size="sm"
             className="app__new-scan"
             onClick={() => setActivePage('scan')}
@@ -201,7 +206,7 @@ function AppContent() {
 
   return (
     <Suspense fallback={<PageLoadingState label="Loading scanner..." />}>
-      <ScanPage headerActions={headerActions} onNavigate={setActivePage} isAdmin={isAdmin} />
+      <ScanPage headerActions={headerActions} onNavigate={setActivePage} isAdmin={isAdmin} isAuthenticated={isAuthenticated} />
     </Suspense>
   );
 }

@@ -4,7 +4,8 @@ import UnsupportedPluginsPanel from '../../../organisms/panels/UnsupportedPlugin
 function UnsupportedSection({
   unsupportedPlugins,
   unsupportedIsLoading,
-  onRefreshUnsupported
+  onRefreshUnsupported,
+  showDomains
 }) {
   return (
     <section className="section">
@@ -12,6 +13,7 @@ function UnsupportedSection({
         plugins={unsupportedPlugins}
         isLoading={unsupportedIsLoading}
         onRefresh={onRefreshUnsupported}
+        showDomains={showDomains}
       />
     </section>
   );
@@ -20,12 +22,14 @@ function UnsupportedSection({
 UnsupportedSection.propTypes = {
   unsupportedPlugins: PropTypes.array,
   unsupportedIsLoading: PropTypes.bool,
-  onRefreshUnsupported: PropTypes.func.isRequired
+  onRefreshUnsupported: PropTypes.func.isRequired,
+  showDomains: PropTypes.bool
 };
 
 UnsupportedSection.defaultProps = {
   unsupportedPlugins: [],
-  unsupportedIsLoading: false
+  unsupportedIsLoading: false,
+  showDomains: false
 };
 
 export default UnsupportedSection;

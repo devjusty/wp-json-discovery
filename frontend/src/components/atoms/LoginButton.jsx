@@ -1,10 +1,15 @@
 import { useAuth0 } from '@auth0/auth0-react';
+import { Button } from '@/components/ui/button';
 
 function LoginButton() {
-  const { loginWithRedirect, logout, isAuthenticated, isLoading, user } = useAuth0();
+  const { loginWithRedirect, isAuthenticated, isLoading } = useAuth0();
 
   if (isLoading) {
-    return <button className="btn btn--sm" disabled>Loading...</button>;
+    return (
+      <Button variant="outline" size="sm" disabled>
+        Loading...
+      </Button>
+    );
   }
 
   if (isAuthenticated) {
@@ -12,9 +17,9 @@ function LoginButton() {
   }
 
   return (
-    <button className="btn btn--sm" onClick={() => loginWithRedirect()}>
+    <Button variant="outline" size="sm" onClick={() => loginWithRedirect()}>
       Log in
-    </button>
+    </Button>
   );
 }
 

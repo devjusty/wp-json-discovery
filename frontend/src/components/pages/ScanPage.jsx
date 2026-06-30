@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import { useQuery } from '@tanstack/react-query';
 import AppLayout from '../templates/AppLayout.jsx';
 import DomainForm from '../molecules/forms/DomainForm.jsx';
-import { fetchScanHistory, fetchUnsupportedPlugins } from '../../api/client.js';
+import { fetchScanHistory, fetchUnsupportedPlugins, request } from '../../api/client.js';
 import { useSitemapScan } from '../../hooks/useSitemapScan.js';
 import {
   useScanResultsContext,
@@ -15,7 +15,7 @@ import RecentDomainsCard from './scan/RecentDomainsCard.jsx';
 import ScanStatusStack from './scan/ScanStatusStack.jsx';
 import SaveScanButton from '../organisms/panels/SaveScanButton.jsx';
 
-function ScanPage({ headerActions, onNavigate, isAdmin }) {
+function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
   const {
     domain,
     handleDomainChange: onDomainChange,
@@ -42,6 +42,15 @@ function ScanPage({ headerActions, onNavigate, isAdmin }) {
   const [activeSection, setActiveSection] = useState('overview');
   const [recentDomainsExpanded, setRecentDomainsExpanded] = useState(false);
 
+  const prevIsAdmin = useRef(isAdmin);
+
+  useEffect(() => {
+    if (prevIsAdmin.current && !isAdmin && activeSection === 'unsupported') {
+      setActiveSection('overview');
+    }
+    prevIsAdmin.current = isAdmin;
+  }, [isAdmin, activeSection]);
+
   const homepageDomain = domain || activeDomain;
   const homepageNavSummary = useMemo(() => {
     if (homepageIsRunning) {
@@ -60,13 +69,29 @@ function ScanPage({ headerActions, onNavigate, isAdmin }) {
   });
   const { refetch: refetchUnsupported } = unsupportedQuery;
 
-  const recentHistoryQuery = useQuery({
-    queryKey: ['scanHistoryRecent'],
-    queryFn: () => fetchScanHistory({ limit: 8, includeFailed: false }),
+  const recentUserScansQuery = useQuery({
+    queryKey: ['recentUserScans'],
+    queryFn: async () => {
+      const result = await request('/api/user/scans');
+      return result.ok ? (result.data.domains || []) : [];
+    },
+    enabled: isAuthenticated,
     staleTime: 30000
   });
 
-  const recentItems = recentHistoryQuery.data?.items ?? [];
+  const recentHistoryQuery = useQuery({
+    queryKey: ['scanHistoryRecent'],
+    queryFn: () => fetchScanHistory({ limit: 8, includeFailed: false }),
+    staleTime: 30000,
+    enabled: !isAuthenticated
+  });
+
+  const recentItems = isAuthenticated
+    ? (recentUserScansQuery.data ?? []).slice(0, 8).map((s) => ({
+        domain: s.domain,
+        lastScannedAt: s.last_scanned_at
+      }))
+    : (recentHistoryQuery.data?.items ?? []);
 
   useEffect(() => {
     if (scanResult) {
@@ -99,15 +124,20 @@ function ScanPage({ headerActions, onNavigate, isAdmin }) {
         onSectionChange={setActiveSection}
         onOpenHistory={isAdmin ? handleOpenHistory : null}
         onOpenAdmin={isAdmin ? handleOpenAdmin : null}
+        isAdmin={isAdmin}
       />
     ),
     [activeSection, scanResult, homepageNavSummary, handleOpenHistory, handleOpenAdmin, isAdmin]
   );
 
+  const subtitle = isScanning
+    ? undefined
+    : 'Scan a WordPress site and review REST exposure, homepage source signals, and unsupported plugins. Log in to save history and notes.';
+
   return (
       <AppLayout
       title="WP JSON Discovery"
-      subtitle="Scan a WordPress site and review REST exposure plus homepage source signals."
+      subtitle={subtitle}
       headerActions={headerActions}
       sidebar={sidebar}
       onNavigate={onNavigate}
@@ -151,6 +181,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin }) {
         unsupportedPlugins={unsupportedQuery.data ?? []}
         unsupportedIsLoading={unsupportedQuery.isLoading}
         onRefreshUnsupported={handleRefreshUnsupported}
+        showDomains={isAdmin}
       />
 
       {scanResult ? (
@@ -163,13 +194,15 @@ function ScanPage({ headerActions, onNavigate, isAdmin }) {
 ScanPage.propTypes = {
   headerActions: PropTypes.node,
   onNavigate: PropTypes.func,
-  isAdmin: PropTypes.bool
+  isAdmin: PropTypes.bool,
+  isAuthenticated: PropTypes.bool
 };
 
 ScanPage.defaultProps = {
   headerActions: null,
   onNavigate: undefined,
-  isAdmin: false
+  isAdmin: false,
+  isAuthenticated: false
 };
 
 export default ScanPage;

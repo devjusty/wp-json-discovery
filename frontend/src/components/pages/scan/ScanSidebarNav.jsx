@@ -23,14 +23,15 @@ function ScanSidebarNav({
   homepageNavSummary,
   onSectionChange,
   onOpenHistory,
-  onOpenAdmin
+  onOpenAdmin,
+  isAdmin
 }) {
   return (
     <nav className="sidebar">
       <div className="sidebar__section">
         <p className="sidebar__title">Navigation</p>
         <ul className="sidebar__nav">
-          {SCAN_SECTIONS.map((item) => {
+          {SCAN_SECTIONS.filter((item) => item.id !== 'unsupported' || isAdmin).map((item) => {
             const disabled = item.requiresScan && !hasScanResult;
             const isActive = activeSection === item.id;
 
@@ -100,11 +101,13 @@ ScanSidebarNav.propTypes = {
   homepageNavSummary: PropTypes.string.isRequired,
   onSectionChange: PropTypes.func.isRequired,
   onOpenHistory: PropTypes.func,
-  onOpenAdmin: PropTypes.func
+  onOpenAdmin: PropTypes.func,
+  isAdmin: PropTypes.bool
 };
 
 ScanSidebarNav.defaultProps = {
-  hasScanResult: false
+  hasScanResult: false,
+  isAdmin: false
 };
 
 export default memo(ScanSidebarNav);
