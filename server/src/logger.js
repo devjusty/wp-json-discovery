@@ -852,6 +852,7 @@ async function persistScanHistoryFromLog(entry) {
     typeof payload.message === 'string' && payload.message.trim().length > 0
       ? payload.message.trim()
       : null;
+  const userId = typeof payload.userId === 'string' ? payload.userId : null;
 
   const summary = {
     metrics: payload.metrics ?? null,
@@ -919,9 +920,10 @@ async function persistScanHistoryFromLog(entry) {
         unsupported_count,
         error_category,
         error_message,
-        summary_json
+        summary_json,
+        user_id
       )
-      values (?, ?, ?, ?, ?, ?, ?, ?)
+      values (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     [
       domain,
@@ -931,7 +933,8 @@ async function persistScanHistoryFromLog(entry) {
       unsupportedCount,
       errorCategory,
       errorMessage,
-      JSON.stringify(summary)
+      JSON.stringify(summary),
+      userId
     ]
   );
 }

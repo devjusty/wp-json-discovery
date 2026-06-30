@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { useQuery } from '@tanstack/react-query';
 import AppLayout from '../templates/AppLayout.jsx';
 import DomainForm from '../molecules/forms/DomainForm.jsx';
-import { fetchScanHistory, fetchUnsupportedPlugins, request } from '../../api/client.js';
+import { fetchUnsupportedPlugins, fetchUserRecentRuns } from '../../api/client.js';
 import { useSitemapScan } from '../../hooks/useSitemapScan.js';
 import {
   useScanResultsContext,
@@ -71,27 +71,14 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
 
   const recentUserScansQuery = useQuery({
     queryKey: ['recentUserScans'],
-    queryFn: async () => {
-      const result = await request('/api/user/scans');
-      return result.ok ? (result.data.domains || []) : [];
-    },
+    queryFn: () => fetchUserRecentRuns(8),
     enabled: isAuthenticated,
     staleTime: 30000
   });
 
-  const recentHistoryQuery = useQuery({
-    queryKey: ['scanHistoryRecent'],
-    queryFn: () => fetchScanHistory({ limit: 8, includeFailed: false }),
-    staleTime: 30000,
-    enabled: !isAuthenticated
-  });
-
   const recentItems = isAuthenticated
-    ? (recentUserScansQuery.data ?? []).slice(0, 8).map((s) => ({
-        domain: s.domain,
-        lastScannedAt: s.last_scanned_at
-      }))
-    : (recentHistoryQuery.data?.items ?? []);
+    ? (recentUserScansQuery.data?.items ?? [])
+    : [];
 
   useEffect(() => {
     if (scanResult) {
@@ -151,7 +138,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
       />
 
       <RecentDomainsCard
-        isLoading={recentHistoryQuery.isLoading}
+        isLoading={isAuthenticated ? recentUserScansQuery.isLoading : false}
         items={recentItems}
         isScanning={isScanning}
         isExpanded={recentDomainsExpanded}

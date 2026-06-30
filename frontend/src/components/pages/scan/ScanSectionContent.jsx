@@ -3,7 +3,6 @@ import PropTypes from 'prop-types';
 import ExposurePanel from '../../organisms/panels/ExposurePanel.jsx';
 import PerformancePanel from '../../organisms/panels/PerformancePanel.jsx';
 import ContentOverviewPanel from '../../organisms/panels/ContentOverviewPanel.jsx';
-import VersionPanel from '../../organisms/panels/VersionPanel.jsx';
 import EmptyScanState from './sections/EmptyScanState.jsx';
 import OverviewSection from './sections/OverviewSection.jsx';
 import HomepageSection from './sections/HomepageSection.jsx';
@@ -56,12 +55,6 @@ function ScanSectionContent({
       return (
         <section className="section">
           <ContentOverviewPanel overview={scanResult.contentOverview} />
-        </section>
-      );
-    case 'versions':
-      return (
-        <section className="section">
-          <VersionPanel versions={scanResult.versions} />
         </section>
       );
     case 'homepage':

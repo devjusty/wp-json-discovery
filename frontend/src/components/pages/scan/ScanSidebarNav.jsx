@@ -10,7 +10,6 @@ const SCAN_SECTIONS = [
   { id: "exposure", label: "Exposure", requiresScan: true },
   { id: "performance", label: "Performance", requiresScan: true },
   { id: "content", label: "Content footprint", requiresScan: true },
-  { id: "versions", label: "Versions", requiresScan: true },
   { id: "sitemap", label: "Sitemap scan", requiresScan: true },
   { id: "core", label: "Core data", requiresScan: true },
   { id: "plugins", label: "Plugins", requiresScan: true },

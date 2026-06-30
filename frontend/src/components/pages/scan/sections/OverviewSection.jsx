@@ -3,7 +3,6 @@ import ScanSummary from '../../../organisms/summary/ScanSummary.jsx';
 import ExposurePanel from '../../../organisms/panels/ExposurePanel.jsx';
 import PerformancePanel from '../../../organisms/panels/PerformancePanel.jsx';
 import ContentOverviewPanel from '../../../organisms/panels/ContentOverviewPanel.jsx';
-import VersionPanel from '../../../organisms/panels/VersionPanel.jsx';
 
 function OverviewSection({ scanResult, homepageDomain, homepageResult }) {
   return (
@@ -25,7 +24,6 @@ function OverviewSection({ scanResult, homepageDomain, homepageResult }) {
         <div className="grid">
           <PerformancePanel performance={scanResult.performance} />
           <ContentOverviewPanel overview={scanResult.contentOverview} />
-          <VersionPanel versions={scanResult.versions} />
           <ExposurePanel exposure={scanResult.exposure} />
         </div>
       </section>

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { wrapAsync } from '../utils/route.js';
-import { claimDomain, getUserDomains, unclaimDomain } from '../db/userScans.js';
+import { claimDomain, getUserDomains, unclaimDomain, getUserRecentRuns } from '../db/userScans.js';
 
 export default function createUserScanRoutes() {
   const router = Router();
@@ -8,6 +8,12 @@ export default function createUserScanRoutes() {
   router.get('/', wrapAsync(async (req, res) => {
     const domains = await getUserDomains(req.user.sub);
     res.json({ domains });
+  }));
+
+  router.get('/recent-runs', wrapAsync(async (req, res) => {
+    const limit = Math.min(Number.parseInt(req.query.limit ?? '8', 10) || 8, 50);
+    const runs = await getUserRecentRuns(req.user.sub, limit);
+    res.json({ items: runs });
   }));
 
   router.post('/', wrapAsync(async (req, res) => {

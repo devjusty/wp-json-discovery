@@ -145,6 +145,13 @@ const MIGRATIONS = [
       `create index if not exists idx_scan_ownership_user on scan_ownership(user_id);`,
       `create index if not exists idx_user_notes_user on user_notes(user_id);`
     ]
+  },
+  {
+    version: 6,
+    statements: [
+      `alter table scan_runs add column user_id text;`,
+      `create index if not exists idx_scan_runs_user_id on scan_runs(user_id);`
+    ]
   }
 ];
 

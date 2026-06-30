@@ -60,6 +60,7 @@ export function useScan() {
 
         if (hasSuccess) {
           queryClient.invalidateQueries({ queryKey: ['unsupportedPlugins'] });
+          queryClient.invalidateQueries({ queryKey: ['recentUserScans'] });
         }
 
         logEvent('unsupported.persist_attempt', {

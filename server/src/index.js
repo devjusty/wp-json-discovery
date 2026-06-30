@@ -383,6 +383,9 @@ app.post('/api/logs', wrapAsync(async (req, res) => {
   try {
     const normalizedType = type.trim();
     const normalizedPayload = normalizeClientLogPayload(normalizedType, payload);
+    if (req.user?.sub) {
+      normalizedPayload.userId = req.user.sub;
+    }
 
     await recordLog(normalizedType, normalizedPayload);
     res.status(202).json({ acknowledged: true });

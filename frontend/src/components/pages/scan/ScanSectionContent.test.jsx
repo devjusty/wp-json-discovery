@@ -14,10 +14,6 @@ vi.mock('../../organisms/panels/ContentOverviewPanel.jsx', () => ({
   default: () => <div>Content overview panel</div>
 }));
 
-vi.mock('../../organisms/panels/VersionPanel.jsx', () => ({
-  default: () => <div>Version panel</div>
-}));
-
 vi.mock('./sections/OverviewSection.jsx', () => ({
   default: () => <div>Overview section</div>
 }));
@@ -50,7 +46,6 @@ function buildProps(overrides = {}) {
       exposure: {},
       performance: {},
       contentOverview: {},
-      versions: {}
     },
     homepageResult: null,
     homepageDomain: 'example.com',
@@ -79,7 +74,6 @@ describe('ScanSectionContent', () => {
       ['exposure', 'Exposure panel'],
       ['performance', 'Performance panel'],
       ['content', 'Content overview panel'],
-      ['versions', 'Version panel'],
       ['homepage', 'Homepage section'],
       ['sitemap', 'Sitemap section'],
       ['core', 'Core data section'],

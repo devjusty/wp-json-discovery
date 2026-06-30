@@ -200,3 +200,11 @@ export async function fetchUserProfile() {
   }
   return result.data;
 }
+
+export async function fetchUserRecentRuns(limit = 8) {
+  const result = await request(`/api/user/scans/recent-runs?limit=${limit}`);
+  if (!result.ok) {
+    throw new Error('Failed to load recent scan runs');
+  }
+  return result.data;
+}

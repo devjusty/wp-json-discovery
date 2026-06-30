@@ -29,3 +29,14 @@ export async function unclaimDomain(userId, domain) {
     [userId, domain]
   );
 }
+
+export async function getUserRecentRuns(userId, limit = 8) {
+  return queryAll(
+    `select sr.domain, sr.scanned_at as lastScannedAt, sr.status as lastStatus
+     from scan_runs sr
+     where sr.user_id = ?
+     order by sr.scanned_at desc
+     limit ?`,
+    [userId, limit]
+  );
+}
