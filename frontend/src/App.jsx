@@ -1,7 +1,9 @@
-import { Suspense, lazy, useMemo } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo } from 'react';
+import { useAuth0 } from '@auth0/auth0-react';
 import Button from './components/atoms/Button.jsx';
 import './App.css';
 import { ScanProvider, useScanShellContext } from './context/ScanContext.jsx';
+import { setTokenProvider } from './api/client.js';
 
 const loadScanPage = () => import('./components/pages/ScanPage.jsx');
 const loadAdminPage = () => import('./components/pages/AdminPage.jsx');
@@ -136,6 +138,21 @@ function AppContent() {
 }
 
 function App() {
+  const { getAccessTokenSilently, isAuthenticated } = useAuth0();
+
+  useEffect(() => {
+    setTokenProvider(async () => {
+      if (!isAuthenticated) return null;
+      try {
+        return await getAccessTokenSilently({
+          authorizationParams: { audience: import.meta.env.VITE_AUTH0_AUDIENCE }
+        });
+      } catch {
+        return null;
+      }
+    });
+  }, [getAccessTokenSilently, isAuthenticated]);
+
   return (
     <ScanProvider>
       <AppContent />

@@ -1,3 +1,8 @@
+let globalGetAccessToken = null;
+export function setTokenProvider(fn) {
+  globalGetAccessToken = fn;
+}
+
 const DEFAULT_API_BASE_URL = 'http://localhost:4100';
 
 const API_BASE_URL =
@@ -26,6 +31,19 @@ export async function request(path, options = {}) {
 
     if (ADMIN_API_KEY && shouldAttachAdminKey(path)) {
       headers.set('x-wpjd-admin-key', ADMIN_API_KEY);
+    }
+
+    if (globalGetAccessToken && (
+      path.startsWith('/api/user/') || path.startsWith('/api/admin/') || path.startsWith('/api/logs/')
+    )) {
+      try {
+        const token = await globalGetAccessToken();
+        if (token) {
+          headers.set('authorization', `Bearer ${token}`);
+        }
+      } catch {
+        // Silently skip — user might not be logged in
+      }
     }
 
     const response = await fetch(url, {
