@@ -4,34 +4,6 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (!id.includes('node_modules')) {
-            return undefined
-          }
-
-          if (
-            id.includes('/@tanstack/react-query') ||
-            id.includes('/@tanstack/react-table')
-          ) {
-            return 'tanstack-vendor'
-          }
-
-          if (
-            id.includes('/react/') ||
-            id.includes('/react-dom/') ||
-            id.includes('/react-hot-toast/')
-          ) {
-            return 'react-vendor'
-          }
-
-          return 'vendor'
-        },
-      },
-    },
-  },
   test: {
     environment: 'jsdom',
     setupFiles: './src/test/setup.js',
