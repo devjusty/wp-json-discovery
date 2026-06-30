@@ -3,7 +3,8 @@
   publish = "frontend/dist"
 
 [build.environment]
-  PNPM_VERSION = "10.33.0"
+  PNPM_VERSION = "11.9.0"
+  PNPM_CONFIG_MINIMUM_RELEASE_AGE = "0"
 
 [[redirects]]
   from = "/*"
