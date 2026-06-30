@@ -222,7 +222,7 @@ function updateHeartbeatState(entry) {
   }
 
   if (isErrorLikeType(entry.type) && entry.type !== 'error.suppressed') {
-    const category = String(payload.failureCategory ?? 'unknown');
+    const category = normalizeFailureCategory(payload.failureCategory);
     incrementMapCounter(heartbeatState.errorByCategory, category, 1);
     const domain = normalizeDomain(payload.domain);
     if (domain) {
@@ -232,7 +232,7 @@ function updateHeartbeatState(entry) {
 
   if (entry.type === 'error.suppressed') {
     const domain = normalizeDomain(payload.domain);
-    const category = String(payload.failureCategory ?? 'unknown');
+    const category = normalizeFailureCategory(payload.failureCategory);
     const suppressedCount = Number(payload.suppressedCount);
     const incrementBy = Number.isFinite(suppressedCount) && suppressedCount > 0 ? suppressedCount : 0;
     if (incrementBy > 0) {
@@ -296,7 +296,7 @@ function isErrorLikeType(type) {
   return type.includes('error');
 }
 
-function deriveFailureCategory(payload = {}) {
+export function deriveFailureCategory(payload = {}) {
   const message = `${payload.message ?? ''} ${payload.error ?? ''}`.toLowerCase();
   const detailsRaw = stringifyForCategory(payload.details);
   const details = detailsRaw.toLowerCase();
@@ -310,15 +310,41 @@ function deriveFailureCategory(payload = {}) {
   if (haystack.includes('admin endpoints are disabled')) return 'admin_disabled';
   if (name.includes('payloadtoolargeerror') || haystack.includes('request entity too large')) return 'payload_too_large';
   if (code === 'auth_required') return 'auth_required';
-  if ((status === 401 || status === 403) && haystack.includes('auth')) return 'auth_required';
   if (
     haystack.includes('cloudflare') ||
     haystack.includes('captcha') ||
     haystack.includes('you have been blocked') ||
     haystack.includes('attention required') ||
-    haystack.includes('ray id')
+    haystack.includes('ray id') ||
+    haystack.includes('mod_security') ||
+    haystack.includes('modsecurity') ||
+    haystack.includes('web application firewall') ||
+    haystack.includes('waf') ||
+    haystack.includes('request blocked') ||
+    haystack.includes('blocked by security') ||
+    haystack.includes('rate limit') ||
+    haystack.includes('too many requests') ||
+    haystack.includes('bot protection') ||
+    haystack.includes('sucuri') ||
+    haystack.includes('incapsula') ||
+    haystack.includes('akamai')
   ) {
     return 'blocked_waf';
+  }
+  if (status === 401) return 'auth_required';
+  if (
+    status === 403 && (
+      haystack.includes('auth') ||
+      haystack.includes('unauthorized') ||
+      haystack.includes('forbidden') ||
+      haystack.includes('access denied') ||
+      haystack.includes('permission denied') ||
+      haystack.includes('login required') ||
+      haystack.includes('credentials') ||
+      haystack.includes('restricted')
+    )
+  ) {
+    return 'auth_required';
   }
   if (
     haystack.includes('timed out') ||
@@ -330,17 +356,42 @@ function deriveFailureCategory(payload = {}) {
   if (
     haystack.includes('fetch failed') ||
     haystack.includes('failed to reach target domain') ||
+    haystack.includes('failed to fetch homepage') ||
+    haystack.includes('failed to fetch sitemap') ||
+    haystack.includes('failed to fetch page details') ||
+    haystack.includes('failed to fetch') ||
+    haystack.includes('networkerror') ||
+    haystack.includes('socket hang up') ||
     haystack.includes('enotfound') ||
     haystack.includes('eai_again') ||
-    haystack.includes('econnrefused')
+    haystack.includes('econnrefused') ||
+    haystack.includes('econnreset') ||
+    haystack.includes('ehostunreach') ||
+    haystack.includes('enetunreach') ||
+    haystack.includes('etimedout') ||
+    haystack.includes('getaddrinfo') ||
+    haystack.includes('und_err_connect_timeout')
   ) {
-    return 'dns_network_failure';
+    return 'network_failure';
   }
   if (status === 404 && haystack.includes('/wp-json/')) return 'non_wordpress';
   if (haystack.includes('unexpected response from the wordpress api')) return 'non_wordpress';
   if (Number.isFinite(status) && status >= 500) return 'upstream_http_error';
   if (Number.isFinite(status) && status >= 400) return 'upstream_http_error';
   return 'unknown';
+}
+
+function normalizeFailureCategory(category) {
+  const normalized = String(category ?? '').trim().toLowerCase();
+  if (!normalized) {
+    return 'unknown';
+  }
+
+  if (normalized === 'dns_network_failure') {
+    return 'network_failure';
+  }
+
+  return normalized;
 }
 
 function stringifyForCategory(value) {
