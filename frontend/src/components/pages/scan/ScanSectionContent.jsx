@@ -42,7 +42,10 @@ function ScanSectionContent({
     case 'exposure':
       return (
         <section className="section">
-          <ExposurePanel exposure={scanResult.exposure} />
+          <ExposurePanel
+            exposure={scanResult.exposure}
+            homepageSecurityHeaders={homepageResult?.securityHeaders}
+          />
         </section>
       );
     case 'performance':

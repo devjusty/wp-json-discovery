@@ -24,7 +24,10 @@ function OverviewSection({ scanResult, homepageDomain, homepageResult }) {
         <div className="grid">
           <PerformancePanel performance={scanResult.performance} />
           <ContentOverviewPanel overview={scanResult.contentOverview} />
-          <ExposurePanel exposure={scanResult.exposure} />
+          <ExposurePanel
+            exposure={scanResult.exposure}
+            homepageSecurityHeaders={homepageResult?.securityHeaders}
+          />
         </div>
       </section>
     </>

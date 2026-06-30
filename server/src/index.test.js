@@ -23,7 +23,13 @@ describe('API routes', () => {
       if (target.endsWith('/')) {
         return new Response('<html><head><title>Test</title></head><body><script type="application/ld+json">{}</script></body></html>', {
           status: 200,
-          headers: { 'content-type': 'text/html' }
+          headers: {
+            'content-type': 'text/html',
+            'content-security-policy': "default-src 'self'",
+            'x-frame-options': 'SAMEORIGIN',
+            'x-content-type-options': 'nosniff',
+            'referrer-policy': 'strict-origin-when-cross-origin'
+          }
         });
       }
 
@@ -140,6 +146,45 @@ describe('API routes', () => {
   it('should respond to /api/homepage-scan', async () => {
     const res = await request(app).post('/api/homepage-scan').send({ domain: 'example.com' });
     expect(res.statusCode).not.toEqual(404);
+    expect(res.body.securityHeaders).toBeDefined();
+    expect(res.body.securityHeaders.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'content-security-policy',
+          present: true,
+          value: 'Present',
+          rawValue: "default-src 'self'"
+        }),
+        expect.objectContaining({
+          key: 'permissions-policy',
+          present: false,
+          value: 'Missing',
+          rawValue: null
+        })
+      ])
+    );
+  });
+
+  it('returns homepage security headers summary', async () => {
+    const res = await request(app).post('/api/homepage-scan').send({ domain: 'example.com' });
+    expect(res.statusCode).toEqual(200);
+
+    expect(res.body.securityHeaders).toBeDefined();
+    expect(Array.isArray(res.body.securityHeaders.items)).toBe(true);
+
+    const csp = res.body.securityHeaders.items.find((item) => item.key === 'content-security-policy');
+    const permissionsPolicy = res.body.securityHeaders.items.find((item) => item.key === 'permissions-policy');
+
+    expect(csp).toMatchObject({
+      present: true,
+      value: 'Present',
+      rawValue: "default-src 'self'"
+    });
+    expect(permissionsPolicy).toMatchObject({
+      present: false,
+      value: 'Missing',
+      rawValue: null
+    });
   });
 
   it('should respond to /api/logs/rotate', async () => {

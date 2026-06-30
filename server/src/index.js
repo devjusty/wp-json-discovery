@@ -11,6 +11,7 @@ import { sanitizeDomain } from './utils/domain.js';
 import { fetchWithRedirects } from './utils/fetch.js';
 import { readBodyWithLimit } from './utils/http.js';
 import { extractHomepageInsights } from './utils/html.js';
+import { summarizeSecurityHeaders } from './utils/securityHeaders.js';
 import {
   readUnsupportedPlugins,
   upsertUnsupportedPluginRecord,
@@ -660,6 +661,7 @@ app.post('/api/homepage-scan', wrapAsync(async (req, res) => {
 
     const durationMs = Date.now() - startedAt;
     const contentType = response.headers.get('content-type') ?? '';
+    const securityHeaders = summarizeSecurityHeaders(response.headers);
     const { body: html, size, truncated } = await readBodyWithLimit(
       response,
       HOMEPAGE_HTML_CAP_BYTES
@@ -714,6 +716,7 @@ app.post('/api/homepage-scan', wrapAsync(async (req, res) => {
     res.status(response.ok ? 200 : response.status).json({
       domain: sanitizedDomain,
       source,
+      securityHeaders,
       insights,
       htmlPreview: html.slice(0, 2000)
     });

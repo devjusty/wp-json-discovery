@@ -6,7 +6,7 @@ import {
   CardHeader
 } from '../../atoms/Card.jsx';
 
-function ExposurePanel({ exposure }) {
+function ExposurePanel({ exposure, homepageSecurityHeaders }) {
   if (!exposure) {
     return null;
   }
@@ -72,7 +72,15 @@ function ExposurePanel({ exposure }) {
       tone: exposure.uploads.indexable ? 'warning' : 'success',
       value: exposure.uploads.indexable ? 'Indexable' : 'Blocked',
       meta: exposure.uploads.statusCode ? `HTTP ${exposure.uploads.statusCode}` : ''
-    }
+    },
+    ...(homepageSecurityHeaders?.items ?? []).map((item) => ({
+      key: item.key,
+      label: item.label,
+      description: item.description,
+      tone: item.tone ?? (item.present ? 'success' : 'warning'),
+      value: item.value ?? (item.present ? 'Present' : 'Missing'),
+      meta: item.rawValue ?? ''
+    }))
   ];
 
   return (
@@ -144,11 +152,27 @@ ExposurePanel.propTypes = {
       indexable: PropTypes.bool,
       statusCode: PropTypes.number
     })
+  }),
+  homepageSecurityHeaders: PropTypes.shape({
+    items: PropTypes.arrayOf(PropTypes.shape({
+      key: PropTypes.string,
+      label: PropTypes.string,
+      description: PropTypes.string,
+      present: PropTypes.bool,
+      value: PropTypes.string,
+      rawValue: PropTypes.string,
+      tone: PropTypes.string
+    })),
+    presentCount: PropTypes.number,
+    missingCount: PropTypes.number,
+    totalCount: PropTypes.number,
+    passed: PropTypes.bool
   })
 };
 
 ExposurePanel.defaultProps = {
-  exposure: null
+  exposure: null,
+  homepageSecurityHeaders: null
 };
 
 export default ExposurePanel;
