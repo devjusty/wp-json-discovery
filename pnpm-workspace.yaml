@@ -2,6 +2,11 @@ packages:
   - frontend
   - server
 
+allowBuilds:
+  browser-tabs-lock: true
+  esbuild: true
+  unrs-resolver: true
+
 onlyBuiltDependencies:
   - browser-tabs-lock
   - esbuild
