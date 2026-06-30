@@ -28,6 +28,8 @@ Copy `.env.example` to `.env` in this directory to customize defaults:
 - (Optional) `TURSO_DATABASE_NAME` – Explicit Turso database name override for API metric calls.
 - (Optional) `ADMIN_ENABLED` – Set to `false` to disable `/api/admin/*` endpoints when exposing the server beyond local dev.
 - (Optional) `ACTIVITY_LOG_ARCHIVE_RETENTION_DAYS` / `ACTIVITY_LOG_ARCHIVE_MAX_FILES` – Archive cleanup policy applied whenever logs are rotated.
+- `AUTH0_DOMAIN` – Auth0 tenant domain (e.g., `your-tenant.auth0.com`). Required for token verification middleware.
+- `AUTH0_AUDIENCE` – API audience identifier (e.g., `https://api.your-domain.com`). Must match the identifier in your Auth0 API settings.
 
 Values from `.env` override the bundled defaults; restart the server after changes.
 
@@ -59,6 +61,13 @@ Values from `.env` override the bundled defaults; restart the server after chang
 | PUT    | `/api/admin/themes/:id`       | Updates a theme registry entry. |
 | DELETE | `/api/admin/themes/:id`       | Deletes a theme registry entry. |
 | POST   | `/api/admin/themes/sort`      | Sorts theme entries by label and rewrites registry ordering. |
+| GET    | `/api/user/scans`             | Returns saved scans for the authenticated user (requires Auth0 token). |
+| POST   | `/api/user/scans`             | Saves a domain to the user's scans (`domain` and optional `notes` in body). |
+| DELETE | `/api/user/scans/:domain`     | Removes a domain from the user's saved scans. |
+| GET    | `/api/user/notes`             | Returns notes for the authenticated user. Optional `?domain=` filter. |
+| POST   | `/api/user/notes`             | Creates a note (`domain` and `note_text` in body). |
+| PUT    | `/api/user/notes/:id`         | Updates a note's `note_text`. |
+| DELETE | `/api/user/notes/:id`         | Deletes a note. |
 
 The proxy attaches a custom user agent (`wp-json-discovery/0.0.1`) to aid vendor rate-limit debugging.
 

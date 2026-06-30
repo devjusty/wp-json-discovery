@@ -16,6 +16,7 @@ Launch the shared dev environment with `pnpm dev` from the repo root to boot bot
 ## Environment Variables
 
 - Copy `.env.example` to `.env` in this folder to set `VITE_API_BASE_URL` for local development.
+- For authentication features, set `VITE_AUTH0_DOMAIN`, `VITE_AUTH0_CLIENT_ID`, and `VITE_AUTH0_AUDIENCE` to match your Auth0 tenant and API configuration.
 - Vite automatically loads `.env`, `.env.local`, and mode-specific files—restart `pnpm dev` after updates.
 
 ## Structure
@@ -42,6 +43,19 @@ Follow the atomic boundaries: keep domain logic inside services/config, and rend
 - The admin view is split across focused modules in `frontend/src/components/pages/admin/`.
 - For responsibilities and extension patterns, read `frontend/src/components/pages/admin/README.md`.
 - In short: queries/mutations live in hooks, derived view-model data lives in `useAdminData.js`, and section UI routing lives in `AdminSections.jsx` plus `section-renderers/`.
+
+## Authentication UI
+
+The frontend integrates with Auth0 via `@auth0/auth0-react`. When `VITE_AUTH0_DOMAIN` and `VITE_AUTH0_CLIENT_ID` are configured:
+
+- **Login button** appears in the header for unauthenticated users.
+- **User menu** (avatar + name) appears for authenticated users, with a dropdown to access "My Scans" and "Log out".
+- **Save to My Scans** button appears on ScanPage after a scan completes for authenticated users.
+- **Note editor** appears on HistoryPage cards when logged in.
+
+The Auth0 Bearer token is automatically attached to `/api/user/*`, `/api/admin/*`, and `/api/logs/*` requests by the API client. Anonymous users can still scan and browse results.
+
+---
 
 ## Styling & State
 

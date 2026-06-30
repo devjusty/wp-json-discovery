@@ -71,7 +71,37 @@ Document edge cases (auth-only routes, HTML responses, rate limits) in PR notes 
 
 ---
 
-## Project Status (2025-10-21)
+## Authentication & Authorization
+
+Users can optionally log in with Auth0 to access user-owned features:
+
+- **Anonymous** – Scan any domain, browse results. Rate-limited to 10 requests/min per IP.
+- **Standard user** – Log in via Auth0 to save scans ("My Scans"), add notes, and view personal history. Rate limit: 60 requests/min.
+- **Admin** – Manage plugin/theme registries, view system logs, run maintenance. Rate limit: 120 requests/min. Access via Auth0 admin role or legacy `x-wpjd-admin-key` header.
+
+Set `AUTH0_DOMAIN`, `AUTH0_AUDIENCE`, and `VITE_AUTH0_DOMAIN`/`VITE_AUTH0_CLIENT_ID`/`VITE_AUTH0_AUDIENCE` in the respective `.env` files.
+
+## Deployment
+
+The app is deployed as two independent services:
+
+- **Frontend** (Netlify) – Static SPA hosted from `frontend/`. Configure via `frontend/netlify.toml`. Set `VITE_AUTH0_*` and `VITE_API_BASE_URL` as Netlify environment variables.
+- **Backend** (Render.com) – Express API. Configure via `AUTH0_*`, `TURSO_*`, and `ADMIN_API_KEY` environment variables.
+
+Uses **Turso** for database (server-side) and **Auth0** for authentication.
+
+### CLI Tools
+
+The project integrates with several CLIs for setup and operations:
+
+- **Turso CLI** – `turso db create`, `turso db shell`, `turso db show` for database management.
+- **Auth0 CLI** – `auth0 apps list`, `auth0 apis list` for managing Auth0 applications and APIs.
+- **Netlify CLI** – `netlify deploy`, `netlify open` for frontend deployment.
+- **Render CLI** – `render deploys list`, `render logs` for backend deployment and monitoring.
+
+---
+
+## Project Status
 
 - **Scanning pipeline**: Stable for anonymous sites; error handling added for 401/403 (auth required) and non-JSON responses.
 - **Core datasets**: Posts, pages, categories, tags, media (latest subsets for performance).
@@ -101,8 +131,8 @@ pnpm --filter frontend run preview
 
 ### Environment variables
 
-- Copy `server/.env.example` to `server/.env` to override the Express server port (`PORT`), admin toggle, Turso URL/auth token, or optional Turso API token for Admin metrics.
-- Copy `frontend/.env.example` to `frontend/.env` to point the UI at a non-default proxy (`VITE_API_BASE_URL`).
+- Copy `server/.env.example` to `server/.env` to override the Express server port (`PORT`), admin toggle, Turso URL/auth token, Auth0 domain/audience, or optional Turso API token for Admin metrics.
+- Copy `frontend/.env.example` to `frontend/.env` to point the UI at a non-default proxy (`VITE_API_BASE_URL`), or set Auth0 credentials (`VITE_AUTH0_DOMAIN`, `VITE_AUTH0_CLIENT_ID`, `VITE_AUTH0_AUDIENCE`) for authenticated features.
 - Without overrides the proxy listens on `4100` and the frontend targets `http://localhost:4100`.
 
 ### Logs & persistence
