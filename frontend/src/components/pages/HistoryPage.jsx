@@ -6,6 +6,7 @@ import AppLayout from '../templates/AppLayout.jsx';
 import Button from '../atoms/Button.jsx';
 import TextInput from '../atoms/TextInput.jsx';
 import StatusBadge from '../molecules/StatusBadge.jsx';
+import NoteEditor from '../molecules/NoteEditor.jsx';
 import { fetchDomainScanHistory, fetchScanHistory } from '../../api/client.js';
 import { formatDate, formatDurationMs } from '../../utils/format.js';
 
@@ -273,6 +274,10 @@ function HistoryPage({ headerActions, onRescan, onUseDomain }) {
               <Button type="button" size="sm" onClick={() => onRescan(item.domain)}>
                 Re-scan
               </Button>
+            </div>
+
+            <div className="history-card__notes">
+              <NoteEditor domain={item.domain} />
             </div>
           </article>
         ))}
