@@ -1,6 +1,12 @@
 let globalGetAccessToken = null;
+let globalAuthUser = null;
+
 export function setTokenProvider(fn) {
   globalGetAccessToken = fn;
+}
+
+export function setAuthUserProvider(fn) {
+  globalAuthUser = fn;
 }
 
 const DEFAULT_API_BASE_URL = 'http://localhost:4100';
@@ -43,6 +49,20 @@ export async function request(path, options = {}) {
         }
       } catch {
         // Silently skip — user might not be logged in
+      }
+
+      if (globalAuthUser) {
+        try {
+          const userInfo = await globalAuthUser();
+          if (userInfo?.email) {
+            headers.set('x-user-email', userInfo.email);
+          }
+          if (userInfo?.name) {
+            headers.set('x-user-name', userInfo.name);
+          }
+        } catch {
+          // Silently skip
+        }
       }
     }
 

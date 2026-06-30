@@ -40,30 +40,23 @@ export function createRequireAuth(options = {}) {
     }
 
     try {
-      console.log('[auth] audience:', audience, 'issuer:', issuer);
       const decoded = await new Promise((resolve, reject) => {
         jwt.verify(token, getKey, { audience, issuer, algorithms }, (err, decoded) => {
-          if (err) {
-            console.log('[auth] jwt.verify failed:', err.message);
-            return reject(err);
-          }
+          if (err) return reject(err);
           resolve(decoded);
         });
       });
 
-      console.log('[auth] decoded.sub:', decoded.sub, 'email:', decoded.email);
       const sub = decoded.sub || '';
-      const email = decoded.email || '';
-      const displayName = decoded.name || decoded.nickname || email;
+      const email = req.headers['x-user-email'] || decoded.email || '';
+      const displayName = req.headers['x-user-name'] || decoded.name || decoded.nickname || email;
       const role = decoded['https://wp-json-discovery/roles'] || 'standard';
 
       const user = await findOrCreateUser(sub, email, displayName, role);
-      console.log('[auth] user created/found:', user?.id, 'role:', user?.role);
       req.user = { ...user };
 
       next();
     } catch (err) {
-      console.log('[auth] token validation failed:', err.message);
       req.user = null;
       next();
     }

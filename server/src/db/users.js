@@ -3,6 +3,14 @@ import { queryAll, queryOne, execute } from './client.js';
 export async function findOrCreateUser(id, email, displayName, role) {
   const existing = await findUserById(id);
   if (existing) {
+    if (email && email !== existing.email) {
+      await execute('update users set email = ? where id = ?', [email, id]);
+      existing.email = email;
+    }
+    if (displayName && displayName !== existing.display_name) {
+      await execute('update users set display_name = ? where id = ?', [displayName, id]);
+      existing.display_name = displayName;
+    }
     return existing;
   }
 

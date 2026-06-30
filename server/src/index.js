@@ -47,8 +47,6 @@ loadEnvFile(path.join(__dirname, '..', '.env'));
 
 const requireAuthMiddleware = createRequireAuthMiddleware();
 
-console.log('[startup] AUTH0_DOMAIN:', process.env.AUTH0_DOMAIN, 'AUTH0_AUDIENCE:', process.env.AUTH0_AUDIENCE);
-
 const app = express();
 const PORT = process.env.PORT ?? 4100;
 

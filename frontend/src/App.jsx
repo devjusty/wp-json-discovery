@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import './App.css';
 import { ScanProvider, useScanShellContext } from './context/ScanContext.jsx';
-import { setTokenProvider, fetchUserProfile } from './api/client.js';
+import { setTokenProvider, setAuthUserProvider, fetchUserProfile } from './api/client.js';
 
 const loadScanPage = () => import('./components/pages/ScanPage.jsx');
 const loadAdminPage = () => import('./components/pages/AdminPage.jsx');
@@ -212,7 +212,7 @@ function AppContent() {
 }
 
 function App() {
-  const { getAccessTokenSilently, isAuthenticated } = useAuth0();
+  const { getAccessTokenSilently, isAuthenticated, user } = useAuth0();
 
   useEffect(() => {
     setTokenProvider(async () => {
@@ -226,6 +226,13 @@ function App() {
       }
     });
   }, [getAccessTokenSilently, isAuthenticated]);
+
+  useEffect(() => {
+    setAuthUserProvider(() => ({
+      email: user?.email,
+      name: user?.name || user?.nickname
+    }));
+  }, [user]);
 
   return (
     <ScanProvider>
