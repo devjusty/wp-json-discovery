@@ -13,8 +13,9 @@ import ScanSidebarNav from './scan/ScanSidebarNav.jsx';
 import ScanSectionContent from './scan/ScanSectionContent.jsx';
 import RecentDomainsCard from './scan/RecentDomainsCard.jsx';
 import ScanStatusStack from './scan/ScanStatusStack.jsx';
+import SaveScanButton from '../organisms/panels/SaveScanButton.jsx';
 
-function ScanPage({ headerActions }) {
+function ScanPage({ headerActions, onNavigate }) {
   const {
     domain,
     handleDomainChange: onDomainChange,
@@ -104,11 +105,12 @@ function ScanPage({ headerActions }) {
   );
 
   return (
-    <AppLayout
+      <AppLayout
       title="WP JSON Discovery"
       subtitle="Scan a WordPress site and review REST exposure plus homepage source signals."
       headerActions={headerActions}
       sidebar={sidebar}
+      onNavigate={onNavigate}
     >
       <DomainForm
         onSubmit={startScan}
@@ -150,16 +152,22 @@ function ScanPage({ headerActions }) {
         unsupportedIsLoading={unsupportedQuery.isLoading}
         onRefreshUnsupported={handleRefreshUnsupported}
       />
+
+      {scanResult ? (
+        <SaveScanButton domain={scanResult.domain || activeDomain} />
+      ) : null}
     </AppLayout>
   );
 }
 
 ScanPage.propTypes = {
-  headerActions: PropTypes.node
+  headerActions: PropTypes.node,
+  onNavigate: PropTypes.func
 };
 
 ScanPage.defaultProps = {
-  headerActions: null
+  headerActions: null,
+  onNavigate: undefined
 };
 
 export default ScanPage;

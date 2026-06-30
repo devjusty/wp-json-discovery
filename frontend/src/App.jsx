@@ -8,10 +8,12 @@ import { setTokenProvider } from './api/client.js';
 const loadScanPage = () => import('./components/pages/ScanPage.jsx');
 const loadAdminPage = () => import('./components/pages/AdminPage.jsx');
 const loadHistoryPage = () => import('./components/pages/HistoryPage.jsx');
+const loadMyScansPage = () => import('./components/pages/MyScansPage.jsx');
 
 const ScanPage = lazy(loadScanPage);
 const AdminPage = lazy(loadAdminPage);
 const HistoryPage = lazy(loadHistoryPage);
+const MyScansPage = lazy(loadMyScansPage);
 
 
 function AppContent() {
@@ -130,9 +132,20 @@ function AppContent() {
     );
   }
 
+  if (activePage === 'my-scans') {
+    return (
+      <Suspense fallback={<PageLoadingState label="Loading your scans..." />}>
+        <MyScansPage
+          headerActions={headerActions}
+          onNavigate={setActivePage}
+        />
+      </Suspense>
+    );
+  }
+
   return (
     <Suspense fallback={<PageLoadingState label="Loading scanner..." />}>
-      <ScanPage headerActions={headerActions} />
+      <ScanPage headerActions={headerActions} onNavigate={setActivePage} />
     </Suspense>
   );
 }
