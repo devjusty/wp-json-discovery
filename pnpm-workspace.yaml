@@ -3,5 +3,6 @@ packages:
   - server
 
 onlyBuiltDependencies:
+  - browser-tabs-lock
   - esbuild
   - unrs-resolver
