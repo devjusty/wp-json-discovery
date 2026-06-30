@@ -5,6 +5,7 @@
 [build.environment]
   PNPM_VERSION = "11.9.0"
   PNPM_CONFIG_MINIMUM_RELEASE_AGE = "0"
+  SECRETS_SCAN_OMIT_KEYS = "VITE_API_BASE_URL"
 
 [[redirects]]
   from = "/*"
