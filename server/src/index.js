@@ -21,6 +21,7 @@ import { AppError, NetworkError, ValidationError } from './utils/errors.js';
 import { REQUEST_TIMEOUT_MS, HOMEPAGE_HTML_CAP_BYTES, DEFAULT_USER_AGENT, MAX_SITEMAP_PAGES, FRONTEND_ORIGIN_DEFAULT, EXPOSED_HEADERS_LIST, FORWARDED_RESPONSE_HEADERS_LIST, ACTIVITY_LOG_PRUNE_DEFAULTS } from './config.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { apiRateLimiter } from './middleware/rateLimiter.js';
+import { deploymentGuardrails } from './middleware/deploymentGuardrails.js';
 import { requireAdminApiKey, requireAdminOrToken } from './middleware/adminAuth.js';
 import createRequireAuthMiddleware from './middleware/requireAuth.js';
 import { wrapAsync } from './utils/route.js';
@@ -83,6 +84,7 @@ const ALLOWED_CLIENT_LOG_TYPES = new Set([
   'logs.rotation_failed'
 ]);
 
+app.use('/api', deploymentGuardrails);
 app.use('/api', apiRateLimiter);
 app.use('/api', requireAuthMiddleware);
 

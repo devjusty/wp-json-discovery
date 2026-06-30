@@ -6,6 +6,22 @@ import { execute, getDb, queryAll } from './db/client.js';
 describe('API routes', () => {
   const originalFetch = global.fetch;
   const adminHeaders = { 'x-wpjd-admin-key': 'test-admin-key' };
+  const originalDeploymentGuardrailsEnabled = process.env.DEPLOYMENT_GUARDRAILS_ENABLED;
+  const originalDeploymentGuardrailsKey = process.env.DEPLOYMENT_GUARDRAILS_KEY;
+
+  afterEach(() => {
+    if (originalDeploymentGuardrailsEnabled === undefined) {
+      delete process.env.DEPLOYMENT_GUARDRAILS_ENABLED;
+    } else {
+      process.env.DEPLOYMENT_GUARDRAILS_ENABLED = originalDeploymentGuardrailsEnabled;
+    }
+
+    if (originalDeploymentGuardrailsKey === undefined) {
+      delete process.env.DEPLOYMENT_GUARDRAILS_KEY;
+    } else {
+      process.env.DEPLOYMENT_GUARDRAILS_KEY = originalDeploymentGuardrailsKey;
+    }
+  });
 
   beforeAll(() => {
     process.env.ADMIN_ENABLED = 'true';
@@ -49,6 +65,57 @@ describe('API routes', () => {
     expect(res.statusCode).toEqual(200);
     expect(res.body).toEqual({ status: 'ok' });
     expect(res.headers['x-powered-by']).toBeUndefined();
+  });
+
+  it('rejects api requests when deployment guardrails are enabled and no key is present', async () => {
+    process.env.DEPLOYMENT_GUARDRAILS_ENABLED = 'true';
+    process.env.DEPLOYMENT_GUARDRAILS_KEY = 'deploy-secret';
+
+    const res = await request(app).get('/api/proxy?domain=redirect-example.com');
+    expect(res.statusCode).toEqual(401);
+  });
+
+  it('allows api requests when the deployment key is present', async () => {
+    process.env.DEPLOYMENT_GUARDRAILS_ENABLED = 'true';
+    process.env.DEPLOYMENT_GUARDRAILS_KEY = 'deploy-secret';
+
+    const res = await request(app)
+      .get('/api/proxy?domain=redirect-example.com')
+      .set('x-wpjd-deployment-key', 'deploy-secret');
+
+    expect(res.statusCode).not.toEqual(401);
+  });
+
+  it('keeps /health public when deployment guardrails are enabled', async () => {
+    process.env.DEPLOYMENT_GUARDRAILS_ENABLED = 'true';
+    process.env.DEPLOYMENT_GUARDRAILS_KEY = 'deploy-secret';
+
+    const res = await request(app).get('/health');
+    expect(res.statusCode).toEqual(200);
+    expect(res.body).toEqual({ status: 'ok' });
+  });
+
+  it('still requires admin auth after the deployment guardrail', async () => {
+    process.env.DEPLOYMENT_GUARDRAILS_ENABLED = 'true';
+    process.env.DEPLOYMENT_GUARDRAILS_KEY = 'deploy-secret';
+
+    const res = await request(app)
+      .get('/api/admin/db-snapshot')
+      .set('x-wpjd-deployment-key', 'deploy-secret');
+
+    expect(res.statusCode).toEqual(401);
+  });
+
+  it('allows admin routes once both the deployment and admin keys are present', async () => {
+    process.env.DEPLOYMENT_GUARDRAILS_ENABLED = 'true';
+    process.env.DEPLOYMENT_GUARDRAILS_KEY = 'deploy-secret';
+
+    const res = await request(app)
+      .get('/api/admin/db-snapshot')
+      .set('x-wpjd-deployment-key', 'deploy-secret')
+      .set(adminHeaders);
+
+    expect(res.statusCode).toEqual(200);
   });
 
   it('should respond to /api/proxy', async () => {
