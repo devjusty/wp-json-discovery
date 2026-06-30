@@ -20,8 +20,11 @@ import { AppError, NetworkError, ValidationError } from './utils/errors.js';
 import { REQUEST_TIMEOUT_MS, HOMEPAGE_HTML_CAP_BYTES, DEFAULT_USER_AGENT, MAX_SITEMAP_PAGES, FRONTEND_ORIGIN_DEFAULT, EXPOSED_HEADERS_LIST, FORWARDED_RESPONSE_HEADERS_LIST, ACTIVITY_LOG_PRUNE_DEFAULTS } from './config.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { apiRateLimiter } from './middleware/rateLimiter.js';
-import { requireAdminApiKey } from './middleware/adminAuth.js';
+import { requireAdminApiKey, requireAdminOrToken } from './middleware/adminAuth.js';
+import requireAuthMiddleware from './middleware/requireAuth.js';
 import { wrapAsync } from './utils/route.js';
+import createUserScanRoutes from './routes/userScans.js';
+import createUserNotesRoutes from './routes/userNotes.js';
 import { execute, getDb, queryAll, queryOne } from './db/client.js';
 import {
   assertPluginRegistryReady,
@@ -76,8 +79,21 @@ const ALLOWED_CLIENT_LOG_TYPES = new Set([
 ]);
 
 app.use('/api', apiRateLimiter);
-app.use('/api/admin', requireAdminApiKey);
-app.use('/api/logs', requireAdminApiKey);
+app.use('/api', requireAuthMiddleware);
+
+// User-owned routes (require authentication)
+app.use('/api/user/scans', (req, res, next) => {
+  if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+  next();
+}, createUserScanRoutes());
+
+app.use('/api/user/notes', (req, res, next) => {
+  if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+  next();
+}, createUserNotesRoutes());
+
+app.use('/api/admin', requireAdminOrToken);
+app.use('/api/logs', requireAdminOrToken);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
