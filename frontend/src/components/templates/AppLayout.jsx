@@ -1,6 +1,8 @@
 import PropTypes from 'prop-types';
+import LoginButton from '../atoms/LoginButton.jsx';
+import UserMenu from '../molecules/UserMenu.jsx';
 
-function AppLayout({ title, subtitle, headerActions, sidebar, children }) {
+function AppLayout({ title, subtitle, headerActions, sidebar, children, onNavigate }) {
   const bodyClass = sidebar ? 'app__body' : 'app__body app__body--single';
 
   return (
@@ -10,9 +12,13 @@ function AppLayout({ title, subtitle, headerActions, sidebar, children }) {
           <h1>{title}</h1>
           {subtitle ? <p>{subtitle}</p> : null}
         </div>
-        {headerActions ? (
-          <div className="app__header-right">{headerActions}</div>
-        ) : null}
+        <div className="app__header-right">
+          {headerActions ? <div className="app__header-actions">{headerActions}</div> : null}
+          <div className="app__header-auth">
+            <UserMenu onNavigate={onNavigate} />
+            <LoginButton />
+          </div>
+        </div>
       </header>
       <div className={bodyClass}>
         {sidebar ? <aside className="app__sidebar">{sidebar}</aside> : null}
@@ -27,13 +33,8 @@ AppLayout.propTypes = {
   subtitle: PropTypes.string,
   headerActions: PropTypes.node,
   sidebar: PropTypes.node,
-  children: PropTypes.node.isRequired
-};
-
-AppLayout.defaultProps = {
-  subtitle: '',
-  headerActions: null,
-  sidebar: null
+  children: PropTypes.node,
+  onNavigate: PropTypes.func
 };
 
 export default AppLayout;
