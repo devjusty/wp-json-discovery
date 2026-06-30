@@ -1,7 +1,7 @@
 process.env.NODE_ENV = 'test';
 import request from 'supertest';
 import app from './index.js';
-import { execute, getDb } from './db/client.js';
+import { execute, getDb, queryAll } from './db/client.js';
 
 describe('API routes', () => {
   const originalFetch = global.fetch;
@@ -355,6 +355,26 @@ describe('API routes', () => {
     expect(res.body).toHaveProperty('totals.activityLogs');
     expect(Array.isArray(res.body.activityLogs)).toBe(true);
     expect(res.body).toHaveProperty('turso');
+  });
+
+  it('retains higher-value activity classes when pruning', async () => {
+    process.env.ADMIN_ENABLED = 'true';
+    await getDb();
+    await execute('delete from activity_logs');
+
+    const oldTimestamp = '2026-05-01T00:00:00.000Z';
+    await execute('insert into activity_logs (timestamp, type, payload_json) values (?, ?, ?)', [oldTimestamp, 'proxy.response', '{"url":"https://example.com"}']);
+    await execute('insert into activity_logs (timestamp, type, payload_json) values (?, ?, ?)', [oldTimestamp, 'metrics.heartbeat', '{"ok":true}']);
+
+    const res = await request(app)
+      .post('/api/admin/activity/prune')
+      .set(adminHeaders)
+      .send({ keepLatest: 2, olderThanDays: 21 });
+
+    expect(res.statusCode).toEqual(200);
+
+    const remaining = await queryAll('select type from activity_logs order by id asc');
+    expect(remaining.map((row) => row.type)).toEqual(['metrics.heartbeat']);
   });
 
   it('returns seeded admin themes registry', async () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
-import { deriveFailureCategory } from '../logger.js';
+import { deriveFailureCategory, pruneActivityLogs } from '../logger.js';
+import { execute, queryAll } from '../db/client.js';
 
 describe('deriveFailureCategory', () => {
   it('classifies homepage fetch failures as network_failure', () => {
@@ -18,5 +19,20 @@ describe('deriveFailureCategory', () => {
         status: 403
       })
     ).toBe('auth_required');
+  });
+
+  it('keeps metrics.heartbeat before proxy.response when pruning activity logs', async () => {
+    await execute('delete from activity_logs');
+
+    const oldTimestamp = '2026-05-01T00:00:00.000Z';
+    await execute('insert into activity_logs (timestamp, type, payload_json) values (?, ?, ?)', [oldTimestamp, 'proxy.response', '{"ok":true}']);
+    await execute('insert into activity_logs (timestamp, type, payload_json) values (?, ?, ?)', [oldTimestamp, 'metrics.heartbeat', '{"ok":true}']);
+
+    const result = await pruneActivityLogs({ keepLatest: 1, olderThanDays: 21, nowMs: Date.parse('2026-06-30T00:00:00.000Z') });
+
+    expect(result.prunedByAge + result.prunedByCount).toBeGreaterThan(0);
+
+    const remaining = await queryAll('select type from activity_logs order by id asc');
+    expect(remaining.map((row) => row.type)).toEqual(['metrics.heartbeat']);
   });
 });

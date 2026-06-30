@@ -5,7 +5,7 @@ import path from 'node:path';
 import { stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { parseSitemap, fetchPageDetails, fetchSitemap, fetchAndParseSitemap, fetchAndProcessPageDetails } from './sitemap.js';
-import { logSilently, recordLog, rotateLog } from './logger.js';
+import { logSilently, recordLog, rotateLog, pruneActivityLogs } from './logger.js';
 import { loadEnvFile } from './utils/env.js';
 import { sanitizeDomain } from './utils/domain.js';
 import { fetchWithRedirects } from './utils/fetch.js';
@@ -887,44 +887,22 @@ app.post('/api/admin/activity/prune', wrapAsync(async (req, res) => {
     throw new AppError('Admin endpoints are disabled', 403);
   }
 
-  let prunedByAge = 0;
-  let prunedByCount = 0;
-
-  if (Number.isFinite(olderThanDays) && olderThanDays > 0) {
-    const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000).toISOString();
-    const result = await execute('delete from activity_logs where timestamp < ?', [cutoff]);
-    prunedByAge = result?.rowsAffected ?? 0;
-  }
-
-  if (Number.isFinite(keepLatest) && keepLatest > 0) {
-    const result = await execute(
-      `
-        delete from activity_logs
-        where id not in (
-          select id from activity_logs order by id desc limit ?
-        )
-      `,
-      [keepLatest]
-    );
-    prunedByCount = result?.rowsAffected ?? 0;
-  }
-
-  const totals = Number((await queryOne('select count(1) as count from activity_logs'))?.count ?? 0);
+  const result = await pruneActivityLogs({ keepLatest, olderThanDays });
   const prunedAt = new Date().toISOString();
 
   logSilently('activity.pruned', {
     prunedAt,
-    prunedByAge,
-    prunedByCount,
-    remaining: totals,
+    prunedByAge: result.prunedByAge,
+    prunedByCount: result.prunedByCount,
+    remaining: result.remaining,
     params: { keepLatest, olderThanDays }
   });
 
   res.json({
-    prunedByAge,
-    prunedByCount,
+    prunedByAge: result.prunedByAge,
+    prunedByCount: result.prunedByCount,
     prunedAt,
-    remaining: totals
+    remaining: result.remaining
   });
 }));
 

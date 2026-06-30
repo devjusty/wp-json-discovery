@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execute, queryAll, queryOne } from './db/client.js';
+import { buildActivityRetentionPlan } from './utils/activityRetention.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -769,19 +770,44 @@ export async function rotateLog() {
     olderThanDays: ACTIVITY_ARCHIVE_RETENTION_DAYS
   });
 
-  let rowsCleared = 0;
-  try {
-    const result = await execute('delete from activity_logs');
-    rowsCleared = result?.rowsAffected ?? 0;
-  } catch (error) {
-    console.error('[log:db:rotate_error]', error.message);
-  }
+  const retentionCleanup = await pruneActivityLogs();
+  const rowsCleared = retentionCleanup.prunedByAge + retentionCleanup.prunedByCount;
 
   return {
     archivePath,
     archiveName,
     rowsCleared,
     archiveCleanup
+  };
+}
+
+export async function pruneActivityLogs({
+  keepLatest = 500,
+  olderThanDays = 21,
+  nowMs = Date.now()
+} = {}) {
+  const rows = await queryAll(
+    'select id, timestamp, type from activity_logs order by timestamp asc, id asc'
+  );
+
+  const { deleteIds, agePrunedIds, countPrunedIds, retainedIds } = buildActivityRetentionPlan(rows, {
+    keepLatest,
+    olderThanDays,
+    nowMs
+  });
+
+  for (let index = 0; index < deleteIds.length; index += 500) {
+    const batch = deleteIds.slice(index, index + 500);
+    if (batch.length === 0) continue;
+
+    const placeholders = batch.map(() => '?').join(', ');
+    await execute(`delete from activity_logs where id in (${placeholders})`, batch);
+  }
+
+  return {
+    prunedByAge: agePrunedIds.length,
+    prunedByCount: countPrunedIds.length,
+    remaining: retainedIds.length
   };
 }
 
