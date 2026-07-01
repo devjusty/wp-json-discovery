@@ -432,7 +432,7 @@ PluginFormFields.propTypes = {
   setPluginDraft: PropTypes.func.isRequired,
   disableId: PropTypes.bool,
   pluginSuggestions: PropTypes.array,
-  onCreatePluginFromSuggestion: PropTypes.func.isRequired
+  onCreatePluginFromSuggestion: PropTypes.func
 };
 
 PluginFormFields.defaultProps = {

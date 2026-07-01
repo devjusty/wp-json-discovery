@@ -260,6 +260,23 @@ describe('AdminPage integration', () => {
     });
   });
 
+  it('promotes an unsupported namespace into the plugin editor', async () => {
+    renderPage();
+
+    await screen.findByRole('heading', { name: 'Database' });
+    await userEvent.click(screen.getByRole('button', { name: 'Unsupported plugins' }));
+    await screen.findByRole('heading', { name: 'Unsupported plugins' });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Promote wc/v3' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Add plugin' });
+    expect(within(dialog).getByLabelText('ID')).toHaveValue('wc');
+    expect(within(dialog).getByLabelText('Label')).toHaveValue('Wc');
+    expect(within(dialog).getByLabelText('Plugin URL')).toHaveValue('https://wordpress.org/plugins/wc/');
+    expect(within(dialog).getByLabelText('Namespaces (comma or newline separated)')).toHaveValue('wc/v3');
+    expect(within(dialog).getByLabelText('Asset hints (comma or newline separated)')).toHaveValue('');
+  });
+
   it('fills the whole plugin draft from a matching suggestion', async () => {
     renderPage();
 

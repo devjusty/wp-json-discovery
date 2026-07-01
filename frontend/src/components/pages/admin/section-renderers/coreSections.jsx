@@ -81,7 +81,8 @@ export function renderUnsupportedSection({ activeSection, AdminUnsupportedSectio
         setUnsupportedSort: unsupported.setUnsupportedSort,
         filteredUnsupportedEntries: unsupported.filteredUnsupportedEntries,
         unknownPluginAssetHints: unsupported.unknownPluginAssetHints,
-        onCreatePluginFromAsset: unsupported.handleCreatePluginFromAsset
+        onCreatePluginFromAsset: unsupported.handleCreatePluginFromAsset,
+        onCreatePluginFromSuggestion: unsupported.handleCreatePluginFromSuggestion
       })}
     </SectionSuspense>
   );

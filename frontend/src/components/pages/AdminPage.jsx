@@ -260,7 +260,8 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
       setUnsupportedSort,
       filteredUnsupportedEntries,
       unknownPluginAssetHints,
-      handleCreatePluginFromAsset
+      handleCreatePluginFromAsset,
+      handleCreatePluginFromSuggestion
     },
     logs: {
       activityLogs,

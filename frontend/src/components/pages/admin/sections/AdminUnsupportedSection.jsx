@@ -2,6 +2,7 @@ import PropTypes from 'prop-types';
 import { Card, CardContent, CardHeader } from '../../../atoms/Card.jsx';
 import Button from '../../../atoms/Button.jsx';
 import TextInput from '../../../atoms/TextInput.jsx';
+import { namespaceToSlug } from '../drafts.js';
 import { formatFullTimestamp, formatShortDate } from '../utils.js';
 
 function AdminUnsupportedSection({
@@ -12,7 +13,8 @@ function AdminUnsupportedSection({
   setUnsupportedSort,
   filteredUnsupportedEntries,
   unknownPluginAssetHints,
-  onCreatePluginFromAsset
+  onCreatePluginFromAsset,
+  onCreatePluginFromSuggestion
 }) {
   return (
     <section className="section">
@@ -91,6 +93,7 @@ function AdminUnsupportedSection({
                   <span>Domains</span>
                   <span>First seen</span>
                   <span>Last seen</span>
+                  <span>Action</span>
                 </div>
                 {filteredUnsupportedEntries.map((plugin) => (
                   <div key={plugin.namespace} className="admin-table__row">
@@ -107,6 +110,21 @@ function AdminUnsupportedSection({
                       <span className="tooltip__content">
                         {formatFullTimestamp(plugin.lastDetectedAt) || '—'}
                       </span>
+                    </span>
+                    <span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        aria-label={`Promote ${plugin.namespace}`}
+                        onClick={() => onCreatePluginFromSuggestion({
+                          kind: 'namespace',
+                          namespace: plugin.namespace,
+                          slug: namespaceToSlug(plugin.namespace)
+                        })}
+                      >
+                        Promote
+                      </Button>
                     </span>
                   </div>
                 ))}
@@ -132,7 +150,8 @@ AdminUnsupportedSection.propTypes = {
   setUnsupportedSort: PropTypes.func.isRequired,
   filteredUnsupportedEntries: PropTypes.array,
   unknownPluginAssetHints: PropTypes.array,
-  onCreatePluginFromAsset: PropTypes.func.isRequired
+  onCreatePluginFromAsset: PropTypes.func.isRequired,
+  onCreatePluginFromSuggestion: PropTypes.func.isRequired
 };
 
 AdminUnsupportedSection.defaultProps = {
