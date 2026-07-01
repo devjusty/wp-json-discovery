@@ -1,4 +1,5 @@
 {
+  "fallow.security.enabled": true,
   "cSpell.words": [
     "Divi",
     "Dockerise",

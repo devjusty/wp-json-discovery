@@ -62,13 +62,14 @@ describe('AdminPluginManagerSection', () => {
     const onOpenCreateModal = vi.fn();
     const startEditing = vi.fn();
     const deletePluginMutation = { mutate: vi.fn(), isPending: false };
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
 
     render(
         <AdminPluginManagerSection
           {...buildProps({ sortPluginsMutation, onOpenCreateModal, startEditing, deletePluginMutation })}
         />
       );
+
+    expect(screen.getByRole('table', { name: 'Plugin manager' })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Sort plugins' }));
     expect(sortPluginsMutation.mutate).toHaveBeenCalledTimes(1);
@@ -80,7 +81,24 @@ describe('AdminPluginManagerSection', () => {
     expect(startEditing).toHaveBeenCalledWith(expect.objectContaining({ id: 'woocommerce' }));
 
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(await screen.findByRole('alertdialog', { name: /delete plugin/i })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete plugin' }));
     expect(deletePluginMutation.mutate).toHaveBeenCalledWith('woocommerce');
+  });
+
+  it('opens a delete alert dialog before deleting a plugin', async () => {
+    const deletePluginMutation = { mutate: vi.fn(), isPending: false };
+
+    render(
+      <AdminPluginManagerSection
+        {...buildProps({ deletePluginMutation })}
+      />
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+    expect(await screen.findByRole('alertdialog', { name: /delete plugin/i })).toBeInTheDocument();
   });
 
   it('shows loading and error states', () => {

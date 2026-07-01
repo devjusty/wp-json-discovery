@@ -1,8 +1,35 @@
-import { useEffect, useRef } from 'react';
+import { Fragment, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Card, CardContent, CardHeader } from '../../../atoms/Card.jsx';
 import Button from '../../../atoms/Button.jsx';
-import TextInput from '../../../atoms/TextInput.jsx';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '../../../ui/dialog.jsx';
+import { Input } from '../../../ui/input.jsx';
+import { Textarea } from '../../../ui/textarea.jsx';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '../../../ui/table.jsx';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from '../../../ui/alert-dialog.jsx';
 
 function AdminPluginManagerSection({
   sortPluginsMutation,
@@ -25,7 +52,7 @@ function AdminPluginManagerSection({
   pluginSuggestions,
   onCreatePluginFromSuggestion
 }) {
-  const isSaving = createPluginPending || updatePluginPending;
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   return (
     <section className="section">
@@ -67,102 +94,106 @@ function AdminPluginManagerSection({
               </div>
             </div>
           ) : (
-            <div className="admin-table admin-table--plugins">
-              <div className="admin-table__header">
-                <span>Plugin</span>
-                <span>Namespaces</span>
-                <span>Asset hints</span>
-                <span>Actions</span>
-              </div>
-              {managedPlugins.map((plugin) => {
-                const isEditing = editingPluginId === plugin.id;
-                return (
-                  <div key={plugin.id} className="admin-table__row admin-table__row--expandable">
-                    <span className="admin-table__cell admin-table__cell--expand">
-                      <strong>{plugin.label}</strong>
-                      <div className="muted">{plugin.id}</div>
-                      {plugin.pluginUrl ? (
-                        <div>
-                          <a href={plugin.pluginUrl} target="_blank" rel="noreferrer">
-                            Docs
-                          </a>
-                        </div>
-                      ) : null}
-                      <div className="muted">{plugin.description || 'No description'}</div>
-                    </span>
-                    <span>{plugin.namespaces?.length ?? 0}</span>
-                    <span>{plugin.assetHints?.length ?? 0}</span>
-                    <span>
-                      <div className="button-group">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={isEditing ? 'secondary' : 'ghost'}
-                          onClick={() => {
-                            if (isEditing) {
-                              onPluginReset();
-                            } else {
-                              startEditing(plugin);
-                            }
-                          }}
-                        >
-                          {isEditing ? 'Cancel' : 'Edit'}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            if (window.confirm(`Delete plugin "${plugin.label}"?`)) {
-                              deletePluginMutation.mutate(plugin.id);
-                            }
-                          }}
-                          disabled={deletePluginMutation.isPending}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </span>
-                    {isEditing ? (
-                      <div className="admin-table__details">
-                        <p className="card__meta">Editing {plugin.id}</p>
-                        <div className="registry-inline-editor">
-                          <PluginFormFields
-                            pluginDraft={pluginDraft}
-                            setPluginDraft={setPluginDraft}
-                            disableId
-                          />
-                          <div className="button-group registry-inline-editor__actions">
-                            <Button type="button" size="sm" onClick={onPluginSave} disabled={isSaving}>
-                              {updatePluginPending ? 'Saving…' : 'Save changes'}
+            <Table aria-label="Plugin manager">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Plugin</TableHead>
+                  <TableHead>Namespaces</TableHead>
+                  <TableHead>Asset hints</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {managedPlugins.map((plugin) => {
+                  const isEditing = editingPluginId === plugin.id;
+                  return (
+                    <Fragment key={plugin.id}>
+                      <TableRow key={plugin.id}>
+                        <TableCell className="align-top">
+                          <strong>{plugin.label}</strong>
+                          <div className="muted">{plugin.id}</div>
+                          {plugin.pluginUrl ? (
+                            <div>
+                              <a href={plugin.pluginUrl} target="_blank" rel="noreferrer">
+                                Docs
+                              </a>
+                            </div>
+                          ) : null}
+                          <div className="muted">{plugin.description || 'No description'}</div>
+                        </TableCell>
+                        <TableCell>{plugin.namespaces?.length ?? 0}</TableCell>
+                        <TableCell>{plugin.assetHints?.length ?? 0}</TableCell>
+                        <TableCell>
+                          <div className="button-group">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={isEditing ? 'secondary' : 'ghost'}
+                              onClick={() => {
+                                if (isEditing) {
+                                  onPluginReset();
+                                } else {
+                                  startEditing(plugin);
+                                }
+                              }}
+                            >
+                              {isEditing ? 'Cancel' : 'Edit'}
                             </Button>
-                            <Button type="button" size="sm" variant="ghost" onClick={onPluginReset}>
-                              Cancel
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setDeleteTarget(plugin)}
+                              disabled={deletePluginMutation.isPending}
+                            >
+                              Delete
                             </Button>
                           </div>
-                        </div>
-                        {pluginSaveError ? <p className="card__meta">{pluginSaveError}</p> : null}
-                        {pluginValidationError ? (
-                          <p className="card__meta admin-validation-error">{pluginValidationError}</p>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
+                        </TableCell>
+                      </TableRow>
+                      {isEditing ? (
+                        <TableRow key={`${plugin.id}-editor`}>
+                          <TableCell colSpan={4}>
+                            <div className="registry-inline-editor">
+                              <p className="card__meta">Editing {plugin.id}</p>
+                              <PluginFormFields
+                                pluginDraft={pluginDraft}
+                                setPluginDraft={setPluginDraft}
+                                disableId
+                              />
+                              <div className="button-group registry-inline-editor__actions">
+                                <Button type="button" size="sm" onClick={onPluginSave} disabled={updatePluginPending}>
+                                  {updatePluginPending ? 'Saving…' : 'Save changes'}
+                                </Button>
+                                <Button type="button" size="sm" variant="ghost" onClick={onPluginReset}>
+                                  Cancel
+                                </Button>
+                              </div>
+                              {pluginSaveError ? <p className="card__meta">{pluginSaveError}</p> : null}
+                              {pluginValidationError ? (
+                                <p className="card__meta admin-validation-error">{pluginValidationError}</p>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : null}
+                    </Fragment>
+                  );
+                })}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
 
-      {showCreateModal ? (
-        <RegistryModal
-          title="Add plugin"
-          onClose={onCloseCreateModal}
-          onSubmit={onPluginSave}
-          submitLabel={createPluginPending ? 'Adding…' : 'Add plugin'}
-          isSubmitting={createPluginPending}
-        >
+      <Dialog open={showCreateModal} onOpenChange={(open) => (open ? null : onCloseCreateModal())}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add plugin</DialogTitle>
+            <DialogDescription>
+              Add a registry entry from namespace or asset signals.
+            </DialogDescription>
+          </DialogHeader>
           <PluginFormFields
             pluginDraft={pluginDraft}
             setPluginDraft={setPluginDraft}
@@ -174,8 +205,49 @@ function AdminPluginManagerSection({
           {pluginValidationError ? (
             <p className="card__meta admin-validation-error">{pluginValidationError}</p>
           ) : null}
-        </RegistryModal>
-      ) : null}
+          <DialogFooter>
+            <Button type="button" size="sm" variant="ghost" onClick={onCloseCreateModal}>
+              Cancel
+            </Button>
+            <Button type="button" size="sm" onClick={onPluginSave} disabled={createPluginPending}>
+              {createPluginPending ? 'Adding…' : 'Add plugin'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete plugin {deleteTarget?.label ?? ''}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the registry entry only. It does not delete any detected sites.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteTarget) {
+                  deletePluginMutation.mutate(deleteTarget.id);
+                }
+                setDeleteTarget(null);
+              }}
+            >
+              Delete plugin
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
@@ -191,7 +263,7 @@ function PluginFormFields({
     <div className="registry-form-grid">
       <label className="stacked-form__label">
         ID
-        <TextInput
+        <Input
           type="text"
           value={pluginDraft.id}
           onChange={(event) => setPluginDraft((prev) => ({ ...prev, id: event.target.value }))}
@@ -206,7 +278,7 @@ function PluginFormFields({
       </label>
       <label className="stacked-form__label">
         Label
-        <TextInput
+        <Input
           type="text"
           value={pluginDraft.label}
           onChange={(event) => setPluginDraft((prev) => ({ ...prev, label: event.target.value }))}
@@ -220,14 +292,14 @@ function PluginFormFields({
       </label>
       <label className="stacked-form__label registry-form-grid__full">
         Description
-        <textarea
+        <Textarea
           value={pluginDraft.description}
           onChange={(event) => setPluginDraft((prev) => ({ ...prev, description: event.target.value }))}
         />
       </label>
       <label className="stacked-form__label registry-form-grid__full">
         Plugin URL
-        <TextInput
+        <Input
           type="url"
           value={pluginDraft.pluginUrl}
           onChange={(event) => setPluginDraft((prev) => ({ ...prev, pluginUrl: event.target.value }))}
@@ -241,7 +313,7 @@ function PluginFormFields({
       </label>
       <label className="stacked-form__label">
         Namespaces (comma or newline separated)
-        <textarea
+        <Textarea
           value={pluginDraft.namespaces}
           onChange={(event) => setPluginDraft((prev) => ({ ...prev, namespaces: event.target.value }))}
           placeholder="wc/v3\nwc/store/v1"
@@ -256,7 +328,7 @@ function PluginFormFields({
       </label>
       <label className="stacked-form__label">
         Asset hints (comma or newline separated)
-        <textarea
+        <Textarea
           value={pluginDraft.assetHints}
           onChange={(event) => setPluginDraft((prev) => ({ ...prev, assetHints: event.target.value }))}
           placeholder="woocommerce\nwc-analytics"
@@ -299,91 +371,6 @@ function SuggestionCloud({ query = '', suggestions = [], onPick }) {
           {suggestion.label}
         </button>
       ))}
-    </div>
-  );
-}
-
-function RegistryModal({ title, onClose, onSubmit, submitLabel, isSubmitting, children }) {
-  const panelRef = useRef(null);
-  const restoreFocusRef = useRef(null);
-  const onCloseRef = useRef(onClose);
-
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
-
-  useEffect(() => {
-    restoreFocusRef.current = document.activeElement;
-
-    const panel = panelRef.current;
-    if (!panel) {
-      return undefined;
-    }
-
-    const focusables = getFocusableElements(panel);
-    const primaryField = panel.querySelector('input:not([disabled]), textarea:not([disabled]), select:not([disabled])');
-    if (focusables.length > 0) {
-      (primaryField ?? focusables[0]).focus();
-    }
-
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onCloseRef.current();
-        return;
-      }
-
-      if (event.key !== 'Tab') {
-        return;
-      }
-
-      const nodes = getFocusableElements(panel);
-      if (!nodes.length) {
-        return;
-      }
-
-      const first = nodes[0];
-      const last = nodes[nodes.length - 1];
-      const active = document.activeElement;
-
-      if (event.shiftKey && active === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && active === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      if (restoreFocusRef.current instanceof HTMLElement) {
-        restoreFocusRef.current.focus();
-      }
-    };
-  }, []);
-
-  return (
-    <div className="registry-modal" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="registry-modal__backdrop" onClick={onClose} aria-hidden="true" />
-      <div className="registry-modal__panel" ref={panelRef}>
-        <div className="registry-modal__header">
-          <h3>{title}</h3>
-          <Button type="button" size="sm" variant="ghost" onClick={onClose}>
-            Close
-          </Button>
-        </div>
-        <div className="registry-modal__body">{children}</div>
-        <div className="registry-modal__footer">
-          <Button type="button" size="sm" variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="button" size="sm" onClick={onSubmit} disabled={isSubmitting}>
-            {submitLabel}
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -451,25 +438,4 @@ SuggestionCloud.defaultProps = {
   suggestions: []
 };
 
-RegistryModal.propTypes = {
-  title: PropTypes.string.isRequired,
-  onClose: PropTypes.func.isRequired,
-  onSubmit: PropTypes.func.isRequired,
-  submitLabel: PropTypes.string.isRequired,
-  isSubmitting: PropTypes.bool,
-  children: PropTypes.node.isRequired
-};
-
-RegistryModal.defaultProps = {
-  isSubmitting: false
-};
-
 export default AdminPluginManagerSection;
-
-function getFocusableElements(container) {
-  return Array.from(
-    container.querySelectorAll(
-      'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
-    )
-  ).filter((element) => !element.hasAttribute('hidden'));
-}
