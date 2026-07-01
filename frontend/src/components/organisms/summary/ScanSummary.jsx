@@ -1,10 +1,6 @@
 import { useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
-import {
-  Card,
-  CardContent,
-  CardHeader
-} from '../../atoms/Card.jsx';
+import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
 import Button from '../../atoms/Button.jsx';
 import { CORE_NAMESPACES } from '../../../config/plugins.js';
 import { formatDurationMs } from '../../../utils/format.js';
@@ -115,7 +111,7 @@ function ScanSummary({
   }
 
   return (
-    <Card>
+    <Card role="region" aria-label="Scan summary">
       <CardHeader>
         <div className="summary__header">
           <div>

@@ -1,4 +1,5 @@
 import PropTypes from 'prop-types';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import ScanSummary from '../../../organisms/summary/ScanSummary.jsx';
 import ExposurePanel from '../../../organisms/panels/ExposurePanel.jsx';
 import PerformancePanel from '../../../organisms/panels/PerformancePanel.jsx';
@@ -16,10 +17,7 @@ function OverviewSection({ scanResult, homepageDomain, homepageResult }) {
         plugins={scanResult.plugins}
         coreDatasets={scanResult.core}
       />
-      <HomepageOverviewCard
-        domain={homepageDomain}
-        result={homepageResult}
-      />
+      <HomepageOverviewCard domain={homepageDomain} result={homepageResult} />
       <section className="section">
         <div className="grid">
           <PerformancePanel performance={scanResult.performance} />
@@ -52,29 +50,28 @@ function HomepageOverviewCard({
   result
 }) {
   return (
-    <div className="card">
-      <div className="card__content card__content--cta">
+    <Card role="status" aria-label="Homepage source signals">
+      <CardHeader className="card__content card__content--cta">
         <div>
-          <h3 className="cta-title">Homepage source signals</h3>
+          <CardTitle className="cta-title">Homepage source signals</CardTitle>
           {result ? (
-            <p className="card__meta">
+            <CardDescription>
               Status {result.source?.statusCode ?? '—'} · {formatBytes(result.source?.sizeBytes)} ·{' '}
               {result.insights?.meta?.length ?? 0} meta · {result.insights?.assets?.length ?? 0} assets ·{' '}
               {result.insights?.frameworks?.length ?? 0} frameworks
-            </p>
+            </CardDescription>
           ) : (
-            <p className="card__meta">
+            <CardDescription>
               Capture generator hints, builder clues, frameworks, and asset paths from the homepage HTML for {domain || 'this site'}.
-            </p>
+            </CardDescription>
           )}
         </div>
         <div className="cta-actions">
-          <span className="card__meta">
-            Runs automatically with each new scan.
-          </span>
+          <span className="card__meta">Runs automatically with each new scan.</span>
         </div>
-      </div>
-    </div>
+      </CardHeader>
+      <CardContent />
+    </Card>
   );
 }
 

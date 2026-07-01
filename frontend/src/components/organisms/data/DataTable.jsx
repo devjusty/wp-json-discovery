@@ -10,12 +10,8 @@ import {
 } from '@tanstack/react-table';
 import Button from '../../atoms/Button.jsx';
 import TextInput from '../../atoms/TextInput.jsx';
-import {
-  Card,
-  CardActions,
-  CardContent,
-  CardHeader
-} from '../../atoms/Card.jsx';
+import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card.jsx';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { exportToCsv } from '../../../utils/csv.js';
 import { toCsvFilename } from '../../../utils/format.js';
 
@@ -94,7 +90,7 @@ function DataTable({
           <h2>{title}</h2>
           {description ? <p className="card__meta">{description}</p> : null}
         </div>
-        <CardActions>
+        <CardFooter className="card__actions">
           <Button
             type="button"
             variant="secondary"
@@ -124,7 +120,7 @@ function DataTable({
               {isCollapsed ? 'Expand table' : 'Collapse'}
             </Button>
           ) : null}
-        </CardActions>
+        </CardFooter>
       </CardHeader>
       <CardContent
         className={clsx({
@@ -144,31 +140,31 @@ function DataTable({
           </div>
         ) : (
           <>
-            <div className="table-responsive">
-              <table>
-                <thead>
-                  {table.getHeaderGroups().map((headerGroup) => (
-                    <tr key={headerGroup.id}>
+        <div className="table-responsive">
+          <Table aria-label={title}>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id}>
                       {headerGroup.headers.map((header) => {
                         const sortState = header.column.getIsSorted();
                         return (
-                          <th
-                            key={header.id}
-                            colSpan={header.colSpan}
-                            className={clsx({
-                              sortable: header.column.getCanSort()
-                            })}
-                            aria-sort={
+                            <TableHead
+                              key={header.id}
+                              colSpan={header.colSpan}
+                              className={clsx({
+                                sortable: header.column.getCanSort()
+                              })}
+                              aria-sort={
                               sortState === 'asc'
                                 ? 'ascending'
                                 : sortState === 'desc'
                                   ? 'descending'
                                   : 'none'
                             }
-                          >
-                            {header.isPlaceholder ? null : (
-                              <button
-                                type="button"
+                            >
+                              {header.isPlaceholder ? null : (
+                                <button
+                                  type="button"
                                 className="table__sort"
                                 onClick={header.column.getToggleSortingHandler()}
                                 disabled={!header.column.getCanSort()}
@@ -188,28 +184,28 @@ function DataTable({
                                       : '↕'}
                                 </span>
                               </button>
-                            )}
-                          </th>
+                              )}
+                            </TableHead>
                         );
                       })}
-                    </tr>
+                    </TableRow>
                   ))}
-                </thead>
-                <tbody>
-                  {table.getRowModel().rows.map((row) => (
-                    <tr key={row.id}>
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.map((row) => (
+                    <TableRow key={row.id}>
                       {row.getVisibleCells().map((cell) => (
-                        <td key={cell.id}>
+                        <TableCell key={cell.id}>
                           {flexRender(
                             cell.column.columnDef.cell,
                             cell.getContext()
                           )}
-                        </td>
+                        </TableCell>
                       ))}
-                    </tr>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+            </TableBody>
+          </Table>
               {data.length === 0 ? (
                 <div className="table__empty">No records found.</div>
               ) : null}
@@ -297,6 +293,7 @@ function DataTable({
                   </Button>
                 </div>
                 <div>
+                <div>
                   <label htmlFor={pageSizeSelectId}>
                     Rows per page
                     <select
@@ -315,6 +312,7 @@ function DataTable({
                       ))}
                     </select>
                   </label>
+                </div>
                 </div>
                 <div className="table__meta">
                   {totalRows === 0

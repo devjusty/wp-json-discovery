@@ -1,9 +1,5 @@
 import PropTypes from 'prop-types';
-import {
-  Card,
-  CardContent,
-  CardHeader
-} from '../../atoms/Card.jsx';
+import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
 
 function HomepageInsightsPanel({ insights, htmlPreview }) {
   if (!insights) {
@@ -20,7 +16,7 @@ function HomepageInsightsPanel({ insights, htmlPreview }) {
 
   return (
     <div className="grid">
-      <Card>
+      <Card role="region" aria-label="Frameworks & assets">
         <CardHeader>
           <div>
             <h2>Frameworks & assets</h2>
@@ -110,7 +106,7 @@ function HomepageInsightsPanel({ insights, htmlPreview }) {
       </Card>
 
       {hasSignals ? (
-        <Card>
+        <Card role="region" aria-label="HTML preview">
           <CardHeader>
             <div>
               <h2>HTML preview</h2>

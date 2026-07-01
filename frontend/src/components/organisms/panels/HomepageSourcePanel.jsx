@@ -1,15 +1,11 @@
 import PropTypes from 'prop-types';
 import StatusBadge from '../../molecules/StatusBadge.jsx';
-import {
-  Card,
-  CardContent,
-  CardHeader
-} from '../../atoms/Card.jsx';
+import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
 
 function HomepageSourcePanel({ source }) {
   if (!source) {
     return (
-      <Card>
+      <Card role="region" aria-label="Homepage fetch">
         <CardHeader>
           <div>
             <h2>Homepage fetch</h2>
@@ -36,7 +32,7 @@ function HomepageSourcePanel({ source }) {
   ];
 
   return (
-    <Card>
+    <Card role="region" aria-label="Homepage fetch">
       <CardHeader>
         <div>
           <h2>Homepage fetch</h2>
