@@ -7,6 +7,14 @@ import Button from '../atoms/Button.jsx';
 import TextInput from '../atoms/TextInput.jsx';
 import StatusBadge from '../molecules/StatusBadge.jsx';
 import NoteEditor from '../molecules/NoteEditor.jsx';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '@/components/ui/table';
 import { fetchDomainScanHistory, fetchScanHistory } from '../../api/client.js';
 import { formatDate, formatDurationMs } from '../../utils/format.js';
 
@@ -216,72 +224,72 @@ function HistoryPage({ headerActions, onRescan, onUseDomain }) {
         </div>
       ) : null}
 
-      <div className="history-grid">
+      <Table aria-label="Scan history">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Domain</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Last scanned</TableHead>
+            <TableHead>Duration</TableHead>
+            <TableHead>Unsupported</TableHead>
+            <TableHead>Actions</TableHead>
+            <TableHead>Notes</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {items.map((item) => (
-            <article key={item.domain} className="history-card">
-            <div className="history-card__header">
-              <h3>{item.domain}</h3>
-              <StatusBadge
-                tone={item.lastStatus === 'success' ? 'success' : 'danger'}
-                label={item.lastStatus === 'success' ? 'Success' : 'Failed'}
-              />
-            </div>
-
-            <dl className="history-card__meta">
-              <div>
-                <dt>Last scanned</dt>
-                <dd>{formatHistoryDate(item.lastScannedAt) || '—'}</dd>
-              </div>
-              <div>
-                <dt>Duration</dt>
-                <dd>{formatDurationMs(item.lastDurationMs)}</dd>
-              </div>
-              <div>
-                <dt>Unsupported namespaces</dt>
-                <dd>{Number(item.lastUnsupportedCount ?? 0)}</dd>
-              </div>
-              <div>
-                <dt>Error category</dt>
-                <dd>{item.lastErrorCategory || '—'}</dd>
-              </div>
-            </dl>
-
-            <div className="history-card__actions">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => handleCopyDomain(item.domain)}
-              >
-                {copiedDomain === item.domain ? 'Copied' : 'Copy domain'}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => onUseDomain(item.domain)}
-              >
-                Use in scanner
-              </Button>
-              <Button
-                type="button"
-                variant={activeDomain === item.domain ? 'secondary' : 'ghost'}
-                size="sm"
-                onClick={() => setActiveDomain((current) => (current === item.domain ? '' : item.domain))}
-              >
-                {activeDomain === item.domain ? 'Hide runs' : 'View runs'}
-              </Button>
-              <Button type="button" size="sm" onClick={() => onRescan(item.domain)}>
-                Re-scan
-              </Button>
-            </div>
-
-            <div className="history-card__notes">
-              <NoteEditor domain={item.domain} />
-            </div>
-          </article>
-        ))}
-      </div>
+            <TableRow key={item.domain}>
+              <TableCell>
+                <div className="history-card__header">
+                  <h3>{item.domain}</h3>
+                  <StatusBadge
+                    tone={item.lastStatus === 'success' ? 'success' : 'danger'}
+                    label={item.lastStatus === 'success' ? 'Success' : 'Failed'}
+                  />
+                </div>
+              </TableCell>
+              <TableCell>{item.lastStatus}</TableCell>
+              <TableCell>{formatHistoryDate(item.lastScannedAt) || '—'}</TableCell>
+              <TableCell>{formatDurationMs(item.lastDurationMs)}</TableCell>
+              <TableCell>{Number(item.lastUnsupportedCount ?? 0)}</TableCell>
+              <TableCell>
+                <div className="history-card__actions">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleCopyDomain(item.domain)}
+                  >
+                    {copiedDomain === item.domain ? 'Copied' : 'Copy domain'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onUseDomain(item.domain)}
+                  >
+                    Use in scanner
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={activeDomain === item.domain ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setActiveDomain((current) => (current === item.domain ? '' : item.domain))}
+                  >
+                    {activeDomain === item.domain ? 'Hide runs' : 'View runs'}
+                  </Button>
+                  <Button type="button" size="sm" onClick={() => onRescan(item.domain)}>
+                    Re-scan
+                  </Button>
+                </div>
+              </TableCell>
+              <TableCell>
+                <NoteEditor domain={item.domain} />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
 
       <div className="history-pagination">
         <Button type="button" variant="ghost" size="sm" disabled={!hasPrevPage} onClick={() => setPage((current) => Math.max(1, current - 1))}>

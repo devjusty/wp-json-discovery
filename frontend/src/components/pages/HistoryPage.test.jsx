@@ -86,6 +86,8 @@ describe('HistoryPage', () => {
 
     renderPage({ onRescan, onUseDomain });
 
+    expect(screen.getByRole('table', { name: 'Scan history' })).toBeInTheDocument();
+
     await screen.findByText('example.com');
 
     await userEvent.click(screen.getByRole('button', { name: 'Use in scanner' }));

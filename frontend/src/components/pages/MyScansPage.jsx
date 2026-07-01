@@ -3,6 +3,14 @@ import PropTypes from 'prop-types';
 import { useAuth0 } from '@auth0/auth0-react';
 import { request } from '../../api/client.js';
 import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '@/components/ui/table';
 import AppLayout from '../templates/AppLayout.jsx';
 
 function MyScansPage({ headerActions, onNavigate, onUseDomain, onRescan }) {
@@ -54,36 +62,36 @@ function MyScansPage({ headerActions, onNavigate, onUseDomain, onRescan }) {
       {!loading && scans.length === 0 ? (
         <p>No saved scans yet. Run a scan and click "Save to My Scans" to add one.</p>
       ) : (
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Domain</th>
-              <th>Saved</th>
-              <th>Status</th>
-              <th>Notes</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table aria-label="Saved scans">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Domain</TableHead>
+              <TableHead>Saved</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Notes</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {scans.map((scan) => (
-              <tr key={scan.domain}>
-                <td>
+              <TableRow key={scan.domain}>
+                <TableCell>
                   <Button type="button" variant="ghost" size="sm" onClick={() => onUseDomain?.(scan.domain)}>
                     {scan.domain}
                   </Button>
-                </td>
-                <td>{scan.saved_at}</td>
-                <td>{scan.last_status}</td>
-                <td>{scan.notes || ''}</td>
-                <td>
+                </TableCell>
+                <TableCell>{scan.saved_at}</TableCell>
+                <TableCell>{scan.last_status}</TableCell>
+                <TableCell>{scan.notes || ''}</TableCell>
+                <TableCell>
                   <Button type="button" variant="secondary" size="sm" onClick={() => onRescan?.(scan.domain)}>
                     Scan again
                   </Button>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
     </AppLayout>
   );

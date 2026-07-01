@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import PropTypes from 'prop-types';
+import { Button } from '@/components/ui/button';
 
 const ADMIN_SECTION_ANCHORS = {
   db: [
@@ -76,32 +77,19 @@ function AdminSidebarNav({
         <p className="sidebar__title">Navigation</p>
         <ul className="sidebar__nav">
           <li>
-            <button
-              type="button"
-              className="sidebar__link"
-              onClick={() => onNavigate('scan')}
-            >
+            <Button type="button" variant="ghost" size="sm" className="sidebar__link" onClick={() => onNavigate('scan')}>
               Go to current scan
-            </button>
+            </Button>
           </li>
           <li>
-            <button
-              type="button"
-              className="sidebar__link"
-              onClick={() => onNavigate('history')}
-            >
+            <Button type="button" variant="ghost" size="sm" className="sidebar__link" onClick={() => onNavigate('history')}>
               View scan history
-            </button>
+            </Button>
           </li>
           <li>
-            <button
-              type="button"
-              className="sidebar__link is-active"
-              onClick={() => onNavigate('admin')}
-              aria-current="page"
-            >
+            <Button type="button" variant="secondary" size="sm" className="sidebar__link is-active" onClick={() => onNavigate('admin')} aria-current="page">
               Admin (current)
-            </button>
+            </Button>
           </li>
 
           {[
@@ -118,15 +106,17 @@ function AdminSidebarNav({
             ['assets', 'Homepage assets']
           ].map(([sectionKey, label]) => (
             <li key={sectionKey}>
-              <button
+              <Button
                 type="button"
+                variant={activeSection === sectionKey ? 'secondary' : 'ghost'}
+                size="sm"
                 className={`sidebar__link ${activeSection === sectionKey ? 'is-active' : ''}`}
                 onClick={() => onSetActiveSection(sectionKey)}
                 onMouseEnter={() => onPrefetchSection(sectionKey)}
                 onFocus={() => onPrefetchSection(sectionKey)}
               >
                 {label}
-              </button>
+              </Button>
               {renderSectionAnchors(sectionKey)}
             </li>
           ))}

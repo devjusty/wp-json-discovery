@@ -38,6 +38,8 @@ describe('MyScansPage', () => {
       />
     );
 
+    expect(screen.getByRole('table', { name: 'Saved scans' })).toBeInTheDocument();
+
     const domainButton = await screen.findByRole('button', { name: /example\.com/i });
     await user.click(domainButton);
     expect(onUseDomain).toHaveBeenCalledWith('example.com');
