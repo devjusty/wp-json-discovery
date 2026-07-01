@@ -21,3 +21,4 @@ server/data/*.sqlite-wal
 
 # Local Netlify folder
 .netlify
+.fallow/

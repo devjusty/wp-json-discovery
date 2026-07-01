@@ -35,3 +35,45 @@ export function slugToLabel(slug) {
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
 }
+
+export function namespaceToSlug(namespace) {
+  if (typeof namespace !== 'string') {
+    return '';
+  }
+
+  const trimmed = namespace.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  const firstSegment = trimmed.split('/').filter(Boolean)[0] ?? '';
+  return firstSegment.trim().toLowerCase();
+}
+
+export function buildPluginDraftFromSignal({ kind, slug, namespace }) {
+  const normalizedSlug = String(slug ?? '').trim().toLowerCase();
+  if (!normalizedSlug) {
+    return createEmptyPluginDraft();
+  }
+
+  if (kind === 'namespace') {
+    const normalizedNamespace = typeof namespace === 'string' ? namespace.trim() : '';
+    return {
+      id: normalizedSlug,
+      label: slugToLabel(normalizedSlug),
+      description: 'Detected from unresolved namespace signal.',
+      pluginUrl: `https://wordpress.org/plugins/${normalizedSlug}/`,
+      namespaces: normalizedNamespace,
+      assetHints: ''
+    };
+  }
+
+  return {
+    id: normalizedSlug,
+    label: slugToLabel(normalizedSlug),
+    description: 'Detected from homepage asset path signal.',
+    pluginUrl: `https://wordpress.org/plugins/${normalizedSlug}/`,
+    namespaces: '',
+    assetHints: normalizedSlug
+  };
+}

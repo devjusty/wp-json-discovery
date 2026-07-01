@@ -260,6 +260,28 @@ describe('AdminPage integration', () => {
     });
   });
 
+  it('fills the whole plugin draft from a matching suggestion', async () => {
+    renderPage();
+
+    await screen.findByRole('heading', { name: 'Database' });
+    await userEvent.click(screen.getByRole('button', { name: 'Plugin manager' }));
+    await screen.findByRole('heading', { name: 'Plugin manager' });
+    await userEvent.click(screen.getByRole('button', { name: 'Add plugin' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Add plugin' });
+    const idInput = within(dialog).getByLabelText('ID');
+    await userEvent.type(idInput, 'con');
+
+    const suggestion = await within(dialog).findByRole('button', { name: 'convertkit' });
+    await userEvent.click(suggestion);
+
+    expect(within(dialog).getByLabelText('ID')).toHaveValue('convertkit');
+    expect(within(dialog).getByLabelText('Label')).toHaveValue('Convertkit');
+    expect(within(dialog).getByLabelText('Plugin URL')).toHaveValue('https://wordpress.org/plugins/convertkit/');
+    expect(within(dialog).getByLabelText('Namespaces (comma or newline separated)')).toHaveValue('');
+    expect(within(dialog).getByLabelText('Asset hints (comma or newline separated)')).toHaveValue('convertkit');
+  });
+
   it('opens edit mode when asset-only slug already exists', async () => {
     fetchPlugins.mockResolvedValue({
       plugins: [{

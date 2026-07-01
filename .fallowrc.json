@@ -1,0 +1,35 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": [
+    "frontend/src/main.jsx",
+    "server/src/index.js",
+    "server/src/db/import-logs.js",
+    "server/src/db/inspect.js",
+    "server/src/db/list-assets.js",
+    "scripts/sort-plugins.mjs"
+  ],
+  "ignorePatterns": [
+    ".agents/**",
+    ".antigravitycli/**",
+    ".codex/**",
+    ".dex/**",
+    ".fallow/**",
+    ".git/**",
+    ".github/**",
+    ".impeccable/**",
+    ".vscode/**",
+    ".worktrees/**",
+    "**/.netlify/**",
+    "**/dist/**",
+    "**/node_modules/**",
+    "server/data/**"
+  ],
+  "workspaces": {
+    "patterns": ["frontend", "server"]
+  },
+  "duplicates": {
+    "minOccurrences": 3,
+    "ignore": ["**/dist/**", "**/node_modules/**", "server/data/**"]
+  },
+  "rules": {}
+}

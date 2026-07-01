@@ -31,7 +31,9 @@ export function renderPluginManagerSection({
         showCreateModal: pluginManager.showCreatePluginModal,
         onCloseCreateModal: pluginManager.handleCloseCreatePluginModal,
         startEditing: pluginManager.startEditing,
-        deletePluginMutation: pluginManager.deletePluginMutation
+        deletePluginMutation: pluginManager.deletePluginMutation,
+        pluginSuggestions: pluginManager.pluginSuggestions,
+        onCreatePluginFromSuggestion: pluginManager.handleCreatePluginFromSuggestion
       })}
     </SectionSuspense>
   );

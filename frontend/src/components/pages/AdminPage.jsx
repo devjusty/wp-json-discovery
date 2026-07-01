@@ -140,6 +140,7 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
     handleOpenCreatePluginModal,
     handleCloseCreatePluginModal,
     handleCreatePluginFromAsset,
+    handleCreatePluginFromSuggestion,
     themeDraft,
     setThemeDraft,
     editingThemeId,
@@ -198,7 +199,8 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
     heartbeatErrorSeries,
     filteredSupportedPlugins,
     filteredSupportedThemes,
-    unknownPluginAssetHints
+    unknownPluginAssetHints,
+    pluginSuggestions
   } = useAdminData({
     data,
     activeSection,
@@ -314,7 +316,9 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
       handleCloseCreatePluginModal,
       showCreatePluginModal,
       startEditing,
-      deletePluginMutation
+      deletePluginMutation,
+      handleCreatePluginFromSuggestion,
+      pluginSuggestions
     },
     themeManager: {
       sortThemesMutation,

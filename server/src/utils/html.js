@@ -221,7 +221,7 @@ export function extractAssetSlug(pathValue = '') {
   return match[1].toLowerCase();
 }
 
-function matchAssetSlug(type, slug, pluginLookup, themeLookup) {
+export function matchAssetSlug(type, slug, pluginLookup, themeLookup) {
   if (!slug) {
     return [];
   }
@@ -229,7 +229,7 @@ function matchAssetSlug(type, slug, pluginLookup, themeLookup) {
   return lookup.get(slug) ?? [];
 }
 
-async function getAssetLookups() {
+export async function getAssetLookups() {
   const now = Date.now();
   if (assetLookupCache.expiresAt > now) {
     return {

@@ -21,7 +21,9 @@ function AdminPluginManagerSection({
   showCreateModal,
   onCloseCreateModal,
   startEditing,
-  deletePluginMutation
+  deletePluginMutation,
+  pluginSuggestions,
+  onCreatePluginFromSuggestion
 }) {
   const isSaving = createPluginPending || updatePluginPending;
 
@@ -165,6 +167,8 @@ function AdminPluginManagerSection({
             pluginDraft={pluginDraft}
             setPluginDraft={setPluginDraft}
             disableId={false}
+            pluginSuggestions={pluginSuggestions}
+            onCreatePluginFromSuggestion={onCreatePluginFromSuggestion}
           />
           {pluginSaveError ? <p className="card__meta">{pluginSaveError}</p> : null}
           {pluginValidationError ? (
@@ -176,7 +180,13 @@ function AdminPluginManagerSection({
   );
 }
 
-function PluginFormFields({ pluginDraft, setPluginDraft, disableId }) {
+function PluginFormFields({
+  pluginDraft,
+  setPluginDraft,
+  disableId,
+  pluginSuggestions = [],
+  onCreatePluginFromSuggestion
+}) {
   return (
     <div className="registry-form-grid">
       <label className="stacked-form__label">
@@ -188,6 +198,11 @@ function PluginFormFields({ pluginDraft, setPluginDraft, disableId }) {
           disabled={disableId}
           required
         />
+        <SuggestionCloud
+          query={pluginDraft.id}
+          suggestions={pluginSuggestions}
+          onPick={onCreatePluginFromSuggestion}
+        />
       </label>
       <label className="stacked-form__label">
         Label
@@ -196,6 +211,11 @@ function PluginFormFields({ pluginDraft, setPluginDraft, disableId }) {
           value={pluginDraft.label}
           onChange={(event) => setPluginDraft((prev) => ({ ...prev, label: event.target.value }))}
           required
+        />
+        <SuggestionCloud
+          query={pluginDraft.label}
+          suggestions={pluginSuggestions}
+          onPick={onCreatePluginFromSuggestion}
         />
       </label>
       <label className="stacked-form__label registry-form-grid__full">
@@ -213,6 +233,11 @@ function PluginFormFields({ pluginDraft, setPluginDraft, disableId }) {
           onChange={(event) => setPluginDraft((prev) => ({ ...prev, pluginUrl: event.target.value }))}
           placeholder="https://wordpress.org/plugins/..."
         />
+        <SuggestionCloud
+          query={pluginDraft.pluginUrl}
+          suggestions={pluginSuggestions}
+          onPick={onCreatePluginFromSuggestion}
+        />
       </label>
       <label className="stacked-form__label">
         Namespaces (comma or newline separated)
@@ -220,8 +245,14 @@ function PluginFormFields({ pluginDraft, setPluginDraft, disableId }) {
           value={pluginDraft.namespaces}
           onChange={(event) => setPluginDraft((prev) => ({ ...prev, namespaces: event.target.value }))}
           placeholder="wc/v3\nwc/store/v1"
+          aria-label="Namespaces (comma or newline separated)"
         />
         <span className="card__meta">Optional for asset-only detections.</span>
+        <SuggestionCloud
+          query={pluginDraft.namespaces}
+          suggestions={pluginSuggestions}
+          onPick={onCreatePluginFromSuggestion}
+        />
       </label>
       <label className="stacked-form__label">
         Asset hints (comma or newline separated)
@@ -229,8 +260,45 @@ function PluginFormFields({ pluginDraft, setPluginDraft, disableId }) {
           value={pluginDraft.assetHints}
           onChange={(event) => setPluginDraft((prev) => ({ ...prev, assetHints: event.target.value }))}
           placeholder="woocommerce\nwc-analytics"
+          aria-label="Asset hints (comma or newline separated)"
+        />
+        <SuggestionCloud
+          query={pluginDraft.assetHints}
+          suggestions={pluginSuggestions}
+          onPick={onCreatePluginFromSuggestion}
         />
       </label>
+    </div>
+  );
+}
+
+function SuggestionCloud({ query = '', suggestions = [], onPick }) {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) {
+    return null;
+  }
+
+  const matches = suggestions
+    .filter((suggestion) => suggestion.searchText.includes(normalizedQuery))
+    .slice(0, 6);
+
+  if (!matches.length) {
+    return null;
+  }
+
+  return (
+    <div className="tag-cloud tag-cloud--compact registry-suggestion-cloud" aria-label="Suggestion list">
+      {matches.map((suggestion) => (
+        <button
+          key={suggestion.key}
+          type="button"
+          className="tag tag--button"
+          title={suggestion.meta}
+          onClick={() => onPick(suggestion)}
+        >
+          {suggestion.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -354,27 +422,33 @@ AdminPluginManagerSection.propTypes = {
   deletePluginMutation: PropTypes.shape({
     mutate: PropTypes.func.isRequired,
     isPending: PropTypes.bool
-  }).isRequired
-};
-
-AdminPluginManagerSection.defaultProps = {
-  managedPlugins: [],
-  editingPluginId: null,
-  createPluginPending: false,
-  updatePluginPending: false,
-  pluginValidationError: '',
-  pluginSaveError: '',
-  showCreateModal: false
+   }).isRequired,
+  pluginSuggestions: PropTypes.array,
+  onCreatePluginFromSuggestion: PropTypes.func.isRequired
 };
 
 PluginFormFields.propTypes = {
   pluginDraft: PropTypes.object.isRequired,
   setPluginDraft: PropTypes.func.isRequired,
-  disableId: PropTypes.bool
+  disableId: PropTypes.bool,
+  pluginSuggestions: PropTypes.array,
+  onCreatePluginFromSuggestion: PropTypes.func.isRequired
 };
 
 PluginFormFields.defaultProps = {
-  disableId: false
+  disableId: false,
+  pluginSuggestions: []
+};
+
+SuggestionCloud.propTypes = {
+  query: PropTypes.string,
+  suggestions: PropTypes.array,
+  onPick: PropTypes.func.isRequired
+};
+
+SuggestionCloud.defaultProps = {
+  query: '',
+  suggestions: []
 };
 
 RegistryModal.propTypes = {

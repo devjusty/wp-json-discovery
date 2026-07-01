@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import {
   deriveHeartbeatSeries
 } from './utils.js';
+import { namespaceToSlug } from './drafts.js';
 
 const SNAPSHOT_BACKED_SECTIONS = new Set(['unsupported', 'logs', 'heartbeat', 'assets']);
 const WP_PLUGIN_ASSET_PATH_REGEX = /\/wp-content\/plugins\/([^/]+)/i;
@@ -238,6 +239,49 @@ function useAdminData({
       .sort((a, b) => b.occurrences - a.occurrences || a.slug.localeCompare(b.slug));
   }, [data, supportedPluginLookup]);
 
+  const pluginSuggestions = useMemo(() => {
+    const namespaceSuggestions = unresolvedUnsupportedEntries
+      .map((entry) => {
+        const namespace = typeof entry?.namespace === 'string' ? entry.namespace.trim() : '';
+        const slug = namespaceToSlug(namespace);
+        if (!slug) {
+          return null;
+        }
+
+        const domainCount = Array.isArray(entry?.domains) ? entry.domains.length : 0;
+        return {
+          key: `namespace:${namespace.toLowerCase()}`,
+          kind: 'namespace',
+          namespace,
+          slug,
+          label: namespace,
+          searchText: [namespace, slug].join(' ').toLowerCase(),
+          meta: `${domainCount} domain${domainCount === 1 ? '' : 's'}`
+        };
+      })
+      .filter(Boolean);
+
+    const assetSuggestions = unknownPluginAssetHints.map((asset) => ({
+      key: `asset:${asset.slug}`,
+      kind: 'asset',
+      slug: asset.slug,
+      label: asset.slug,
+      searchText: asset.slug.toLowerCase(),
+      meta: `${asset.occurrences} occurrence${asset.occurrences === 1 ? '' : 's'}`
+    }));
+
+    return [...namespaceSuggestions, ...assetSuggestions]
+      .sort((a, b) => {
+        const aScore = a.kind === 'namespace' ? Number.parseInt(a.meta, 10) || 0 : Number.parseInt(a.meta, 10) || 0;
+        const bScore = b.kind === 'namespace' ? Number.parseInt(b.meta, 10) || 0 : Number.parseInt(b.meta, 10) || 0;
+        if (bScore !== aScore) {
+          return bScore - aScore;
+        }
+        return a.label.localeCompare(b.label);
+      })
+      .slice(0, 12);
+  }, [unresolvedUnsupportedEntries, unknownPluginAssetHints]);
+
   return {
     isSnapshotBackedSection,
     activityLogs,
@@ -252,7 +296,8 @@ function useAdminData({
     heartbeatErrorSeries,
     filteredSupportedPlugins,
     filteredSupportedThemes,
-    unknownPluginAssetHints
+    unknownPluginAssetHints,
+    pluginSuggestions
   };
 }
 

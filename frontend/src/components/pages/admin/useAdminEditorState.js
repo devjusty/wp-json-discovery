@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   createEmptyPluginDraft,
   createEmptyThemeDraft,
+  buildPluginDraftFromSignal,
   parseDelimitedList,
-  slugToLabel
 } from './drafts.js';
 
 // Encapsulates plugin/theme editor state, validation, and mutation side effects.
@@ -188,8 +188,13 @@ export default function useAdminEditorState({
     }
   }, [themeDraft, editingThemeId, managedThemes, updateThemeMutation, createThemeMutation]);
 
-  const handleCreatePluginFromAsset = useCallback(async (slug) => {
-    const normalizedSlug = String(slug ?? '').trim().toLowerCase();
+  const handleCreatePluginFromSuggestion = useCallback(async (suggestion) => {
+    const kind = suggestion?.kind === 'namespace' ? 'namespace' : 'asset';
+    const rawSlug = kind === 'namespace'
+      ? suggestion?.slug ?? suggestion?.namespace
+      : suggestion?.slug;
+    const normalizedSlug = String(rawSlug ?? '').trim().toLowerCase();
+
     if (!normalizedSlug) {
       return;
     }
@@ -212,14 +217,11 @@ export default function useAdminEditorState({
     }
 
     cancelPluginEdit();
-    setPluginDraft({
-      id: normalizedSlug,
-      label: slugToLabel(normalizedSlug),
-      description: 'Detected from homepage asset path signal.',
-      pluginUrl: `https://wordpress.org/plugins/${normalizedSlug}/`,
-      namespaces: '',
-      assetHints: normalizedSlug
-    });
+    setPluginDraft(buildPluginDraftFromSignal({
+      kind,
+      slug: normalizedSlug,
+      namespace: suggestion?.namespace
+    }));
     setShowCreatePluginModal(true);
   }, [
     managedPlugins,
@@ -228,6 +230,20 @@ export default function useAdminEditorState({
     startEditing,
     cancelPluginEdit,
     setActiveSection
+  ]);
+
+  const handleCreatePluginFromAsset = useCallback(async (slug) => {
+    const normalizedSlug = String(slug ?? '').trim().toLowerCase();
+    if (!normalizedSlug) {
+      return;
+    }
+
+    await handleCreatePluginFromSuggestion({
+      kind: 'asset',
+      slug: normalizedSlug
+    });
+  }, [
+    handleCreatePluginFromSuggestion
   ]);
 
   const handleOpenCreatePluginModal = useCallback(() => {
@@ -263,6 +279,7 @@ export default function useAdminEditorState({
     handleOpenCreatePluginModal,
     handleCloseCreatePluginModal,
     handleCreatePluginFromAsset,
+    handleCreatePluginFromSuggestion,
     themeDraft,
     setThemeDraft,
     editingThemeId,
