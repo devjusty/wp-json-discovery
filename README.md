@@ -13,9 +13,9 @@ WP JSON Discovery is a Vite-powered React application backed by a lightweight Ex
 - **Research workflows** – Context7 queries are bundled into the docs so unsupported namespaces can be researched without leaving the terminal.
 - **Robust logging** – JSONL activity log records proxy performance, scan duration, persistence actions, homepage asset findings, and error diagnostics.
 - **Atomic design system** – UI is composed using Brad Frost’s atoms → molecules → organisms → templates → pages to encourage reuse and scalability.
-- **Homepage source scan (opt-in)** – Single GET to `/` (1 MB cap) to extract generators, builder hints, asset paths, and framework signals without crawling sub-resources. Full asset paths are logged for follow-up.
+- **Homepage source scan** – Single GET to `/` (1 MB cap) to extract generators, builder hints, asset paths, and framework signals without crawling sub-resources. Full asset paths are logged for follow-up.
 - **Admin views** – Built-in Admin tab to inspect Turso-backed persistence (unsupported plugins, recent logs, homepage asset paths) and supported plugin/theme registries.
-- **Modular admin architecture** – Admin orchestration now uses focused hooks + renderer modules for easier extension and safer refactors.
+- **Modular admin architecture** – Admin orchestration uses focused hooks + renderer modules for easier extension and safer refactors.
 
 ---
 
