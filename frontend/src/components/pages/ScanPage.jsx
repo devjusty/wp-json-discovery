@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { useQuery } from '@tanstack/react-query';
 import AppLayout from '../templates/AppLayout.jsx';
 import DomainForm from '../molecules/forms/DomainForm.jsx';
-import { fetchUnsupportedPlugins, fetchUserRecentRuns } from '../../api/client.js';
+import { fetchUnsupportedPlugins, fetchUserRecentRuns, request } from '../../api/client.js';
 import { useSitemapScan } from '../../hooks/useSitemapScan.js';
 import {
   useScanResultsContext,
@@ -13,7 +13,7 @@ import ScanSidebarNav from './scan/ScanSidebarNav.jsx';
 import ScanSectionContent from './scan/ScanSectionContent.jsx';
 import RecentDomainsCard from './scan/RecentDomainsCard.jsx';
 import ScanStatusStack from './scan/ScanStatusStack.jsx';
-import SaveScanButton from '../organisms/panels/SaveScanButton.jsx';
+import { mergeRecentScans } from '../../utils/scanFeed.js';
 
 function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
   const {
@@ -76,9 +76,31 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
     staleTime: 30000
   });
 
-  const recentItems = isAuthenticated
-    ? (recentUserScansQuery.data?.items ?? [])
-    : [];
+  const savedScansQuery = useQuery({
+    queryKey: ['savedScans'],
+    queryFn: async () => {
+      const result = await request('/api/user/scans');
+      if (!result.ok) {
+        throw new Error('Failed to load saved scans');
+      }
+
+      return result.data.domains ?? [];
+    },
+    enabled: isAuthenticated,
+    staleTime: 30000
+  });
+
+  const recentItems = useMemo(
+    () => (isAuthenticated
+      ? mergeRecentScans(recentUserScansQuery.data?.items ?? [], savedScansQuery.data ?? [])
+      : []),
+    [isAuthenticated, recentUserScansQuery.data, savedScansQuery.data]
+  );
+
+  const handleRecentDomainSaved = useCallback(() => {
+    void recentUserScansQuery.refetch();
+    void savedScansQuery.refetch();
+  }, [recentUserScansQuery, savedScansQuery]);
 
   useEffect(() => {
     if (scanResult) {
@@ -146,6 +168,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
           onToggleExpanded={handleToggleRecentDomainsExpanded}
           onOpenHistory={isAdmin ? handleOpenHistory : null}
           onRescan={startScan}
+          onSaved={handleRecentDomainSaved}
         />
       )}
 
@@ -173,9 +196,6 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
         showDomains={isAdmin}
       />
 
-      {scanResult ? (
-        <SaveScanButton domain={scanResult.domain || activeDomain} />
-      ) : null}
     </AppLayout>
   );
 }

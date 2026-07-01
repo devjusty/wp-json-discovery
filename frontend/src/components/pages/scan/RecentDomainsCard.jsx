@@ -1,5 +1,11 @@
 import PropTypes from 'prop-types';
 import Button from '../../atoms/Button.jsx';
+import SaveScanButton from '../../organisms/panels/SaveScanButton.jsx';
+
+function formatTimestamp(value) {
+  if (!value) return '—';
+  return new Date(value).toLocaleString();
+}
 
 function RecentDomainsCard({
   isLoading,
@@ -8,14 +14,15 @@ function RecentDomainsCard({
   isExpanded,
   onToggleExpanded,
   onOpenHistory,
-  onRescan
+  onRescan,
+  onSaved
 }) {
   const buttonLabel = isExpanded ? 'Hide recent domains' : 'Show recent domains';
   const availabilityLabel = isLoading
     ? 'Fetching recent scans…'
     : items.length > 0
-      ? `${items.length} recent domain${items.length === 1 ? '' : 's'} available`
-      : 'No recent successful scans yet';
+      ? `${items.length} authenticated scan${items.length === 1 ? '' : 's'} available`
+      : 'No recent authenticated scans yet';
 
   return (
     <div className={`card recent-domains-card ${isExpanded ? 'recent-domains-card--expanded' : 'recent-domains-card--collapsed'}`}>
@@ -23,7 +30,7 @@ function RecentDomainsCard({
         <div>
           <h3 className="cta-title">Recent scanned domains</h3>
           <p className="card__meta">
-            Re-run a previous successful scan instantly, or open full history for filters.
+            Re-run a recent scan instantly, or save the ones you want to keep in My Scans.
           </p>
           <p className="card__meta recent-domains-card__status">{availabilityLabel}</p>
         </div>
@@ -49,22 +56,48 @@ function RecentDomainsCard({
           {isLoading ? (
             <p className="card__meta">Loading recent domains…</p>
           ) : items.length === 0 ? (
-            <p className="card__meta">No successful scans recorded yet.</p>
+            <p className="card__meta">No recent authenticated scans recorded yet.</p>
           ) : (
             <ul className="recent-domains-list">
               {items.map((item) => (
                 <li key={item.domain}>
-                  <button
-                    type="button"
-                    className="recent-domains-list__item"
-                    onClick={() => onRescan(item.domain)}
-                    disabled={isScanning}
-                  >
-                    <span className="recent-domains-list__domain">{item.domain}</span>
-                    <span className="recent-domains-list__meta">
-                      {item.lastScannedAt ? new Date(item.lastScannedAt).toLocaleString() : '—'}
-                    </span>
-                  </button>
+                  <div className="recent-domains-list__entry">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="recent-domains-list__item recent-domains-list__item--compact"
+                      onClick={() => onRescan(item.domain)}
+                      disabled={isScanning}
+                    >
+                      <span className="recent-domains-list__item-main">
+                        <span className="recent-domains-list__domain">{item.domain}</span>
+                        <span className="recent-domains-list__meta">
+                          Last scan {formatTimestamp(item.lastScannedAt)}
+                        </span>
+                        {item.savedAt ? (
+                          <span className="recent-domains-list__meta">
+                            Saved {formatTimestamp(item.savedAt)}
+                          </span>
+                        ) : null}
+                        {item.notes ? (
+                          <span className="recent-domains-list__notes">{item.notes}</span>
+                        ) : null}
+                        {item.lastStatus ? (
+                          <span className="badge">
+                            Status {item.lastStatus}
+                          </span>
+                        ) : null}
+                      </span>
+                    </Button>
+                    <div className="recent-domains-list__action">
+                      {item.isSaved ? (
+                        <span className="badge badge--success">Saved to My Scans</span>
+                      ) : (
+                        <SaveScanButton domain={item.domain} onSaved={onSaved} />
+                      )}
+                    </div>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -85,14 +118,16 @@ RecentDomainsCard.propTypes = {
   isExpanded: PropTypes.bool,
   onToggleExpanded: PropTypes.func.isRequired,
   onOpenHistory: PropTypes.func,
-  onRescan: PropTypes.func.isRequired
+  onRescan: PropTypes.func.isRequired,
+  onSaved: PropTypes.func
 };
 
 RecentDomainsCard.defaultProps = {
   isLoading: false,
   items: [],
   isScanning: false,
-  isExpanded: false
+  isExpanded: false,
+  onSaved: undefined
 };
 
 export default RecentDomainsCard;

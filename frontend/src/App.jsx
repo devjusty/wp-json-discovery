@@ -199,6 +199,17 @@ function AppContent() {
         <MyScansPage
           headerActions={headerActions}
           onNavigate={setActivePage}
+          onUseDomain={(domain) => {
+            if (!domain) return;
+            setDomain(domain);
+            setActivePage('scan');
+          }}
+          onRescan={(domain) => {
+            if (!domain) return;
+            setDomain(domain);
+            setActivePage('scan');
+            startScan(domain);
+          }}
         />
       </Suspense>
     );

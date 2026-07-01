@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { useAuth0 } from '@auth0/auth0-react';
 import { request } from '../../api/client.js';
+import { Button } from '@/components/ui/button';
 import AppLayout from '../templates/AppLayout.jsx';
 
-function MyScansPage({ headerActions, onNavigate }) {
+function MyScansPage({ headerActions, onNavigate, onUseDomain, onRescan }) {
   const { isAuthenticated, isLoading } = useAuth0();
   const [scans, setScans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -59,15 +61,25 @@ function MyScansPage({ headerActions, onNavigate }) {
               <th>Saved</th>
               <th>Status</th>
               <th>Notes</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {scans.map((scan) => (
               <tr key={scan.domain}>
-                <td>{scan.domain}</td>
+                <td>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => onUseDomain?.(scan.domain)}>
+                    {scan.domain}
+                  </Button>
+                </td>
                 <td>{scan.saved_at}</td>
                 <td>{scan.last_status}</td>
                 <td>{scan.notes || ''}</td>
+                <td>
+                  <Button type="button" variant="secondary" size="sm" onClick={() => onRescan?.(scan.domain)}>
+                    Scan again
+                  </Button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -76,5 +88,19 @@ function MyScansPage({ headerActions, onNavigate }) {
     </AppLayout>
   );
 }
+
+MyScansPage.propTypes = {
+  headerActions: PropTypes.node,
+  onNavigate: PropTypes.func,
+  onUseDomain: PropTypes.func,
+  onRescan: PropTypes.func
+};
+
+MyScansPage.defaultProps = {
+  headerActions: null,
+  onNavigate: undefined,
+  onUseDomain: undefined,
+  onRescan: undefined
+};
 
 export default MyScansPage;

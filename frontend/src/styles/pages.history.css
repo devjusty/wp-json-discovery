@@ -132,6 +132,12 @@
   gap: 0.5rem;
 }
 
+.recent-domains-list__entry {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .recent-domains-card {
   transition: border-color 0.2s ease, background 0.2s ease;
 }
@@ -166,6 +172,11 @@
   cursor: pointer;
 }
 
+.recent-domains-list__item--compact {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .recent-domains-list__item:hover:not(:disabled) {
   background: var(--color-info-bg);
   border-color: var(--color-info-border);
@@ -186,10 +197,27 @@
   color: var(--color-ink);
 }
 
+.recent-domains-list__item-main {
+  display: grid;
+  gap: 0.25rem;
+  text-align: left;
+  min-width: 0;
+}
+
 .recent-domains-list__meta {
   color: var(--color-ink-soft);
   font-size: var(--font-size-sm);
-  text-align: right;
+  text-align: left;
+}
+
+.recent-domains-list__notes {
+  color: var(--color-ink-muted);
+  font-size: var(--font-size-sm);
+  text-align: left;
+}
+
+.recent-domains-list__action {
+  flex: 0 0 auto;
 }
 
 .trend-badge {
