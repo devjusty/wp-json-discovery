@@ -1,18 +1,26 @@
 import PropTypes from 'prop-types';
-import clsx from 'clsx';
+import { Button as UiButton, buttonVariants } from '../ui/button.jsx';
+import { cn } from '@/lib/utils.js';
 
 function Button({ as = 'button', variant = 'primary', size = 'md', className, children, ...props }) {
   const ComponentTag = as || 'button';
+  const mappedVariant = variant === 'primary' ? 'default' : variant;
+  const mappedSize = size === 'md' ? 'default' : size;
 
-  const classes = clsx(
-    'button',
-    `button--${variant}`,
-    `button--${size}`,
-    className
-  );
+  if (ComponentTag === 'button') {
+    return (
+      <UiButton variant={mappedVariant} size={mappedSize} className={className} {...props}>
+        {children}
+      </UiButton>
+    );
+  }
 
   return (
-    <ComponentTag className={classes} {...props}>
+    <ComponentTag
+      data-slot="button"
+      className={cn(buttonVariants({ variant: mappedVariant, size: mappedSize, className }))}
+      {...props}
+    >
       {children}
     </ComponentTag>
   );

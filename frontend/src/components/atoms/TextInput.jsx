@@ -1,8 +1,8 @@
 import PropTypes from 'prop-types';
-import clsx from 'clsx';
+import { Input as UiInput } from '../ui/input.jsx';
 
 function TextInput({ size = 'md', className, ...props }) {
-  return <input className={clsx('text-input', `text-input--${size}`, className)} {...props} />;
+  return <UiInput data-size={size} className={className} {...props} />;
 }
 
 TextInput.propTypes = {

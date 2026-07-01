@@ -2,6 +2,15 @@ import PropTypes from 'prop-types';
 import { Card, CardContent, CardHeader } from '../../../atoms/Card.jsx';
 import Button from '../../../atoms/Button.jsx';
 import TextInput from '../../../atoms/TextInput.jsx';
+import { Badge } from '../../../ui/badge.jsx';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '../../../ui/table.jsx';
 import { namespaceToSlug } from '../drafts.js';
 import { formatFullTimestamp, formatShortDate } from '../utils.js';
 
@@ -32,31 +41,37 @@ function AdminUnsupportedSection({
 
           <h3>Asset-only plugin signals</h3>
           {unknownPluginAssetHints.length ? (
-            <div className="admin-table admin-table--compact">
-              <div className="admin-table__header">
-                <span>Plugin slug</span>
-                <span>Occurrences</span>
-                <span>Paths</span>
-                <span>Action</span>
-              </div>
-              {unknownPluginAssetHints.map((asset) => (
-                <div key={asset.slug} className="admin-table__row">
-                  <span>{asset.slug}</span>
-                  <span>{asset.occurrences}</span>
-                  <span>{asset.pathCount}</span>
-                  <span>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => onCreatePluginFromAsset(asset.slug)}
-                    >
-                      Create plugin entry
-                    </Button>
-                  </span>
-                </div>
-              ))}
-            </div>
+            <Table aria-label="Asset-only plugin signals">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Plugin slug</TableHead>
+                  <TableHead>Occurrences</TableHead>
+                  <TableHead>Paths</TableHead>
+                  <TableHead>Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {unknownPluginAssetHints.map((asset) => (
+                  <TableRow key={asset.slug}>
+                    <TableCell className="font-medium">{asset.slug}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{asset.occurrences}</Badge>
+                    </TableCell>
+                    <TableCell>{asset.pathCount}</TableCell>
+                    <TableCell>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => onCreatePluginFromAsset(asset.slug)}
+                      >
+                        Create plugin entry
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           ) : (
             <p className="card__meta">No unknown plugin asset signals currently detected.</p>
           )}
@@ -87,48 +102,54 @@ function AdminUnsupportedSection({
                   </select>
                 </label>
               </div>
-              <div className="admin-table">
-                <div className="admin-table__header">
-                  <span>Namespace</span>
-                  <span>Domains</span>
-                  <span>First seen</span>
-                  <span>Last seen</span>
-                  <span>Action</span>
-                </div>
-                {filteredUnsupportedEntries.map((plugin) => (
-                  <div key={plugin.namespace} className="admin-table__row">
-                    <span>{plugin.namespace}</span>
-                    <span>{plugin.domains?.length ?? 0}</span>
-                    <span className="tooltip">
-                      {formatShortDate(plugin.firstDetectedAt)}
-                      <span className="tooltip__content">
-                        {formatFullTimestamp(plugin.firstDetectedAt) || '—'}
-                      </span>
-                    </span>
-                    <span className="tooltip">
-                      {formatShortDate(plugin.lastDetectedAt)}
-                      <span className="tooltip__content">
-                        {formatFullTimestamp(plugin.lastDetectedAt) || '—'}
-                      </span>
-                    </span>
-                    <span>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        aria-label={`Promote ${plugin.namespace}`}
-                        onClick={() => onCreatePluginFromSuggestion({
-                          kind: 'namespace',
-                          namespace: plugin.namespace,
-                          slug: namespaceToSlug(plugin.namespace)
-                        })}
-                      >
-                        Promote
-                      </Button>
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <Table aria-label="Namespace unsupported plugins">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Namespace</TableHead>
+                    <TableHead>Domains</TableHead>
+                    <TableHead>First seen</TableHead>
+                    <TableHead>Last seen</TableHead>
+                    <TableHead>Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredUnsupportedEntries.map((plugin) => (
+                    <TableRow key={plugin.namespace}>
+                      <TableCell className="font-medium">{plugin.namespace}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{plugin.domains?.length ?? 0}</Badge>
+                      </TableCell>
+                      <TableCell className="tooltip">
+                        {formatShortDate(plugin.firstDetectedAt)}
+                        <span className="tooltip__content">
+                          {formatFullTimestamp(plugin.firstDetectedAt) || '—'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="tooltip">
+                        {formatShortDate(plugin.lastDetectedAt)}
+                        <span className="tooltip__content">
+                          {formatFullTimestamp(plugin.lastDetectedAt) || '—'}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          aria-label={`Promote ${plugin.namespace}`}
+                          onClick={() => onCreatePluginFromSuggestion({
+                            kind: 'namespace',
+                            namespace: plugin.namespace,
+                            slug: namespaceToSlug(plugin.namespace)
+                          })}
+                        >
+                          Promote
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
               {!filteredUnsupportedEntries.length ? (
                 <p className="card__meta">No unsupported namespaces match this filter.</p>
               ) : null}

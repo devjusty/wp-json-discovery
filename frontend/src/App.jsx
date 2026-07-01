@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useMemo } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import './App.css';
 import { ScanProvider, useScanShellContext } from './context/ScanContext.jsx';
 import { setTokenProvider, setAuthUserProvider, fetchUserProfile } from './api/client.js';
@@ -246,9 +247,11 @@ function App() {
   }, [user]);
 
   return (
-    <ScanProvider>
-      <AppContent />
-    </ScanProvider>
+    <TooltipProvider>
+      <ScanProvider>
+        <AppContent />
+      </ScanProvider>
+    </TooltipProvider>
   );
 }
 
