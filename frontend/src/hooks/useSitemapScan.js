@@ -1,9 +1,17 @@
+import { useEffect, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { runSitemapScan } from '../api/client.js';
 import { logEvent } from '../services/logger.js';
 
-export function useSitemapScan() {
+/**
+ * Manages the sitemap scan mutation.
+ * Resets previous results when the active domain changes to prevent
+ * stale results from one domain appearing while viewing another.
+ *
+ * @param {string} [activeDomain] - The currently active scan domain.
+ */
+export function useSitemapScan(activeDomain) {
   const sitemapMutation = useMutation({
     mutationFn: runSitemapScan,
     onSuccess: (data) => {
@@ -25,6 +33,16 @@ export function useSitemapScan() {
       logEvent('sitemap.scan.error', { message, stack: error?.stack });
     }
   });
+
+  // Reset stale results when the domain changes so a prior domain's
+  // sitemap data never leaks into a new domain's view.
+  const prevDomainRef = useRef(activeDomain);
+  useEffect(() => {
+    if (activeDomain && prevDomainRef.current && activeDomain !== prevDomainRef.current) {
+      sitemapMutation.reset();
+    }
+    prevDomainRef.current = activeDomain;
+  }, [activeDomain]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startSitemapScan = ({ domain, sitemapUrl, maxPages }) => {
     if (!domain) {

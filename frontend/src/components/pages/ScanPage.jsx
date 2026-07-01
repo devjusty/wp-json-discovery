@@ -36,7 +36,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
     startSitemapScan,
     result: sitemapResult,
     isRunning: isSitemapRunning
-  } = useSitemapScan();
+  } = useSitemapScan(activeDomain);
 
   const [sitemapFilter, setSitemapFilter] = useState('all');
   const [activeSection, setActiveSection] = useState('overview');

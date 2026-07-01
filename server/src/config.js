@@ -34,6 +34,26 @@ export const MAX_SITEMAP_PAGES = 50;
 export const MAX_PAGE_BODY_BYTES = 1.5 * 1024 * 1024;
 
 /**
+ * Timeout for individual page fetches during sitemap scanning, in milliseconds.
+ * Prevents a single slow/hung page from stalling the entire scan.
+ * @type {number}
+ */
+export const PAGE_FETCH_TIMEOUT_MS = 10000;
+
+/**
+ * Maximum number of sitemap pages to fetch concurrently.
+ * Balances speed against load on the target server.
+ * @type {number}
+ */
+export const SITEMAP_PAGE_CONCURRENCY = 5;
+
+/**
+ * Maximum number of child sitemaps to follow from a sitemap index.
+ * @type {number}
+ */
+export const MAX_CHILD_SITEMAPS = 10;
+
+/**
  * Default origin for the frontend application, used for CORS configuration.
  * @type {string}
  */

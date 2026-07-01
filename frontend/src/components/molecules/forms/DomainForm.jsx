@@ -5,7 +5,7 @@ import {
   Card,
   CardContent,
   CardHeader
-} from '../../atoms/Card.jsx';
+} from '@/components/ui/card.jsx';
 import TextInput from '../../atoms/TextInput.jsx';
 import { normalizeDomain } from '../../../utils/format.js';
 
@@ -49,41 +49,43 @@ function DomainForm({
   const isValidDomain = Boolean(normalizeDomain(value));
 
   return (
-    <Card as="form" className="domain-form" onSubmit={handleSubmit}>
-      <CardHeader>
-        <div>
-          <h2>WordPress domain</h2>
-          <p className="card__meta">
-            Paste a WordPress site domain. Protocols and paths are trimmed
-            automatically.
-          </p>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <label className="domain-form__label" htmlFor="domain-input">
-          Domain
-        </label>
-        <div className="domain-form__controls">
-          <TextInput
-            id="domain-input"
-            type="text"
-            className="domain-form__input"
-            placeholder="example.com"
-            value={value}
-            onChange={handleChange}
-            aria-label="WordPress domain"
-          />
-          <Button
-            type="submit"
-            variant="primary"
-            size="lg"
-            className="domain-form__button"
-            disabled={isScanning || !isValidDomain}
-          >
-            {isScanning ? 'Scanning…' : 'Start scan'}
-          </Button>
-        </div>
-      </CardContent>
+    <Card className="domain-form">
+      <form onSubmit={handleSubmit}>
+        <CardHeader>
+          <div>
+            <h2>WordPress domain</h2>
+            <p className="card__meta">
+              Paste a WordPress site domain. Protocols and paths are trimmed
+              automatically.
+            </p>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <label className="domain-form__label" htmlFor="domain-input">
+            Domain
+          </label>
+          <div className="domain-form__controls">
+            <TextInput
+              id="domain-input"
+              type="text"
+              className="domain-form__input"
+              placeholder="example.com"
+              value={value}
+              onChange={handleChange}
+              aria-label="WordPress domain"
+            />
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              className="domain-form__button"
+              disabled={isScanning || !isValidDomain}
+            >
+              {isScanning ? 'Scanning…' : 'Start scan'}
+            </Button>
+          </div>
+        </CardContent>
+      </form>
     </Card>
   );
 }

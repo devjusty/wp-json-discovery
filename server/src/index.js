@@ -608,11 +608,21 @@ app.post('/api/sitemap-scan', wrapAsync(async (req, res) => {
   });
 
   const { sitemapSummaries, seenPages } = await fetchAndParseSitemap(resolvedSitemapUrl, pageLimit);
-  const pages = await fetchAndProcessPageDetails(Array.from(seenPages).slice(0, pageLimit), sanitizedDomain);
+  // seenPages is a Map<url, {lastmod}> — pass directly; slicing happens by taking the first pageLimit keys
+  const limitedEntries = new Map(Array.from(seenPages.entries()).slice(0, pageLimit));
+  const pages = await fetchAndProcessPageDetails(limitedEntries, sanitizedDomain);
 
   const completedAt = Date.now();
-  const invalidSchemaCount = pages.filter((p) => p.flags.includes('schema_invalid')).length;
-  const noindexCount = pages.filter((p) => p.flags.includes('noindex')).length;
+  const successPages = pages.filter((p) => p.ok);
+  const invalidSchemaCount = successPages.filter((p) => p.flags.includes('schema_invalid')).length;
+  const noindexCount = successPages.filter((p) => p.flags.includes('noindex')).length;
+  const fetchErrorCount = pages.filter((p) => p.flags.includes('fetch_error')).length;
+  const missingTitleCount = successPages.filter((p) => p.flags.includes('missing_title')).length;
+  const missingDescriptionCount = successPages.filter((p) => p.flags.includes('missing_description')).length;
+  const canonicalMismatchCount = successPages.filter((p) => p.flags.includes('canonical_mismatch')).length;
+
+  // Collect all unique schema types across successfully fetched pages
+  const allSchemaTypes = [...new Set(successPages.flatMap((p) => p.schema?.types ?? []))];
 
   res.json({
     domain: sanitizedDomain,
@@ -626,8 +636,14 @@ app.post('/api/sitemap-scan', wrapAsync(async (req, res) => {
     pages,
     totals: {
       pagesScanned: pages.length,
+      pagesSuccess: successPages.length,
+      fetchErrors: fetchErrorCount,
       invalidSchema: invalidSchemaCount,
-      noindex: noindexCount
+      noindex: noindexCount,
+      missingTitle: missingTitleCount,
+      missingDescription: missingDescriptionCount,
+      canonicalMismatch: canonicalMismatchCount,
+      schemaTypes: allSchemaTypes
     }
   });
 }));
