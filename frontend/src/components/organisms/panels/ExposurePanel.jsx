@@ -1,10 +1,6 @@
 import PropTypes from 'prop-types';
 import StatusBadge from '../../molecules/StatusBadge.jsx';
-import {
-  Card,
-  CardContent,
-  CardHeader
-} from '../../atoms/Card.jsx';
+import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
 
 function ExposurePanel({ exposure, homepageSecurityHeaders }) {
   if (!exposure) {
@@ -84,7 +80,7 @@ function ExposurePanel({ exposure, homepageSecurityHeaders }) {
   ];
 
   return (
-    <Card>
+    <Card role="region" aria-label="Exposure checks">
       <CardHeader>
         <div>
           <h2>Exposure checks</h2>

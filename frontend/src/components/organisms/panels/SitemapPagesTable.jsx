@@ -1,10 +1,14 @@
 import PropTypes from 'prop-types';
 import StatusBadge from '../../molecules/StatusBadge.jsx';
+import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
 import {
-  Card,
-  CardContent,
-  CardHeader
-} from '../../atoms/Card.jsx';
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '@/components/ui/table.jsx';
 
 function SitemapPagesTable({ pages, filterValue, onFilterChange }) {
   if (!pages || pages.length === 0) {
@@ -54,37 +58,37 @@ function SitemapPagesTable({ pages, filterValue, onFilterChange }) {
       </CardHeader>
       <CardContent>
         <div className="table-responsive">
-          <table>
-            <thead>
-              <tr>
-                <th>URL</th>
-                <th>Status</th>
-                <th>Title</th>
-                <th>Schema types</th>
-                <th>Flags</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table aria-label="Sitemap pages">
+            <TableHeader>
+              <TableRow>
+                <TableHead>URL</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Title</TableHead>
+                <TableHead>Schema types</TableHead>
+                <TableHead>Flags</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {filteredPages.map((page) => (
-                <tr key={page.url}>
-                  <td>
+                <TableRow key={page.url}>
+                  <TableCell>
                     <a href={page.finalUrl || page.url} target="_blank" rel="noreferrer">
                       {page.url}
                     </a>
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell>
                     <StatusBadge
                       label={page.statusCode || '—'}
                       tone={page.ok ? 'success' : 'warning'}
                     />
-                  </td>
-                  <td>{page.seo?.title || '—'}</td>
-                  <td>{(page.schema?.types ?? []).join(', ') || '—'}</td>
-                  <td>{page.flags?.join(', ') || '—'}</td>
-                </tr>
+                  </TableCell>
+                  <TableCell>{page.seo?.title || '—'}</TableCell>
+                  <TableCell>{(page.schema?.types ?? []).join(', ') || '—'}</TableCell>
+                  <TableCell>{page.flags?.join(', ') || '—'}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </CardContent>
     </Card>

@@ -1,17 +1,13 @@
 import PropTypes from 'prop-types';
 import StatusBadge from '../../molecules/StatusBadge.jsx';
-import {
-  Card,
-  CardContent,
-  CardHeader
-} from '../../atoms/Card.jsx';
+import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
 
 function PluginSummaryPanel({ plugins }) {
   const matched = plugins?.matched ?? [];
   const unsupported = plugins?.unsupportedNamespaces ?? [];
 
   return (
-    <Card>
+    <Card role="region" aria-label="Plugin summary">
       <CardHeader>
         <div>
           <h2>Plugins detected</h2>

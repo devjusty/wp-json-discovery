@@ -1,10 +1,6 @@
 import PropTypes from 'prop-types';
 import StatusBadge from '../../molecules/StatusBadge.jsx';
-import {
-  Card,
-  CardContent,
-  CardHeader
-} from '../../atoms/Card.jsx';
+import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
 import { formatDurationMs } from '../../../utils/format.js';
 
 function ContentOverviewPanel({ overview }) {
@@ -16,7 +12,7 @@ function ContentOverviewPanel({ overview }) {
   const mediaBreakdown = overview.mediaBreakdown ?? [];
 
   return (
-    <Card>
+    <Card role="region" aria-label="Content footprint">
       <CardHeader>
         <div>
           <h2>Content footprint</h2>

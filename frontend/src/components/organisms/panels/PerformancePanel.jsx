@@ -1,10 +1,6 @@
 import PropTypes from 'prop-types';
 import StatusBadge from '../../molecules/StatusBadge.jsx';
-import {
-  Card,
-  CardContent,
-  CardHeader
-} from '../../atoms/Card.jsx';
+import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
 import { formatDurationMs } from '../../../utils/format.js';
 
 function PerformancePanel({ performance }) {
@@ -21,7 +17,7 @@ function PerformancePanel({ performance }) {
   ];
 
   return (
-    <Card>
+    <Card role="region" aria-label="Performance snapshot">
       <CardHeader>
         <div>
           <h2>Performance snapshot</h2>

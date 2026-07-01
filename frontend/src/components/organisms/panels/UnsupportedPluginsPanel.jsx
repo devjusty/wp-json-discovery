@@ -1,15 +1,10 @@
 import PropTypes from 'prop-types';
 import Button from '../../atoms/Button.jsx';
-import {
-  Card,
-  CardActions,
-  CardContent,
-  CardHeader
-} from '../../atoms/Card.jsx';
+import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card.jsx';
 
 function UnsupportedPluginsPanel({ plugins, isLoading, onRefresh, showDomains }) {
   return (
-    <Card>
+    <Card role="region" aria-label="Unsupported plugins">
       <CardHeader>
         <div>
           <h2>Unsupported plugins</h2>
@@ -18,7 +13,7 @@ function UnsupportedPluginsPanel({ plugins, isLoading, onRefresh, showDomains })
             in future scans.
           </p>
         </div>
-        <CardActions>
+        <CardFooter>
           <Button
             type="button"
             variant="secondary"
@@ -27,7 +22,7 @@ function UnsupportedPluginsPanel({ plugins, isLoading, onRefresh, showDomains })
           >
             Refresh
           </Button>
-        </CardActions>
+        </CardFooter>
       </CardHeader>
       <CardContent>
         {isLoading ? (

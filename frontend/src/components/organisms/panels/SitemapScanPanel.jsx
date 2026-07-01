@@ -3,11 +3,7 @@ import PropTypes from 'prop-types';
 import Button from '../../atoms/Button.jsx';
 import TextInput from '../../atoms/TextInput.jsx';
 import StatusBadge from '../../molecules/StatusBadge.jsx';
-import {
-  Card,
-  CardContent,
-  CardHeader
-} from '../../atoms/Card.jsx';
+import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
 
 function SitemapScanPanel({ domain, onScan, isRunning, result, sitemapProbe, sitemapExposure }) {
   const [maxPages, setMaxPages] = useState(50);
@@ -28,7 +24,7 @@ function SitemapScanPanel({ domain, onScan, isRunning, result, sitemapProbe, sit
       : '';
 
   return (
-    <Card>
+    <Card role="region" aria-label="Sitemap scan">
       <CardHeader>
         <div>
           <h2>Sitemap scan</h2>
