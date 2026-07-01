@@ -1,5 +1,7 @@
 import PropTypes from 'prop-types';
-import Button from '../../atoms/Button.jsx';
+import { Badge } from '@/components/ui/badge.jsx';
+import { Button } from '@/components/ui/button.jsx';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import SaveScanButton from '../../organisms/panels/SaveScanButton.jsx';
 
 function formatTimestamp(value) {
@@ -25,13 +27,17 @@ function RecentDomainsCard({
       : 'No recent authenticated scans yet';
 
   return (
-    <div className={`card recent-domains-card ${isExpanded ? 'recent-domains-card--expanded' : 'recent-domains-card--collapsed'}`}>
-      <div className="card__content card__content--cta">
+    <Card
+      role="region"
+      aria-label="Recent scanned domains"
+      className={`recent-domains-card ${isExpanded ? 'recent-domains-card--expanded' : 'recent-domains-card--collapsed'}`}
+    >
+      <CardHeader className="card__content card__content--cta">
         <div>
-          <h3 className="cta-title">Recent scanned domains</h3>
-          <p className="card__meta">
+          <CardTitle className="cta-title">Recent scanned domains</CardTitle>
+          <CardDescription>
             Re-run a recent scan instantly, or save the ones you want to keep in My Scans.
-          </p>
+          </CardDescription>
           <p className="card__meta recent-domains-card__status">{availabilityLabel}</p>
         </div>
         <div className="cta-actions">
@@ -50,9 +56,9 @@ function RecentDomainsCard({
             </Button>
           )}
         </div>
-      </div>
+      </CardHeader>
       {isExpanded ? (
-        <div className="card__content">
+        <CardContent>
           {isLoading ? (
             <p className="card__meta">Loading recent domains…</p>
           ) : items.length === 0 ? (
@@ -84,15 +90,13 @@ function RecentDomainsCard({
                           <span className="recent-domains-list__notes">{item.notes}</span>
                         ) : null}
                         {item.lastStatus ? (
-                          <span className="badge">
-                            Status {item.lastStatus}
-                          </span>
+                          <Badge variant="secondary">Status {item.lastStatus}</Badge>
                         ) : null}
                       </span>
                     </Button>
                     <div className="recent-domains-list__action">
                       {item.isSaved ? (
-                        <span className="badge badge--success">Saved to My Scans</span>
+                        <Badge variant="secondary">Saved to My Scans</Badge>
                       ) : (
                         <SaveScanButton domain={item.domain} onSaved={onSaved} />
                       )}
@@ -102,9 +106,9 @@ function RecentDomainsCard({
               ))}
             </ul>
           )}
-        </div>
+        </CardContent>
       ) : null}
-    </div>
+    </Card>
   );
 }
 

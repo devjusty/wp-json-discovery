@@ -148,6 +148,9 @@ importers:
         specifier: ^1.11.0
         version: 1.11.0
     devDependencies:
+      '@jest/globals':
+        specifier: ^30.4.1
+        version: 30.4.1
       jest:
         specifier: ^30.4.2
         version: 30.4.2(@types/node@26.0.1)

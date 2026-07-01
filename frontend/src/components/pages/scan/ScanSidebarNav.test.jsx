@@ -20,6 +20,8 @@ describe('ScanSidebarNav', () => {
       />
     );
 
+    expect(screen.getByRole('navigation', { name: 'Scan navigation' })).toBeInTheDocument();
+
     expect(screen.getByRole('button', { name: 'Overview' })).toBeDisabled();
     expect(screen.getByText('No signals yet')).toBeInTheDocument();
 

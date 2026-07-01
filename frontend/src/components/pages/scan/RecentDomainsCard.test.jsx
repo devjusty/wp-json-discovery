@@ -44,6 +44,8 @@ describe('RecentDomainsCard', () => {
       />
     );
 
+    expect(screen.getByRole('region', { name: 'Recent scanned domains' })).toBeInTheDocument();
+
     expect(screen.getByText('Saved to My Scans')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /save to my scans/i })).toBeInTheDocument();
 

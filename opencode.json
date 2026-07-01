@@ -6,6 +6,11 @@
       "command": ["npx", "-y", "chrome-devtools-mcp@latest"],
       "enabled": false
     },
+    "fallow": {
+      "type": "local",
+      "command": ["fallow-mcp"],
+      "enabled": true
+    },
     "hugeicons": {
       "type": "local",
       "command": ["npx", "-y", "@hugeicons/mcp-server"],

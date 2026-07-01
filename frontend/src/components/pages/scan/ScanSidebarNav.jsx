@@ -1,5 +1,8 @@
 import { memo } from 'react';
 import PropTypes from 'prop-types';
+import { Badge } from '@/components/ui/badge.jsx';
+import { Button } from '@/components/ui/button.jsx';
+import { Separator } from '@/components/ui/separator.jsx';
 
 const loadAdminPage = () => import('../AdminPage.jsx');
 const loadHistoryPage = () => import('../HistoryPage.jsx');
@@ -26,7 +29,7 @@ function ScanSidebarNav({
   isAdmin
 }) {
   return (
-    <nav className="sidebar">
+    <nav className="sidebar" aria-label="Scan navigation">
       <div className="sidebar__section">
         <p className="sidebar__title">Navigation</p>
         <ul className="sidebar__nav">
@@ -36,29 +39,38 @@ function ScanSidebarNav({
 
             return (
               <li key={item.id}>
-                <button
+                <Button
                   type="button"
-                  className={`sidebar__link ${isActive ? 'is-active' : ''}`}
+                  variant={isActive ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="sidebar__link justify-start"
                   onClick={() => !disabled && onSectionChange(item.id)}
                   disabled={disabled}
                 >
                   {item.id === 'homepage' ? (
                     <span className="sidebar__link-content">
                       <span>{item.label}</span>
-                      <span className="sidebar__link-meta">{homepageNavSummary}</span>
+                      <Badge variant="secondary" className="sidebar__link-meta">
+                        {homepageNavSummary}
+                      </Badge>
                     </span>
                   ) : (
                     item.label
                   )}
-                </button>
+                </Button>
               </li>
             );
           })}
+          <li>
+            <Separator />
+          </li>
           {onOpenHistory && (
             <li>
-              <button
+              <Button
                 type="button"
-                className="sidebar__link"
+                variant="ghost"
+                size="sm"
+                className="sidebar__link justify-start"
                 onClick={onOpenHistory}
                 onMouseEnter={() => {
                   void loadHistoryPage();
@@ -68,14 +80,16 @@ function ScanSidebarNav({
                 }}
               >
                 History view
-              </button>
+              </Button>
             </li>
           )}
           {onOpenAdmin && (
             <li>
-              <button
+              <Button
                 type="button"
-                className="sidebar__link"
+                variant="ghost"
+                size="sm"
+                className="sidebar__link justify-start"
                 onClick={onOpenAdmin}
                 onMouseEnter={() => {
                   void loadAdminPage();
@@ -85,7 +99,7 @@ function ScanSidebarNav({
                 }}
               >
                 Admin view
-              </button>
+              </Button>
             </li>
           )}
         </ul>

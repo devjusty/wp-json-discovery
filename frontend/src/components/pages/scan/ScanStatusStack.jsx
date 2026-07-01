@@ -1,4 +1,5 @@
 import PropTypes from 'prop-types';
+import { Card, CardContent } from '@/components/ui/card.jsx';
 
 function ScanStatusStack({
   isScanning,
@@ -10,24 +11,24 @@ function ScanStatusStack({
   return (
     <>
       {isScanning ? (
-        <div className="card card--info" role="status" aria-live="polite">
-          <div className="card__content">
+        <Card className="card card--info" role="status" aria-live="polite">
+          <CardContent>
             <p>Scanning {activeDomain}…</p>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       ) : null}
 
       {homepageIsRunning ? (
-        <div className="card card--info" role="status" aria-live="polite">
-          <div className="card__content">
+        <Card className="card card--info" role="status" aria-live="polite">
+          <CardContent>
             <p>Analyzing homepage source signals for {activeDomain}…</p>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       ) : null}
 
       {scanError ? (
-        <div className="card card--error" role="alert">
-          <div className="card__content">
+        <Card className="card card--error" role="alert">
+          <CardContent>
             <p>{scanError?.message ?? 'Scan failed.'}</p>
             {scanError?.code === 'auth_required' ? (
               <ul className="error-hints">
@@ -42,16 +43,16 @@ function ScanStatusStack({
                 <li>Otherwise, remove this domain from the scan list.</li>
               </ul>
             ) : null}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       ) : null}
 
       {homepageError ? (
-        <div className="card card--error" role="alert">
-          <div className="card__content">
+        <Card className="card card--error" role="alert">
+          <CardContent>
             <p>{homepageError?.message ?? 'Homepage source analysis failed.'}</p>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       ) : null}
     </>
   );
