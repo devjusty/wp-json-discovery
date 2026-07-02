@@ -2,7 +2,7 @@ import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { Badge } from '@/components/ui/badge.jsx';
 import { Button } from '@/components/ui/button.jsx';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,7 +45,7 @@ function RecentDomainsCard({
       aria-label="Recent scanned domains"
       className={`recent-domains-card ${isExpanded ? 'recent-domains-card--expanded' : 'recent-domains-card--collapsed'}`}
     >
-      <CardHeader className="card__content card__content--cta">
+      <CardHeader>
         <div>
           <CardTitle className="cta-title">Recent scanned domains</CardTitle>
           <CardDescription>
@@ -53,7 +53,7 @@ function RecentDomainsCard({
           </CardDescription>
           <p className="card__meta recent-domains-card__status">{availabilityLabel}</p>
         </div>
-        <div className="cta-actions">
+        <CardAction>
           {onClearRecentDomains ? (
             <Button type="button" variant="ghost" size="sm" onClick={() => setIsClearDialogOpen(true)}>
               Clear recent domains
@@ -69,11 +69,11 @@ function RecentDomainsCard({
               size="sm"
               className="recent-domains__history-button"
               onClick={onOpenHistory}
-            >
-              Open history
-            </Button>
-          )}
-        </div>
+              >
+                Open history
+              </Button>
+            )}
+        </CardAction>
       </CardHeader>
       {isExpanded ? (
         <CardContent>
@@ -85,7 +85,7 @@ function RecentDomainsCard({
             <ul className="recent-domains-list">
               {items.map((item) => (
                 <li key={item.domain}>
-                  <div className="recent-domains-list__entry">
+                  <Card className="recent-domains-list__entry">
                     <Button
                       type="button"
                       variant="ghost"
@@ -123,11 +123,11 @@ function RecentDomainsCard({
                     <div className="recent-domains-list__action">
                       {item.isSaved ? (
                         <Badge variant="secondary">Saved to My Scans</Badge>
-                      ) : (
-                        <SaveScanButton domain={item.domain} onSaved={onSaved} />
-                      )}
-                    </div>
-                  </div>
+                        ) : (
+                          <SaveScanButton domain={item.domain} onSaved={onSaved} />
+                        )}
+                      </div>
+                  </Card>
                 </li>
               ))}
             </ul>

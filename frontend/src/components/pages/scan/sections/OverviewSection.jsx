@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import ScanSummary from '../../../organisms/summary/ScanSummary.jsx';
 import ExposurePanel from '../../../organisms/panels/ExposurePanel.jsx';
 import PerformancePanel from '../../../organisms/panels/PerformancePanel.jsx';
@@ -51,7 +51,7 @@ function HomepageOverviewCard({
 }) {
   return (
     <Card role="status" aria-label="Homepage source signals">
-      <CardHeader className="card__content card__content--cta">
+      <CardHeader>
         <div>
           <CardTitle className="cta-title">Homepage source signals</CardTitle>
           {result ? (
@@ -66,9 +66,9 @@ function HomepageOverviewCard({
             </CardDescription>
           )}
         </div>
-        <div className="cta-actions">
+        <CardAction>
           <span className="card__meta">Runs automatically with each new scan.</span>
-        </div>
+        </CardAction>
       </CardHeader>
       <CardContent />
     </Card>

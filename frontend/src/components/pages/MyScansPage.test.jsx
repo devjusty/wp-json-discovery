@@ -39,7 +39,8 @@ describe('MyScansPage', () => {
       />
     );
 
-    expect(screen.getByRole('table', { name: 'Saved scans' })).toBeInTheDocument();
+    const savedScansRegion = screen.getByRole('region', { name: 'Saved scans' });
+    expect(within(savedScansRegion).getByRole('table', { name: 'Saved scans' })).toBeInTheDocument();
 
     const domainButton = await screen.findByRole('button', { name: /example\.com/i });
     await user.click(domainButton);

@@ -75,6 +75,31 @@ describe('scan section cards', () => {
     expect(screen.getByRole('status', { name: 'Homepage source signals' })).toBeInTheDocument();
   });
 
+  it('uses a shadcn card action slot for the overview homepage tile', () => {
+    const { container } = render(
+      <OverviewSection
+        scanResult={{
+          domain: 'example.com',
+          fetchedAt: '2026-07-01T10:00:00.000Z',
+          summary: {},
+          namespaces: [],
+          metrics: {},
+          plugins: { matched: [], unsupportedNamespaces: [] },
+          core: [],
+          performance: {},
+          contentOverview: {},
+          exposure: {}
+        }}
+        homepageDomain="example.com"
+        homepageResult={null}
+      />
+    );
+
+    const homepageTile = screen.getByRole('status', { name: 'Homepage source signals' });
+    expect(homepageTile).toBeInTheDocument();
+    expect(container.querySelector('[data-slot="card-action"]')).toBeInTheDocument();
+  });
+
   it('labels the plugins empty and unsupported notices as cards', () => {
     render(
       <PluginsSection

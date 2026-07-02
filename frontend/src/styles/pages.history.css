@@ -136,6 +136,7 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
 }
 
 .recent-domains-card {
@@ -161,10 +162,6 @@
 
 .recent-domains-list__item {
   width: 100%;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface-muted);
-  border-radius: 10px;
-  padding: 0.65rem 0.75rem;
   display: flex;
   align-items: center;
   justify-content: space-between;

@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { request } from '../../api/client.js';
 import { clearUserSavedScans } from '../../api/client.js';
 import { Button } from '@/components/ui/button';
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -88,15 +89,13 @@ function MyScansPage({ headerActions, onNavigate, onUseDomain, onRescan }) {
       {error ? <p className="text-error">{error}</p> : null}
       {loading ? <p>Loading...</p> : null}
 
-      <div className="card">
-        <div className="card__header">
+      <Card role="region" aria-label="Saved scans">
+        <CardHeader>
           <div>
-            <h2>Saved scans</h2>
-            <p className="card__meta">
-              Domains you saved from previous scans.
-            </p>
+            <CardTitle>Saved scans</CardTitle>
+            <CardDescription>Domains you saved from previous scans.</CardDescription>
           </div>
-          <div className="card__actions">
+          <CardAction>
             <Button
               type="button"
               variant="ghost"
@@ -106,9 +105,9 @@ function MyScansPage({ headerActions, onNavigate, onUseDomain, onRescan }) {
             >
               Clear saved scans
             </Button>
-          </div>
-        </div>
-        <div className="card__content">
+          </CardAction>
+        </CardHeader>
+        <CardContent>
           {!loading && scans.length === 0 ? (
             <p>No saved scans yet. Run a scan and click "Save to My Scans" to add one.</p>
           ) : (
@@ -143,8 +142,8 @@ function MyScansPage({ headerActions, onNavigate, onUseDomain, onRescan }) {
               </TableBody>
             </Table>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       <AlertDialog open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>
         <AlertDialogContent>

@@ -54,7 +54,7 @@ describe('RecentDomainsCard', () => {
   });
 
   it('keeps scan time and status inline within the domain row', () => {
-    render(
+    const { container } = render(
       <RecentDomainsCard
         items={[
           {
@@ -81,6 +81,10 @@ describe('RecentDomainsCard', () => {
     expect(itemRow).toContainElement(screen.getByText('saved.example.com'));
     expect(itemRow).toContainElement(screen.getByText(/Last scan/i));
     expect(itemRow).toContainElement(screen.getByText('Status failed'));
+
+    const listItem = screen.getByText('saved.example.com').closest('li');
+    expect(listItem?.querySelectorAll('[data-slot="card"]')).toHaveLength(1);
+    expect(screen.getByRole('region', { name: 'Recent scanned domains' }).querySelector('[data-slot="card-action"]')).toBeInTheDocument();
   });
 
   it('asks for confirmation before clearing recent domains', async () => {
