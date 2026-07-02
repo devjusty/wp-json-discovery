@@ -16,6 +16,7 @@ describe('AppLayout', () => {
     await user.click(screen.getByRole('button', { name: 'Open navigation' }));
 
     const dialog = await screen.findByRole('dialog', { name: 'Navigation' });
+    expect(within(dialog).getByText('Browse primary sections.')).toBeInTheDocument();
     expect(within(dialog).getByText('Sidebar content')).toBeInTheDocument();
   });
 });
