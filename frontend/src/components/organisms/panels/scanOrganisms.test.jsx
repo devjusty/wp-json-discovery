@@ -53,7 +53,7 @@ describe('scan organism panels', () => {
     );
 
     expect(screen.getByRole('region', { name: 'Frameworks & assets' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'HTML preview' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'HTML preview' })).toBeInTheDocument();
     expect(screen.getByText('plugin')).toHaveAttribute('data-slot', 'badge');
   });
 

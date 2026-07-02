@@ -233,3 +233,27 @@ export async function fetchUserRecentRuns(limit = 8) {
   }
   return result.data;
 }
+
+export async function clearUserRecentRuns() {
+  const result = await request('/api/user/scans/recent-runs', {
+    method: 'DELETE'
+  });
+
+  if (!result.ok) {
+    throw new Error('Failed to clear recent scan runs');
+  }
+
+  return result.data;
+}
+
+export async function clearUserSavedScans() {
+  const result = await request('/api/user/scans', {
+    method: 'DELETE'
+  });
+
+  if (!result.ok) {
+    throw new Error('Failed to clear saved scans');
+  }
+
+  return result.data;
+}

@@ -1,5 +1,18 @@
 import { memo } from 'react';
 import PropTypes from 'prop-types';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  BrickWallShieldIcon,
+  ClockIcon,
+  DashboardSquare01Icon,
+  Database01Icon,
+  File01Icon,
+  FileCodeIcon,
+  FileSignalIcon,
+  HistoryIcon,
+  Home01Icon,
+  ListRestartIcon
+} from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
 
 const ADMIN_SECTION_ANCHORS = {
@@ -47,6 +60,23 @@ const ADMIN_SECTION_ANCHORS = {
   ]
 };
 
+const ADMIN_NAV_ICONS = {
+  scan: Home01Icon,
+  history: HistoryIcon,
+  admin: DashboardSquare01Icon,
+  db: Database01Icon,
+  maintenance: ListRestartIcon,
+  unsupported: BrickWallShieldIcon,
+  domains: File01Icon,
+  logs: FileSignalIcon,
+  heartbeat: ClockIcon,
+  plugins: FileCodeIcon,
+  'plugin-manager': DashboardSquare01Icon,
+  themes: File01Icon,
+  'theme-manager': DashboardSquare01Icon,
+  assets: FileSignalIcon
+};
+
 function AdminSidebarNav({
   activeSection,
   onNavigate,
@@ -78,16 +108,19 @@ function AdminSidebarNav({
         <ul className="sidebar__nav">
           <li>
             <Button type="button" variant="ghost" size="sm" className="sidebar__link" onClick={() => onNavigate('scan')}>
+              <HugeiconsIcon aria-hidden="true" icon={ADMIN_NAV_ICONS.scan} className="sidebar__link-icon" />
               Go to current scan
             </Button>
           </li>
           <li>
             <Button type="button" variant="ghost" size="sm" className="sidebar__link" onClick={() => onNavigate('history')}>
+              <HugeiconsIcon aria-hidden="true" icon={ADMIN_NAV_ICONS.history} className="sidebar__link-icon" />
               View scan history
             </Button>
           </li>
           <li>
             <Button type="button" variant="secondary" size="sm" className="sidebar__link is-active" onClick={() => onNavigate('admin')} aria-current="page">
+              <HugeiconsIcon aria-hidden="true" icon={ADMIN_NAV_ICONS.admin} className="sidebar__link-icon" />
               Admin (current)
             </Button>
           </li>
@@ -115,6 +148,7 @@ function AdminSidebarNav({
                 onMouseEnter={() => onPrefetchSection(sectionKey)}
                 onFocus={() => onPrefetchSection(sectionKey)}
               >
+                <HugeiconsIcon aria-hidden="true" icon={ADMIN_NAV_ICONS[sectionKey]} className="sidebar__link-icon" />
                 {label}
               </Button>
               {renderSectionAnchors(sectionKey)}

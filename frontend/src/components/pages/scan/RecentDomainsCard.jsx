@@ -1,7 +1,18 @@
+import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { Badge } from '@/components/ui/badge.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from '@/components/ui/alert-dialog.jsx';
 import SaveScanButton from '../../organisms/panels/SaveScanButton.jsx';
 
 function formatTimestamp(value) {
@@ -17,8 +28,10 @@ function RecentDomainsCard({
   onToggleExpanded,
   onOpenHistory,
   onRescan,
-  onSaved
+  onSaved,
+  onClearRecentDomains
 }) {
+  const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const buttonLabel = isExpanded ? 'Hide recent domains' : 'Show recent domains';
   const availabilityLabel = isLoading
     ? 'Fetching recent scans…'
@@ -41,6 +54,11 @@ function RecentDomainsCard({
           <p className="card__meta recent-domains-card__status">{availabilityLabel}</p>
         </div>
         <div className="cta-actions">
+          {onClearRecentDomains ? (
+            <Button type="button" variant="ghost" size="sm" onClick={() => setIsClearDialogOpen(true)}>
+              Clear recent domains
+            </Button>
+          ) : null}
           <Button type="button" variant="ghost" size="sm" onClick={onToggleExpanded}>
             {buttonLabel}
           </Button>
@@ -76,21 +94,29 @@ function RecentDomainsCard({
                       onClick={() => onRescan(item.domain)}
                       disabled={isScanning}
                     >
-                      <span className="recent-domains-list__item-main">
-                        <span className="recent-domains-list__domain">{item.domain}</span>
-                        <span className="recent-domains-list__meta">
-                          Last scan {formatTimestamp(item.lastScannedAt)}
-                        </span>
-                        {item.savedAt ? (
-                          <span className="recent-domains-list__meta">
-                            Saved {formatTimestamp(item.savedAt)}
+                      <span className="recent-domains-list__item-main recent-domains-list__item-main--inline">
+                        <span className="recent-domains-list__item-row">
+                          <span className="recent-domains-list__item-primary">
+                            <span className="recent-domains-list__domain">{item.domain}</span>
+                            {item.savedAt ? (
+                              <span className="recent-domains-list__meta">
+                                Saved {formatTimestamp(item.savedAt)}
+                              </span>
+                            ) : null}
                           </span>
-                        ) : null}
+                          <span className="recent-domains-list__summary">
+                            <span className="recent-domains-list__meta">
+                              Last scan {formatTimestamp(item.lastScannedAt)}
+                            </span>
+                            {item.lastStatus ? (
+                              <Badge variant="secondary" className="recent-domains-list__status">
+                                Status {item.lastStatus}
+                              </Badge>
+                            ) : null}
+                          </span>
+                        </span>
                         {item.notes ? (
                           <span className="recent-domains-list__notes">{item.notes}</span>
-                        ) : null}
-                        {item.lastStatus ? (
-                          <Badge variant="secondary">Status {item.lastStatus}</Badge>
                         ) : null}
                       </span>
                     </Button>
@@ -108,6 +134,28 @@ function RecentDomainsCard({
           )}
         </CardContent>
       ) : null}
+
+      <AlertDialog open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear recent domains?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes only the recent scan list for your account. Saved scans stay in My Scans.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                await onClearRecentDomains?.();
+                setIsClearDialogOpen(false);
+              }}
+            >
+              Clear recent scans
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
@@ -123,7 +171,8 @@ RecentDomainsCard.propTypes = {
   onToggleExpanded: PropTypes.func.isRequired,
   onOpenHistory: PropTypes.func,
   onRescan: PropTypes.func.isRequired,
-  onSaved: PropTypes.func
+  onSaved: PropTypes.func,
+  onClearRecentDomains: PropTypes.func
 };
 
 RecentDomainsCard.defaultProps = {
@@ -131,7 +180,8 @@ RecentDomainsCard.defaultProps = {
   items: [],
   isScanning: false,
   isExpanded: false,
-  onSaved: undefined
+  onSaved: undefined,
+  onClearRecentDomains: undefined
 };
 
 export default RecentDomainsCard;

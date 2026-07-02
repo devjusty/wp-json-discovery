@@ -13,7 +13,6 @@ describe('ScanSidebarNav', () => {
       <ScanSidebarNav
         activeSection="overview"
         hasScanResult={false}
-        homepageNavSummary="No signals yet"
         onSectionChange={onSectionChange}
         onOpenHistory={onOpenHistory}
         onOpenAdmin={onOpenAdmin}
@@ -22,8 +21,11 @@ describe('ScanSidebarNav', () => {
 
     expect(screen.getByRole('navigation', { name: 'Scan navigation' })).toBeInTheDocument();
 
+    expect(screen.getByRole('button', { name: 'Overview' }).querySelector('svg')).not.toBeNull();
     expect(screen.getByRole('button', { name: 'Overview' })).toBeDisabled();
-    expect(screen.getByText('No signals yet')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Homepage source/i }).querySelector('svg')).not.toBeNull();
+    expect(screen.getByRole('button', { name: /Homepage source/i }).querySelector('[data-slot="badge"]')).toBeNull();
+    expect(screen.queryByText('No signals yet')).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'History view' }));
     expect(onOpenHistory).toHaveBeenCalledTimes(1);
@@ -42,7 +44,6 @@ describe('ScanSidebarNav', () => {
       <ScanSidebarNav
         activeSection="overview"
         hasScanResult
-        homepageNavSummary="S200 · M3 · A12 · F1"
         onSectionChange={onSectionChange}
         onOpenHistory={vi.fn()}
         onOpenAdmin={vi.fn()}

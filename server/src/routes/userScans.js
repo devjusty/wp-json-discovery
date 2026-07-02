@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { wrapAsync } from '../utils/route.js';
-import { claimDomain, getUserDomains, unclaimDomain, getUserRecentRuns } from '../db/userScans.js';
+import { claimDomain, getUserDomains, unclaimDomain, getUserRecentRuns, clearUserRecentRuns, clearUserSavedScans } from '../db/userScans.js';
 
 export default function createUserScanRoutes() {
   const router = Router();
@@ -16,6 +16,11 @@ export default function createUserScanRoutes() {
     res.json({ items: runs });
   }));
 
+  router.delete('/recent-runs', wrapAsync(async (req, res) => {
+    await clearUserRecentRuns(req.user.sub);
+    res.json({ ok: true });
+  }));
+
   router.post('/', wrapAsync(async (req, res) => {
     const { domain, notes } = req.body;
     if (!domain || typeof domain !== 'string') {
@@ -27,6 +32,11 @@ export default function createUserScanRoutes() {
 
   router.delete('/:domain', wrapAsync(async (req, res) => {
     await unclaimDomain(req.user.sub, req.params.domain);
+    res.json({ ok: true });
+  }));
+
+  router.delete('/', wrapAsync(async (req, res) => {
+    await clearUserSavedScans(req.user.sub);
     res.json({ ok: true });
   }));
 

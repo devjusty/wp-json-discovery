@@ -1,7 +1,9 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vitest';
 import ScanPage from './ScanPage.jsx';
+import { clearUserRecentRuns } from '../../api/client.js';
 
 vi.mock('../templates/AppLayout.jsx', () => ({
   default: ({ children, sidebar, title }) => (
@@ -53,7 +55,12 @@ vi.mock('./scan/ScanSidebarNav.jsx', () => ({
 }));
 
 vi.mock('./scan/RecentDomainsCard.jsx', () => ({
-  default: () => <section aria-label="Recent scanned domains">Recent domains</section>
+  default: ({ onClearRecentDomains }) => (
+    <section aria-label="Recent scanned domains">
+      Recent domains
+      <button type="button" onClick={onClearRecentDomains}>Clear recent domains</button>
+    </section>
+  )
 }));
 
 vi.mock('./scan/ScanStatusStack.jsx', () => ({
@@ -67,7 +74,8 @@ vi.mock('./scan/ScanSectionContent.jsx', () => ({
 vi.mock('../../api/client.js', () => ({
   fetchUnsupportedPlugins: vi.fn().mockResolvedValue([]),
   fetchUserRecentRuns: vi.fn().mockResolvedValue({ items: [] }),
-  request: vi.fn().mockResolvedValue({ ok: true, data: { domains: [] } })
+  request: vi.fn().mockResolvedValue({ ok: true, data: { domains: [] } }),
+  clearUserRecentRuns: vi.fn().mockResolvedValue({ ok: true })
 }));
 
 vi.mock('../../utils/scanFeed.js', () => ({
@@ -92,5 +100,27 @@ describe('ScanPage', () => {
 
     expect(screen.getByRole('navigation', { name: 'Scan navigation' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Recent scanned domains' })).toBeInTheDocument();
+  });
+
+  it('clears the current user recent scans from the scan card', async () => {
+    const user = userEvent.setup();
+
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false
+        }
+      }
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ScanPage isAuthenticated />
+      </QueryClientProvider>
+    );
+
+    await user.click(screen.getByRole('button', { name: /clear recent domains/i }));
+
+    expect(clearUserRecentRuns).toHaveBeenCalledTimes(1);
   });
 });

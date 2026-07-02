@@ -16,6 +16,7 @@ function ScanSectionContent({
   scanResult,
   homepageResult,
   homepageDomain,
+  homepageSummary,
   startSitemapScan,
   sitemapResult,
   isSitemapRunning,
@@ -65,6 +66,7 @@ function ScanSectionContent({
         <HomepageSection
           homepageResult={homepageResult}
           homepageDomain={homepageDomain}
+          homepageSummary={homepageSummary}
         />
       );
     case 'sitemap':
@@ -103,6 +105,7 @@ ScanSectionContent.propTypes = {
   scanResult: PropTypes.object,
   homepageResult: PropTypes.object,
   homepageDomain: PropTypes.string,
+  homepageSummary: PropTypes.string,
   startSitemapScan: PropTypes.func.isRequired,
   sitemapResult: PropTypes.object,
   isSitemapRunning: PropTypes.bool,
@@ -118,6 +121,7 @@ ScanSectionContent.defaultProps = {
   scanResult: null,
   homepageResult: null,
   homepageDomain: '',
+  homepageSummary: '',
   sitemapResult: null,
   isSitemapRunning: false,
   unsupportedPlugins: [],

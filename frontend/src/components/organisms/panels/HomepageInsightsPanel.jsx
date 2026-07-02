@@ -1,6 +1,8 @@
 import PropTypes from 'prop-types';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible.jsx';
 
 function HomepageInsightsPanel({ insights, htmlPreview }) {
   if (!insights) {
@@ -107,23 +109,30 @@ function HomepageInsightsPanel({ insights, htmlPreview }) {
       </Card>
 
       {hasSignals ? (
-        <Card role="region" aria-label="HTML preview">
-          <CardHeader>
-            <div>
-              <h2>HTML preview</h2>
-              <p className="card__meta">
-                Truncated excerpt of the fetched HTML (first 2,000 characters).
-              </p>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <pre className="code-block">
-              {htmlPreview && htmlPreview.length > 0
-                ? htmlPreview
-                : 'Preview unavailable (empty response).'}
-            </pre>
-          </CardContent>
-        </Card>
+        <Collapsible className="homepage-insights__collapsible">
+          <CollapsibleTrigger render={<Button type="button" variant="ghost" size="sm" className="homepage-insights__toggle" />}>
+            HTML preview
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <Card role="region" aria-label="HTML preview">
+              <CardHeader>
+                <div>
+                  <h2>HTML preview</h2>
+                  <p className="card__meta">
+                    Truncated excerpt of the fetched HTML (first 2,000 characters).
+                  </p>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <pre className="code-block">
+                  {htmlPreview && htmlPreview.length > 0
+                    ? htmlPreview
+                    : 'Preview unavailable (empty response).'}
+                </pre>
+              </CardContent>
+            </Card>
+          </CollapsibleContent>
+        </Collapsible>
       ) : null}
     </div>
   );

@@ -44,11 +44,12 @@ describe('scan section cards', () => {
     expect(screen.getByRole('status', { name: 'Scan prompt' })).toBeInTheDocument();
   });
 
-  it('labels the homepage fallback card as a status region', () => {
-    render(<HomepageSection homepageDomain="example.com" />);
+  it('keeps the raw JSON panel collapsed by default', () => {
+    render(<HomepageSection homepageDomain="example.com" homepageSummary="No signals yet" />);
 
     expect(screen.getByRole('status', { name: 'Homepage source signals' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Raw JSON' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Raw JSON' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Raw JSON' })).not.toBeInTheDocument();
   });
 
   it('labels the overview homepage tile as a status region', () => {

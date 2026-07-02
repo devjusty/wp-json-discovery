@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import { useQuery } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import AppLayout from '../templates/AppLayout.jsx';
 import DomainForm from '../molecules/forms/DomainForm.jsx';
-import { fetchUnsupportedPlugins, fetchUserRecentRuns, request } from '../../api/client.js';
+import {
+  clearUserRecentRuns,
+  fetchUnsupportedPlugins,
+  fetchUserRecentRuns,
+  request
+} from '../../api/client.js';
 import { useSitemapScan } from '../../hooks/useSitemapScan.js';
 import {
   useScanResultsContext,
@@ -52,7 +58,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
   }, [isAdmin, activeSection]);
 
   const homepageDomain = domain || activeDomain;
-  const homepageNavSummary = useMemo(() => {
+  const homepageSummary = useMemo(() => {
     if (homepageIsRunning) {
       return 'Analyzing…';
     }
@@ -102,6 +108,16 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
     void savedScansQuery.refetch();
   }, [recentUserScansQuery, savedScansQuery]);
 
+  const handleClearRecentDomains = useCallback(async () => {
+    try {
+      await clearUserRecentRuns();
+      toast.success('Cleared recent domains');
+      await recentUserScansQuery.refetch();
+    } catch (error) {
+      toast.error(error.message ?? 'Failed to clear recent domains');
+    }
+  }, [recentUserScansQuery]);
+
   useEffect(() => {
     if (scanResult) {
       setActiveSection('overview');
@@ -129,14 +145,13 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
       <ScanSidebarNav
         activeSection={activeSection}
         hasScanResult={Boolean(scanResult)}
-        homepageNavSummary={homepageNavSummary}
         onSectionChange={setActiveSection}
         onOpenHistory={isAdmin ? handleOpenHistory : null}
         onOpenAdmin={isAdmin ? handleOpenAdmin : null}
         isAdmin={isAdmin}
       />
     ),
-    [activeSection, scanResult, homepageNavSummary, handleOpenHistory, handleOpenAdmin, isAdmin]
+    [activeSection, scanResult, handleOpenHistory, handleOpenAdmin, isAdmin]
   );
 
   const subtitle = isScanning
@@ -169,6 +184,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
           onOpenHistory={isAdmin ? handleOpenHistory : null}
           onRescan={startScan}
           onSaved={handleRecentDomainSaved}
+          onClearRecentDomains={handleClearRecentDomains}
         />
       )}
 
@@ -185,6 +201,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
         scanResult={scanResult}
         homepageResult={homepageResult}
         homepageDomain={homepageDomain}
+        homepageSummary={homepageSummary}
         startSitemapScan={startSitemapScan}
         sitemapResult={sitemapResult}
         isSitemapRunning={isSitemapRunning}

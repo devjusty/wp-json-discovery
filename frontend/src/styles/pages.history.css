@@ -204,10 +204,42 @@
   min-width: 0;
 }
 
+.recent-domains-list__item-main--inline {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.recent-domains-list__item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.recent-domains-list__item-primary {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.recent-domains-list__summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
 .recent-domains-list__meta {
   color: var(--color-ink-soft);
   font-size: var(--font-size-sm);
   text-align: left;
+}
+
+.recent-domains-list__status {
+  flex: none;
 }
 
 .recent-domains-list__notes {

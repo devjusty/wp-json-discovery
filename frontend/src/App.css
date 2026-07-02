@@ -376,12 +376,16 @@ body {
 }
 
 .sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
   width: 100%;
   text-align: left;
   border: 1px solid transparent;
+  border-radius: 0;
   background: var(--overlay-surface-subtle);
   color: var(--color-sidebar-text);
-  padding: 0.65rem 0.75rem;
+  padding: 0.7rem 0.8rem;
   font-weight: 600;
   cursor: pointer;
   transition:
@@ -390,19 +394,17 @@ body {
     color 0.2s ease;
 }
 
-.sidebar__link-content {
-  display: grid;
-  gap: 0.15rem;
+.sidebar__link-icon {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  color: currentColor;
+  opacity: 0.9;
 }
 
-.sidebar__link-meta {
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--color-sidebar-muted);
-}
-
-.sidebar__link.is-active .sidebar__link-meta {
-  color: var(--color-sidebar-text);
+.sidebar__link-label {
+  flex: 1;
+  min-width: 0;
 }
 
 .sidebar__link:hover:not(:disabled) {

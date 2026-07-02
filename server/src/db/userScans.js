@@ -40,3 +40,11 @@ export async function getUserRecentRuns(userId, limit = 8) {
     [userId, limit]
   );
 }
+
+export async function clearUserRecentRuns(userId) {
+  await execute('delete from scan_runs where user_id = ?', [userId]);
+}
+
+export async function clearUserSavedScans(userId) {
+  await execute('delete from scan_ownership where user_id = ?', [userId]);
+}

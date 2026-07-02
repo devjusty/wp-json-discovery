@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import MyScansPage from './MyScansPage.jsx';
@@ -20,7 +20,8 @@ vi.mock('../../api/client.js', () => ({
         }
       ]
     }
-  })
+  }),
+  clearUserSavedScans: vi.fn().mockResolvedValue({ ok: true })
 }));
 
 describe('MyScansPage', () => {
@@ -46,5 +47,24 @@ describe('MyScansPage', () => {
 
     await user.click(screen.getByRole('button', { name: /scan again/i }));
     expect(onRescan).toHaveBeenCalledWith('example.com');
+  });
+
+  it('confirms before clearing saved scans', async () => {
+    const user = userEvent.setup();
+    const { clearUserSavedScans } = await import('../../api/client.js');
+
+    render(
+      <MyScansPage
+        headerActions={null}
+        onNavigate={vi.fn()}
+        onUseDomain={vi.fn()}
+        onRescan={vi.fn()}
+      />
+    );
+
+    await user.click(await screen.findByRole('button', { name: /clear saved scans/i }));
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: /clear saved scans/i }));
+
+    expect(clearUserSavedScans).toHaveBeenCalledTimes(1);
   });
 });

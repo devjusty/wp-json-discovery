@@ -1,17 +1,23 @@
 import PropTypes from 'prop-types';
+import { Badge } from '@/components/ui/badge';
 import StatusBadge from '../../molecules/StatusBadge.jsx';
 import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
 
-function HomepageSourcePanel({ source }) {
+function HomepageSourcePanel({ source, summary }) {
   if (!source) {
     return (
       <Card role="region" aria-label="Homepage fetch">
         <CardHeader>
-          <div>
+          <div className="flex flex-col gap-2">
             <h2>Homepage fetch</h2>
             <p className="card__meta">
               Run a new scan to see response status, size, redirects, and MIME type.
             </p>
+            {summary ? (
+              <Badge variant="secondary" className="w-fit">
+                {summary}
+              </Badge>
+            ) : null}
           </div>
         </CardHeader>
         <CardContent>
@@ -34,11 +40,16 @@ function HomepageSourcePanel({ source }) {
   return (
     <Card role="region" aria-label="Homepage fetch">
       <CardHeader>
-        <div>
+        <div className="flex flex-col gap-2">
           <h2>Homepage fetch</h2>
           <p className="card__meta">
             Single GET to the homepage with a 500 KB HTML cap. No sub-resources are fetched.
           </p>
+          {summary ? (
+            <Badge variant="secondary" className="w-fit">
+              {summary}
+            </Badge>
+          ) : null}
         </div>
         <StatusBadge label={source.ok ? 'OK' : 'Check'} tone={source.ok ? 'success' : 'warning'} />
       </CardHeader>
@@ -66,11 +77,13 @@ HomepageSourcePanel.propTypes = {
     redirects: PropTypes.number,
     truncated: PropTypes.bool,
     ok: PropTypes.bool
-  })
+  }),
+  summary: PropTypes.string
 };
 
 HomepageSourcePanel.defaultProps = {
-  source: null
+  source: null,
+  summary: ''
 };
 
 function formatBytes(bytes) {
