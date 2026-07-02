@@ -1,4 +1,4 @@
-import { queryAll, queryOne, execute } from './client.js';
+import { queryOne, execute } from './client.js';
 
 export async function findOrCreateUser(id, email, displayName, role) {
   const existing = await findUserById(id);

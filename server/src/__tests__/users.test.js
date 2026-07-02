@@ -1,7 +1,7 @@
 process.env.NODE_ENV = 'test';
 
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
-import { queryAll, execute } from '../db/client.js';
+import { execute } from '../db/client.js';
 import { findOrCreateUser, findUserById, updateUserRole } from '../db/users.js';
 
 beforeAll(async () => {

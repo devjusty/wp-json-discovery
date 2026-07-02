@@ -1,7 +1,7 @@
 import { URL } from 'node:url';
 import * as cheerio from 'cheerio';
 import { fetchWithRedirects } from './utils/fetch.js';
-import { AppError, NetworkError, ValidationError } from './utils/errors.js';
+import { NetworkError, ValidationError } from './utils/errors.js';
 import { MAX_PAGE_BODY_BYTES, DEFAULT_USER_AGENT } from './config.js';
 import { logSilently } from './logger.js'; // Import logSilently
 import { sanitizeDomain } from './utils/domain.js';

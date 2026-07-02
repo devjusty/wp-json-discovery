@@ -1,6 +1,6 @@
 process.env.NODE_ENV = 'test';
 
-import { describe, it, expect, beforeAll } from '@jest/globals';
+import { describe, it, expect } from '@jest/globals';
 import jwt from 'jsonwebtoken';
 import { createRequireAuth } from '../middleware/requireAuth.js';
 import { createRequireAdmin } from '../middleware/requireAdmin.js';

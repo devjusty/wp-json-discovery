@@ -30,5 +30,5 @@ export const apiRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: rateLimitKey,
-  skip: (req) => false,
+  skip: (_req) => false,
 });

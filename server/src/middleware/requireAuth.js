@@ -61,7 +61,7 @@ export function createRequireAuth(options = {}) {
       };
 
       next();
-    } catch (err) {
+    } catch (_err) {
       req.user = null;
       next();
     }

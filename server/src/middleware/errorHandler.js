@@ -1,7 +1,7 @@
 import { logSilently } from '../logger.js';
-import { AppError, NetworkError, ValidationError } from '../utils/errors.js';
+import { AppError } from '../utils/errors.js';
 
-export function errorHandler(err, req, res, next) {
+export function errorHandler(err, req, res, _next) {
   // Determine status code
   let statusCode = 500;
   let errorName = err.name || 'Error';

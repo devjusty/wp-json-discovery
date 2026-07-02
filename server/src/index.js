@@ -4,7 +4,7 @@ import morgan from 'morgan';
 import path from 'node:path';
 import { stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { parseSitemap, fetchPageDetails, fetchSitemap, fetchAndParseSitemap, fetchAndProcessPageDetails } from './sitemap.js';
+import { fetchAndParseSitemap, fetchAndProcessPageDetails } from './sitemap.js';
 import { logSilently, recordLog, rotateLog, pruneActivityLogs } from './logger.js';
 import { loadEnvFile } from './utils/env.js';
 import { sanitizeDomain } from './utils/domain.js';
@@ -29,7 +29,7 @@ import { wrapAsync } from './utils/route.js';
 import createUserScanRoutes from './routes/userScans.js';
 import createUserNotesRoutes from './routes/userNotes.js';
 import createUserMeRoute from './routes/userMe.js';
-import { execute, getDb, queryAll, queryOne } from './db/client.js';
+import { getDb, queryAll, queryOne } from './db/client.js';
 import {
   assertPluginRegistryReady,
   loadPlugins,
@@ -391,7 +391,7 @@ app.post('/api/unsupported-plugins', (req, res, next) => {
       mode,
       domainsTracked
     });
-  } catch (error) {
+  } catch (_error) {
     const saveError = new AppError('Failed to save unsupported plugin', 500);
     throw saveError;
   }
