@@ -20,6 +20,7 @@ describe('scan organism panels', () => {
     );
 
     expect(screen.getByRole('region', { name: 'Scan summary' })).toBeInTheDocument();
+    expect(screen.getByText('Core REST')).toHaveAttribute('data-slot', 'badge');
   });
 
   it('labels the homepage source fallback as a region', () => {
@@ -34,7 +35,15 @@ describe('scan organism panels', () => {
         insights={{
           meta: [],
           comments: [],
-          assets: [],
+          assets: [
+            {
+              path: '/wp-content/plugins/akismet/akismet.php',
+              count: 1,
+              type: 'plugin',
+              slug: 'akismet',
+              matches: []
+            }
+          ],
           scripts: [],
           frameworks: ['WordPress'],
           other: []
@@ -45,6 +54,7 @@ describe('scan organism panels', () => {
 
     expect(screen.getByRole('region', { name: 'Frameworks & assets' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'HTML preview' })).toBeInTheDocument();
+    expect(screen.getByText('plugin')).toHaveAttribute('data-slot', 'badge');
   });
 
   it('labels plugin routes as a table', () => {

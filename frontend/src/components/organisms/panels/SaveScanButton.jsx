@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
+import { Badge } from '@/components/ui/badge';
 import { request } from '../../../api/client.js';
 
 function SaveScanButton({ domain, onSaved }) {
@@ -34,7 +35,7 @@ function SaveScanButton({ domain, onSaved }) {
   }
 
   if (saved) {
-    return <span className="badge badge--success">Saved to My Scans</span>;
+    return <Badge variant="secondary">Saved to My Scans</Badge>;
   }
 
   return (

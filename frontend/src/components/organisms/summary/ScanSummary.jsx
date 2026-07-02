@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
 import Button from '../../atoms/Button.jsx';
 import { CORE_NAMESPACES } from '../../../config/plugins.js';
@@ -225,9 +226,12 @@ function ScanSummary({
             {visibleNamespaces.map((item) => (
               <li key={item.namespace} className="namespace-pill">
                 <span className="namespace-pill__namespace">{item.namespace}</span>
-                <span className={`namespace-pill__badge namespace-pill__badge--${item.type.toLowerCase()}`}>
+                <Badge
+                  variant="outline"
+                  className={`namespace-pill__badge namespace-pill__badge--${item.type.toLowerCase()}`}
+                >
                   {item.label}
-                </span>
+                </Badge>
               </li>
             ))}
           </ul>

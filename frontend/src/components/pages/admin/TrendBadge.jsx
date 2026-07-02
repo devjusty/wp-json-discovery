@@ -1,7 +1,13 @@
 import PropTypes from 'prop-types';
+import { Badge } from '@/components/ui/badge';
 import { buildSparkline, formatDelta } from './utils.js';
 
-function TrendBadge({ label, values, lowerIsBetter, formatValue }) {
+function TrendBadge({
+  label,
+  values = [],
+  lowerIsBetter = true,
+  formatValue = (value) => String(value)
+}) {
   const lastValue = values.length ? values[values.length - 1] : null;
   const firstValue = values.length ? values[0] : null;
   const hasTrend = values.length >= 2 && Number.isFinite(lastValue) && Number.isFinite(firstValue);
@@ -19,7 +25,7 @@ function TrendBadge({ label, values, lowerIsBetter, formatValue }) {
   const sparkline = buildSparkline(values);
 
   return (
-    <div className={`trend-badge ${toneClass}`}>
+    <Badge variant="outline" render={<div />} className={`trend-badge ${toneClass}`}>
       <div className="trend-badge__header">
         <span className="trend-badge__label">{label}</span>
         <span className="trend-badge__value">
@@ -32,9 +38,9 @@ function TrendBadge({ label, values, lowerIsBetter, formatValue }) {
           {isFlat
             ? 'No trend yet'
             : `${delta > 0 ? '+' : ''}${formatDelta(delta, formatValue)}${pct !== null ? ` (${delta > 0 ? '+' : ''}${pct.toFixed(1)}%)` : ''}`}
-        </span>
-      </div>
-    </div>
+          </span>
+        </div>
+    </Badge>
   );
 }
 
@@ -43,12 +49,6 @@ TrendBadge.propTypes = {
   values: PropTypes.arrayOf(PropTypes.number),
   lowerIsBetter: PropTypes.bool,
   formatValue: PropTypes.func
-};
-
-TrendBadge.defaultProps = {
-  values: [],
-  lowerIsBetter: true,
-  formatValue: (value) => String(value)
 };
 
 export default TrendBadge;

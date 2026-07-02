@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
+import { Badge } from '@/components/ui/badge';
 import { request } from '../../api/client.js';
 
 function NoteEditor({ domain, onNoteSaved }) {
@@ -31,7 +32,7 @@ function NoteEditor({ domain, onNoteSaved }) {
   }
 
   if (saved) {
-    return <span className="badge badge--success">Note saved</span>;
+    return <Badge variant="secondary">Note saved</Badge>;
   }
 
   return (

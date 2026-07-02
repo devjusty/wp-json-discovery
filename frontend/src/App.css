@@ -2238,52 +2238,6 @@ th.sortable .table__sort:hover {
   --sidebar-ring: var(--color-primary);
 }
 
-/* User Menu & Dropdown */
-.user-menu {
-  position: relative;
-  display: inline-block;
-}
-
-.user-menu__dropdown {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 0.5rem;
-  min-width: 140px;
-  background: var(--color-surface-elevated);
-  border: 1px solid var(--color-border);
-  box-shadow: var(--shadow-elev-3);
-  z-index: 50;
-  display: flex;
-  flex-direction: column;
-  padding: 0.25rem;
-}
-
-.user-menu__item {
-  width: 100%;
-  text-align: left;
-  border: none;
-  background: transparent;
-  color: var(--color-ink-dark);
-  font-size: var(--font-size-sm);
-  padding: 0.45rem 0.75rem;
-  cursor: pointer;
-  font-weight: 500;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
-}
-
-.user-menu__item:hover {
-  background: var(--overlay-surface-subtle);
-  color: var(--color-ink-strong);
-}
-
-.user-menu__item:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: -2px;
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;

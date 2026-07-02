@@ -1,4 +1,5 @@
 import PropTypes from 'prop-types';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
 
 function HomepageInsightsPanel({ insights, htmlPreview }) {
@@ -46,7 +47,7 @@ function HomepageInsightsPanel({ insights, htmlPreview }) {
                 <div key={asset.path} className="asset-card">
                   <div className="asset-card__path">{asset.path}</div>
                   <div className="asset-card__meta">
-                    <span className="badge">{asset.type}</span>
+                    <Badge variant="secondary">{asset.type}</Badge>
                     <span className="muted">×{asset.count}</span>
                   </div>
                   {renderAssetMatches(asset)}

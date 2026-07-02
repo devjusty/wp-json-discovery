@@ -1,11 +1,12 @@
 import PropTypes from 'prop-types';
-import clsx from 'clsx';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 function StatusBadge({ label, tone = 'neutral' }) {
   return (
-    <span className={clsx('status-badge', `status-badge--${tone}`)}>
+    <Badge variant="outline" className={cn('status-badge', `status-badge--${tone}`)}>
       {label}
-    </span>
+    </Badge>
   );
 }
 
