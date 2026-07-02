@@ -47,9 +47,63 @@ describe('scan panel details', () => {
             flags: []
           }
         ]}
+        filterValue="all"
       />
     );
 
     expect(screen.getByRole('table', { name: 'Sitemap pages' })).toBeInTheDocument();
+  });
+
+  it('allows long sitemap paths to wrap in the path column', () => {
+    render(
+      <SitemapPagesTable
+        pages={[
+          {
+            url: 'https://example.com/articles/this-is-a-very-long-path-that-should-wrap/and-not-overflow/under-the-status-column',
+            finalUrl: 'https://example.com/articles/this-is-a-very-long-path-that-should-wrap/and-not-overflow/under-the-status-column',
+            statusCode: 200,
+            ok: true,
+            seo: { title: 'Long page' },
+            schema: { types: ['WebPage'] },
+            flags: []
+          }
+        ]}
+        filterValue="all"
+      />
+    );
+
+    expect(
+      screen.getByRole('link', {
+        name: '/articles/this-is-a-very-long-path-that-should-wrap/and-not-overflow/under-the-status-column'
+      }).closest('[data-slot="table-cell"]')
+    ).toHaveClass('!whitespace-normal');
+
+    expect(
+      screen.getByRole('link', {
+        name: '/articles/this-is-a-very-long-path-that-should-wrap/and-not-overflow/under-the-status-column'
+      })
+    ).not.toHaveAttribute('title');
+  });
+
+  it('shows the detected sitemap url and redirect information in the sitemap scan panel', () => {
+    render(
+      <SitemapScanPanel
+        domain="example.com"
+        onScan={() => {}}
+        isRunning={false}
+        result={null}
+        sitemapProbe={{
+          endpoint: '/sitemap.xml',
+          finalUrl: '/sitemap_index.xml',
+          redirectCount: 1,
+          statusCode: 200,
+          durationMs: 80
+        }}
+        sitemapExposure={{ available: true, statusCode: 200 }}
+      />
+    );
+
+    expect(screen.getByText('Detected sitemap')).toBeInTheDocument();
+    expect(screen.getByText('Primary URL: /sitemap_index.xml · Redirected from /sitemap.xml')).toBeInTheDocument();
   });
 });

@@ -71,11 +71,10 @@ function SitemapScanPanel({ domain, onScan, isRunning, result, sitemapProbe, sit
       : null;
   const initialStatusCode = sitemapExposure?.statusCode ?? sitemapProbe?.statusCode ?? null;
   const initialDuration = sitemapProbe?.durationMs ?? null;
-  const initialUrl = sitemapProbe?.finalUrl ?? sitemapProbe?.endpoint ?? '/sitemap.xml';
-  const placeholderUrl =
-    sitemapProbe?.redirectCount > 0 && sitemapProbe?.finalUrl
-      ? sitemapProbe.finalUrl
-      : '';
+  const primarySitemapUrl = sitemapProbe?.finalUrl ?? sitemapProbe?.endpoint ?? '/sitemap.xml';
+  const sitemapRedirectCount = sitemapProbe?.redirectCount ?? 0;
+  const sitemapRedirectSource = sitemapRedirectCount > 0 ? sitemapProbe?.endpoint ?? '/sitemap.xml' : null;
+  const placeholderUrl = sitemapRedirectCount > 0 && sitemapProbe?.finalUrl ? sitemapProbe.finalUrl : '';
 
   const schemaTypesSummary =
     totals.schemaTypes?.length > 0
@@ -139,6 +138,24 @@ function SitemapScanPanel({ domain, onScan, isRunning, result, sitemapProbe, sit
         </div>
       </CardHeader>
       <CardContent>
+        {primarySitemapUrl ? (
+          <div className="stat-chip sitemap-scan__detected-sitemap">
+            <div className="stat-chip__top">
+              <span className="stat-chip__label">Detected sitemap</span>
+              <StatusBadge
+                label={sitemapRedirectCount > 0 ? 'Redirected' : 'Direct'}
+                tone={sitemapRedirectCount > 0 ? 'warning' : 'success'}
+              />
+            </div>
+            <div className="stat-chip__hint">
+              Primary URL: {primarySitemapUrl}
+              {sitemapRedirectSource
+                ? ` · Redirected from ${sitemapRedirectSource}${sitemapRedirectCount > 1 ? ` (${sitemapRedirectCount} hops)` : ''}`
+                : ' · No redirect detected'}
+            </div>
+          </div>
+        ) : null}
+
         {isRunning && (
           <div className="sitemap-scan__progress">
             <span className="sitemap-scan__progress-dot" aria-hidden="true" />
@@ -216,7 +233,7 @@ function SitemapScanPanel({ domain, onScan, isRunning, result, sitemapProbe, sit
                 />
               </div>
               <div className="stat-chip__hint">
-                {initialUrl ? `Last checked: ${initialUrl}` : 'Sitemap availability from initial scan.'}
+                {primarySitemapUrl ? `Last checked: ${primarySitemapUrl}` : 'Sitemap availability from initial scan.'}
                 {initialDuration ? ` · ${initialDuration} ms` : ''}
               </div>
             </div>
@@ -239,7 +256,8 @@ SitemapScanPanel.propTypes = {
     statusCode: PropTypes.number,
     durationMs: PropTypes.number,
     finalUrl: PropTypes.string,
-    endpoint: PropTypes.string
+    endpoint: PropTypes.string,
+    redirectCount: PropTypes.number
   }),
   sitemapExposure: PropTypes.shape({
     available: PropTypes.bool,

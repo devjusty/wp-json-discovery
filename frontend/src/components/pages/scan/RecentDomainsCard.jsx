@@ -43,8 +43,7 @@ function RecentDomainsCard({
     <Card
       role="region"
       aria-label="Recent scanned domains"
-      className={`recent-domains-card ${isExpanded ? 'recent-domains-card--expanded' : 'recent-domains-card--collapsed'}`}
-    >
+      className={`recent-domains-card ${isExpanded ? "recent-domains-card--expanded" : "recent-domains-card--collapsed"}`}>
       <CardHeader>
         <div>
           <CardTitle className="cta-title">Recent scanned domains</CardTitle>
@@ -54,25 +53,24 @@ function RecentDomainsCard({
           <p className="card__meta recent-domains-card__status">{availabilityLabel}</p>
         </div>
         <CardAction>
+          <Button type="button" variant="ghost" size="sm" onClick={onToggleExpanded}>
+            {buttonLabel}
+          </Button>
           {onClearRecentDomains ? (
             <Button type="button" variant="ghost" size="sm" onClick={() => setIsClearDialogOpen(true)}>
               Clear recent domains
             </Button>
           ) : null}
-          <Button type="button" variant="ghost" size="sm" onClick={onToggleExpanded}>
-            {buttonLabel}
-          </Button>
           {onOpenHistory && (
             <Button
               type="button"
               variant="ghost"
               size="sm"
               className="recent-domains__history-button"
-              onClick={onOpenHistory}
-              >
-                Open history
-              </Button>
-            )}
+              onClick={onOpenHistory}>
+              Open history
+            </Button>
+          )}
         </CardAction>
       </CardHeader>
       {isExpanded ? (
@@ -92,16 +90,13 @@ function RecentDomainsCard({
                       size="sm"
                       className="recent-domains-list__item recent-domains-list__item--compact"
                       onClick={() => onRescan(item.domain)}
-                      disabled={isScanning}
-                    >
+                      disabled={isScanning}>
                       <span className="recent-domains-list__item-main recent-domains-list__item-main--inline">
                         <span className="recent-domains-list__item-row">
                           <span className="recent-domains-list__item-primary">
                             <span className="recent-domains-list__domain">{item.domain}</span>
                             {item.savedAt ? (
-                              <span className="recent-domains-list__meta">
-                                Saved {formatTimestamp(item.savedAt)}
-                              </span>
+                              <span className="recent-domains-list__meta">Saved {formatTimestamp(item.savedAt)}</span>
                             ) : null}
                           </span>
                           <span className="recent-domains-list__summary">
@@ -115,18 +110,16 @@ function RecentDomainsCard({
                             ) : null}
                           </span>
                         </span>
-                        {item.notes ? (
-                          <span className="recent-domains-list__notes">{item.notes}</span>
-                        ) : null}
+                        {item.notes ? <span className="recent-domains-list__notes">{item.notes}</span> : null}
                       </span>
                     </Button>
                     <div className="recent-domains-list__action">
                       {item.isSaved ? (
                         <Badge variant="secondary">Saved to My Scans</Badge>
-                        ) : (
-                          <SaveScanButton domain={item.domain} onSaved={onSaved} />
-                        )}
-                      </div>
+                      ) : (
+                        <SaveScanButton domain={item.domain} onSaved={onSaved} />
+                      )}
+                    </div>
                   </Card>
                 </li>
               ))}
@@ -149,8 +142,7 @@ function RecentDomainsCard({
               onClick={async () => {
                 await onClearRecentDomains?.();
                 setIsClearDialogOpen(false);
-              }}
-            >
+              }}>
               Clear recent scans
             </AlertDialogAction>
           </AlertDialogFooter>

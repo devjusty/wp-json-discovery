@@ -147,12 +147,14 @@ function DataTable({
                     <TableRow key={headerGroup.id}>
                       {headerGroup.headers.map((header) => {
                         const sortState = header.column.getIsSorted();
+                        const columnMeta = header.column.columnDef.meta ?? {};
                         return (
                             <TableHead
                               key={header.id}
                               colSpan={header.colSpan}
                               className={clsx({
-                                sortable: header.column.getCanSort()
+                                sortable: header.column.getCanSort(),
+                                [columnMeta.headerClassName]: Boolean(columnMeta.headerClassName)
                               })}
                               aria-sort={
                               sortState === 'asc'
@@ -195,7 +197,10 @@ function DataTable({
               {table.getRowModel().rows.map((row) => (
                     <TableRow key={row.id}>
                       {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
+                        <TableCell
+                          key={cell.id}
+                          className={cell.column.columnDef.meta?.cellClassName}
+                        >
                           {flexRender(
                             cell.column.columnDef.cell,
                             cell.getContext()

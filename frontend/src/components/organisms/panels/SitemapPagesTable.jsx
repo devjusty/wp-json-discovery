@@ -138,13 +138,12 @@ function SitemapPagesTable({ pages, filterValue, onFilterChange }) {
                 const targetUrl = page.finalUrl || page.url;
                 return (
                   <TableRow key={page.url} className={page.flags?.includes('fetch_error') ? 'sitemap-table__row--error' : ''}>
-                    <TableCell className="sitemap-table__url-cell">
+                    <TableCell className="sitemap-table__url-cell !whitespace-normal align-top">
                       <a
                         href={targetUrl}
                         target="_blank"
                         rel="noreferrer"
-                        title={targetUrl}
-                        className="sitemap-table__url-link"
+                        className="sitemap-table__url-link block"
                       >
                         {path}
                       </a>

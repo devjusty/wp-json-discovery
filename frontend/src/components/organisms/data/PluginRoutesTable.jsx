@@ -6,7 +6,10 @@ const columns = [
   {
     id: 'path',
     header: 'Route',
-    accessorKey: 'path'
+    accessorKey: 'path',
+    meta: {
+      cellClassName: 'whitespace-normal break-all align-top'
+    }
   },
   {
     id: 'methods',
@@ -23,7 +26,10 @@ const columns = [
     id: 'accepts',
     header: 'Arguments',
     accessorFn: (row) => (row.accepts ?? []).join(', ') || '—',
-    cell: (info) => info.getValue()
+    cell: (info) => info.getValue(),
+    meta: {
+      cellClassName: 'whitespace-normal break-words'
+    }
   },
   {
     id: 'hasSchema',

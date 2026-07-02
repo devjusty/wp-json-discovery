@@ -71,4 +71,31 @@ describe('scan organism panels', () => {
 
     expect(screen.getByRole('table', { name: 'ConvertKit routes' })).toBeInTheDocument();
   });
+
+  it('wraps long plugin route paths in the route table', () => {
+    render(
+      <PluginRoutesTable
+        domain="example.com"
+        pluginMatch={{
+          plugin: { id: 'convertkit', label: 'ConvertKit', description: 'Email', namespaces: ['ck/v1'] },
+          namespaces: ['ck/v1'],
+          routes: [
+            {
+              path: '/ck/v1/routes/this-is-a-very-long-route-path-that-should-wrap-in-the-table',
+              methods: ['GET'],
+              namespace: 'ck/v1',
+              accepts: [],
+              hasSchema: false
+            }
+          ]
+        }}
+      />
+    );
+
+    expect(
+      screen.getByRole('cell', {
+        name: '/ck/v1/routes/this-is-a-very-long-route-path-that-should-wrap-in-the-table'
+      }).closest('[data-slot="table-cell"]')
+    ).toHaveClass('whitespace-normal');
+  });
 });
