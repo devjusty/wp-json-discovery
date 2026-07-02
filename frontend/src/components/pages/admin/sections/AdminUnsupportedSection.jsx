@@ -1,5 +1,12 @@
 import PropTypes from 'prop-types';
 import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select.jsx';
 import Button from '../../../atoms/Button.jsx';
 import TextInput from '../../../atoms/TextInput.jsx';
 import { Badge } from '../../../ui/badge.jsx';
@@ -91,15 +98,16 @@ function AdminUnsupportedSection({
                 </label>
                 <label className="admin-filter-field">
                   Sort
-                  <select
-                    className="select-input"
-                    value={unsupportedSort}
-                    onChange={(event) => setUnsupportedSort(event.target.value)}
-                  >
-                    <option value="lastSeenDesc">Last seen (newest)</option>
-                    <option value="domainsDesc">Most domains</option>
-                    <option value="namespaceAsc">Namespace (A-Z)</option>
-                  </select>
+                  <Select value={unsupportedSort} onValueChange={setUnsupportedSort}>
+                    <SelectTrigger aria-label="Sort">
+                      <SelectValue placeholder="Last seen (newest)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="lastSeenDesc">Last seen (newest)</SelectItem>
+                      <SelectItem value="domainsDesc">Most domains</SelectItem>
+                      <SelectItem value="namespaceAsc">Namespace (A-Z)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </label>
               </div>
               <Table aria-label="Namespace unsupported plugins">

@@ -1,5 +1,12 @@
 import PropTypes from 'prop-types';
 import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select.jsx';
 import TextInput from '../../../atoms/TextInput.jsx';
 
 function AdminSupportedPluginsSection({
@@ -51,15 +58,16 @@ function AdminSupportedPluginsSection({
             </label>
             <label className="admin-filter-field">
               Sort
-              <select
-                className="select-input"
-                value={pluginCatalogSort}
-                onChange={(event) => setPluginCatalogSort(event.target.value)}
-              >
-                <option value="labelAsc">Label (A-Z)</option>
-                <option value="namespacesDesc">Namespaces (high-low)</option>
-                <option value="namespacesAsc">Namespaces (low-high)</option>
-              </select>
+              <Select value={pluginCatalogSort} onValueChange={setPluginCatalogSort}>
+                <SelectTrigger aria-label="Sort">
+                  <SelectValue placeholder="Label (A-Z)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="labelAsc">Label (A-Z)</SelectItem>
+                  <SelectItem value="namespacesDesc">Namespaces (high-low)</SelectItem>
+                  <SelectItem value="namespacesAsc">Namespaces (low-high)</SelectItem>
+                </SelectContent>
+              </Select>
             </label>
           </div>
           <div className="admin-table admin-table--plugins">

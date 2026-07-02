@@ -7,11 +7,19 @@ import Button from '../atoms/Button.jsx';
 import TextInput from '../atoms/TextInput.jsx';
 import StatusBadge from '../molecules/StatusBadge.jsx';
 import NoteEditor from '../molecules/NoteEditor.jsx';
+import { Checkbox } from '@/components/ui/checkbox.jsx';
 import {
   Card,
   CardContent,
   CardHeader
 } from '@/components/ui/card.jsx';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select.jsx';
 import {
   Table,
   TableBody,
@@ -25,6 +33,12 @@ import { formatDate, formatDurationMs } from '../../utils/format.js';
 
 const PAGE_SIZE = 20;
 const EMPTY_ITEMS = [];
+
+const SORT_OPTIONS = {
+  recent: 'Most recent',
+  domain: 'Domain (A-Z)',
+  duration: 'Duration (slowest)'
+};
 
 function HistoryPage({ headerActions, onRescan, onUseDomain }) {
   const initialState = getInitialHistoryState();
@@ -162,25 +176,25 @@ function HistoryPage({ headerActions, onRescan, onUseDomain }) {
 
             <label className="history-controls__field" htmlFor="history-sort">
               Sort by
-              <select
-                className="select-input"
-                id="history-sort"
-                value={sort}
-                onChange={(event) => setSort(event.target.value)}
-              >
-                <option value="recent">Most recent</option>
-                <option value="domain">Domain (A-Z)</option>
-                <option value="duration">Duration (slowest)</option>
-              </select>
+              <Select value={sort} onValueChange={setSort}>
+                <SelectTrigger id="history-sort">
+                  <SelectValue>{SORT_OPTIONS[sort] ?? SORT_OPTIONS.recent}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(SORT_OPTIONS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </label>
 
             <label className="history-controls__toggle" htmlFor="history-show-failed">
-              <input
-                className="checkbox-input"
+              <Checkbox
                 id="history-show-failed"
-                type="checkbox"
                 checked={includeFailed}
-                onChange={(event) => setIncludeFailed(event.target.checked)}
+                onCheckedChange={(checked) => setIncludeFailed(Boolean(checked))}
               />
               Include failed scans
             </label>

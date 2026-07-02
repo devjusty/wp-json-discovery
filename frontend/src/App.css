@@ -163,9 +163,11 @@ body {
 }
 
 .app__body--single .app__main {
-  max-width: 1200px;
-  margin: 0 auto;
   width: 100%;
+}
+
+.app__main--full-width {
+  max-width: none;
 }
 
 .app__sidebar {
@@ -730,11 +732,6 @@ th.sortable .table__sort:hover {
 
 .table__page-count {
   color: var(--color-ink-soft);
-}
-
-.table__footer .select-input {
-  margin-left: 0.5rem;
-  font-size: var(--font-size-md);
 }
 
 .table__meta {
@@ -1574,8 +1571,7 @@ th.sortable .table__sort:hover {
   color: var(--color-ink-soft);
 }
 
-.admin-filter-field .text-input,
-.admin-filter-field .select-input {
+.admin-filter-field .text-input {
   border: 1px solid var(--color-border-soft);
   border-radius: var(--control-border-radius);
   padding: var(--control-padding-y) var(--control-padding-x);
@@ -1584,23 +1580,9 @@ th.sortable .table__sort:hover {
   color: var(--color-ink);
 }
 
-.admin-filter-field .select-input {
-  appearance: none;
-  border-color: var(--color-border-strong);
-}
-
-.admin-filter-field .select-input option {
-  background: var(--color-surface-strong);
-  color: var(--color-ink);
-}
-
 .admin-filter-field--compact {
   min-width: 220px;
   justify-items: end;
-}
-
-.admin-filter-field--compact .select-input {
-  min-width: 220px;
 }
 
 .admin-validation-error {
@@ -2074,11 +2056,6 @@ th.sortable .table__sort:hover {
   .admin-filter-field--compact {
     width: 100%;
     justify-items: start;
-  }
-
-  .admin-filter-field--compact .select-input {
-    min-width: 0;
-    width: 100%;
   }
 
   .asset-grid--triple,

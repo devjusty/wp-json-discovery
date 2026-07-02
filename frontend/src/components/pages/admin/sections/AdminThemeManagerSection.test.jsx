@@ -101,4 +101,12 @@ describe('AdminThemeManagerSection', () => {
     const errorCard = screen.getByText('Failed to load themes.').closest('.card--error');
     expect(errorCard).toHaveAttribute('data-slot', 'card');
   });
+
+  it('uses shadcn textarea fields in the theme editor', () => {
+    render(
+      <AdminThemeManagerSection {...buildProps({ showCreateModal: true })} />
+    );
+
+    expect(screen.getAllByRole('textbox').some((element) => element.closest('[data-slot="textarea"]'))).toBe(true);
+  });
 });

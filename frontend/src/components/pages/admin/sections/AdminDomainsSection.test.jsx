@@ -44,6 +44,9 @@ describe('AdminDomainsSection', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Rescan' }));
     expect(onRescan).toHaveBeenCalledWith('alpha.com');
+
+    const sortField = screen.getByText('Sort').closest('label');
+    expect(sortField?.querySelector('[data-slot="select-trigger"]')).toBeInTheDocument();
   });
 
   it('shows empty copy when no domains are present', () => {

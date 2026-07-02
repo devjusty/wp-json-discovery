@@ -2,7 +2,20 @@ import PropTypes from 'prop-types';
 import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
 import Button from '../../../atoms/Button.jsx';
 import TextInput from '../../../atoms/TextInput.jsx';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select.jsx';
 import { formatFullTimestamp } from '../utils.js';
+
+const DOMAIN_SORT_LABELS = {
+  recent: 'Most recently scanned',
+  domainAsc: 'Domain (A-Z)',
+  status: 'Status (failed first)'
+};
 
 function AdminDomainsSection({
   totalDomainEntries,
@@ -39,15 +52,18 @@ function AdminDomainsSection({
             </label>
             <label className="admin-filter-field">
               Sort
-              <select
-                className="select-input"
-                value={domainsSort}
-                onChange={(event) => setDomainsSort(event.target.value)}
-              >
-                <option value="recent">Most recently scanned</option>
-                <option value="domainAsc">Domain (A-Z)</option>
-                <option value="status">Status (failed first)</option>
-              </select>
+              <Select value={domainsSort} onValueChange={setDomainsSort}>
+                <SelectTrigger>
+                  <SelectValue>{DOMAIN_SORT_LABELS[domainsSort] ?? DOMAIN_SORT_LABELS.recent}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(DOMAIN_SORT_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </label>
           </div>
 

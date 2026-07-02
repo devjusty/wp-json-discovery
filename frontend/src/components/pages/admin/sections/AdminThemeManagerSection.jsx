@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { Card, CardAction, CardContent, CardHeader } from '@/components/ui/card.jsx';
+import { Textarea } from '@/components/ui/textarea.jsx';
 import Button from '../../../atoms/Button.jsx';
 import TextInput from '../../../atoms/TextInput.jsx';
 
@@ -200,7 +201,7 @@ function ThemeFormFields({ themeDraft, setThemeDraft, disableId }) {
       </label>
       <label className="stacked-form__label registry-form-grid__full">
         Description
-        <textarea
+        <Textarea
           value={themeDraft.description}
           onChange={(event) => setThemeDraft((prev) => ({ ...prev, description: event.target.value }))}
         />
@@ -216,7 +217,7 @@ function ThemeFormFields({ themeDraft, setThemeDraft, disableId }) {
       </label>
       <label className="stacked-form__label">
         Namespace hints (comma or newline separated)
-        <textarea
+        <Textarea
           value={themeDraft.namespaceHints}
           onChange={(event) => setThemeDraft((prev) => ({ ...prev, namespaceHints: event.target.value }))}
           placeholder="astra-theme-css"
@@ -224,7 +225,7 @@ function ThemeFormFields({ themeDraft, setThemeDraft, disableId }) {
       </label>
       <label className="stacked-form__label">
         Path signals (comma or newline separated)
-        <textarea
+        <Textarea
           value={themeDraft.pathSignals}
           onChange={(event) => setThemeDraft((prev) => ({ ...prev, pathSignals: event.target.value }))}
           placeholder="/wp-content/themes/astra"

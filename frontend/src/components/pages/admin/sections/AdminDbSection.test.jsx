@@ -49,6 +49,6 @@ describe('AdminDbSection', () => {
   it('renders the activity log header controls inside a shadcn card action slot', () => {
     render(<AdminDbSection {...baseProps} />);
 
-    expect(screen.getByText('Type').closest('[data-slot="card-action"]')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Type' }).closest('[data-slot="select-trigger"]')).toBeInTheDocument();
   });
 });

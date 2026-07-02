@@ -11,6 +11,13 @@ import {
 import Button from '../../atoms/Button.jsx';
 import TextInput from '../../atoms/TextInput.jsx';
 import { Card, CardAction, CardContent, CardHeader } from '@/components/ui/card.jsx';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { exportToCsv } from '../../../utils/csv.js';
 import { toCsvFilename } from '../../../utils/format.js';
@@ -65,6 +72,7 @@ function DataTable({
   const { pageIndex, pageSize } = table.getState().pagination;
   const startRow = totalRows === 0 ? 0 : pageIndex * pageSize + 1;
   const endRow = totalRows === 0 ? 0 : Math.min(totalRows, (pageIndex + 1) * pageSize);
+  const pageSizeOptions = [10, 20, 50, 100];
 
   useEffect(() => {
     setPageInputValue(String(pageIndex + 1));
@@ -298,26 +306,27 @@ function DataTable({
                   </Button>
                 </div>
                 <div>
-                <div>
                   <label htmlFor={pageSizeSelectId}>
                     Rows per page
-                    <select
-                      className="select-input"
-                      id={pageSizeSelectId}
-                      value={pageSize}
-                      onChange={(event) => {
-                        table.setPageSize(Number(event.target.value));
+                    <Select
+                      value={String(pageSize)}
+                      onValueChange={(nextValue) => {
+                        table.setPageSize(Number(nextValue));
                         table.setPageIndex(0);
                       }}
                     >
-                      {[10, 20, 50, 100].map((size) => (
-                        <option key={size} value={size}>
-                          {size}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger id={pageSizeSelectId} className="w-20">
+                        <SelectValue>{String(pageSize)}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {pageSizeOptions.map((size) => (
+                          <SelectItem key={size} value={String(size)}>
+                            {size}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </label>
-                </div>
                 </div>
                 <div className="table__meta">
                   {totalRows === 0

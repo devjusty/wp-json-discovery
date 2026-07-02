@@ -105,6 +105,8 @@ describe('HistoryPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Copy domain' }));
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('example.com');
+
+    expect(screen.getByRole('main')).toHaveClass('app__main--full-width');
   });
 
   it('toggles include-failed filter and requests failed scans', async () => {
@@ -147,7 +149,7 @@ describe('HistoryPage', () => {
     renderPage();
     await screen.findByText('healthy.com');
 
-    await userEvent.click(screen.getByLabelText('Include failed scans'));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Include failed scans' }));
 
     await waitFor(() => {
       expect(fetchScanHistory).toHaveBeenLastCalledWith(
@@ -156,6 +158,9 @@ describe('HistoryPage', () => {
     });
 
     await screen.findByText('failed.com');
+
+    expect(screen.getByRole('combobox', { name: 'Sort by' }).closest('[data-slot="select-trigger"]')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Include failed scans' }).closest('[data-slot="checkbox"]')).toBeInTheDocument();
   });
 
   it('supports pagination and loads domain runs panel', async () => {

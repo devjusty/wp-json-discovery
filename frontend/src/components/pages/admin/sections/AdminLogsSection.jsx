@@ -1,5 +1,12 @@
 import PropTypes from 'prop-types';
 import { Card, CardAction, CardContent, CardHeader } from '@/components/ui/card.jsx';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select.jsx';
 import Button from '../../../atoms/Button.jsx';
 import ActivityLogsTable from '../ActivityLogsTable.jsx';
 
@@ -62,16 +69,17 @@ function AdminLogsSection({
               <div className="admin-filters">
                 <label className="admin-filter-field">
                   Type
-                  <select
-                    className="select-input"
-                    value={logTypeFilter}
-                    onChange={(event) => setLogTypeFilter(event.target.value)}
-                  >
-                    <option value="all">All</option>
-                    {logTypes.map((type) => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </select>
+                  <Select value={logTypeFilter} onValueChange={setLogTypeFilter}>
+                    <SelectTrigger aria-label="Type">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      {logTypes.map((type) => (
+                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </label>
               </div>
               <ActivityLogsTable

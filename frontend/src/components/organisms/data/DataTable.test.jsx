@@ -35,4 +35,31 @@ describe('DataTable', () => {
 
     expect(card?.querySelector('[data-slot="card-action"]')).toBeInTheDocument();
   });
+
+  it('renders the rows-per-page control with the shadcn select trigger slot', () => {
+    render(
+      <DataTable
+        domain="example.com"
+        datasetKey="pages"
+        title="Pages"
+        description="Published pages"
+        columns={[
+          {
+            accessorKey: 'title',
+            header: 'Title',
+            cell: ({ getValue }) => getValue()
+          }
+        ]}
+        rows={[{ title: 'About' }]}
+        status="success"
+        error={null}
+        isCollapsed={false}
+        isExpanded={false}
+        onToggleCollapse={vi.fn()}
+        onToggleExpand={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Rows per page').closest('label')?.querySelector('[data-slot="select-trigger"]')).toBeInTheDocument();
+  });
 });
