@@ -31,11 +31,11 @@ function AdminSupportedThemesSection({
             <p className="card__meta">Loading supported themes…</p>
           ) : null}
           {isError ? (
-            <div className="card card--error">
-              <div className="card__content">
+            <Card className="card--error">
+              <CardContent>
                 <p>{errorMessage || 'Unable to load supported themes.'}</p>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           ) : null}
           {!isLoading && !isError ? (
             <>

@@ -10,7 +10,7 @@ import {
 } from '@tanstack/react-table';
 import Button from '../../atoms/Button.jsx';
 import TextInput from '../../atoms/TextInput.jsx';
-import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card.jsx';
+import { Card, CardAction, CardContent, CardHeader } from '@/components/ui/card.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { exportToCsv } from '../../../utils/csv.js';
 import { toCsvFilename } from '../../../utils/format.js';
@@ -90,7 +90,7 @@ function DataTable({
           <h2>{title}</h2>
           {description ? <p className="card__meta">{description}</p> : null}
         </div>
-        <CardFooter className="card__actions">
+        <CardAction className="card__actions">
           <Button
             type="button"
             variant="secondary"
@@ -120,7 +120,7 @@ function DataTable({
               {isCollapsed ? 'Expand table' : 'Collapse'}
             </Button>
           ) : null}
-        </CardFooter>
+        </CardAction>
       </CardHeader>
       <CardContent
         className={clsx({

@@ -151,15 +151,6 @@
   border-color: var(--color-border-soft);
 }
 
-.recent-domains-card--collapsed .card__content--cta {
-  padding-bottom: 1.2rem;
-}
-
-.recent-domains-card--expanded .card__content--cta {
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: 1rem;
-}
-
 .recent-domains-list__item {
   width: 100%;
   display: flex;

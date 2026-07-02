@@ -31,11 +31,11 @@ function AdminSupportedPluginsSection({
             <p className="card__meta">Loading supported plugins…</p>
           ) : null}
           {isError ? (
-            <div className="card card--error">
-              <div className="card__content">
+            <Card className="card--error">
+              <CardContent>
                 <p>{errorMessage || 'Unable to load supported plugins.'}</p>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           ) : null}
           {!isLoading && !isError ? (
             <>

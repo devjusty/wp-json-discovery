@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
+import { Card, CardAction, CardContent, CardHeader } from '@/components/ui/card.jsx';
 import Button from '../../../atoms/Button.jsx';
 import TextInput from '../../../atoms/TextInput.jsx';
 
@@ -35,7 +35,7 @@ function AdminThemeManagerSection({
               Add, edit, or remove themes in the Turso-backed theme registry.
             </p>
           </div>
-          <div className="card__actions">
+          <CardAction>
             <Button type="button" size="sm" onClick={onOpenCreateModal}>
               Add theme
             </Button>
@@ -53,17 +53,17 @@ function AdminThemeManagerSection({
                 Alphabetize theme entries by label.
               </span>
             </span>
-          </div>
+          </CardAction>
         </CardHeader>
         <CardContent>
           {themesQuery.isLoading ? (
             <p className="card__meta">Loading themes…</p>
           ) : themesQuery.isError ? (
-            <div className="card card--error">
-              <div className="card__content">
+            <Card className="card--error">
+              <CardContent>
                 <p>{themesQuery.error?.message ?? 'Failed to load themes.'}</p>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           ) : (
             <div className="admin-table admin-table--theme-manager">
               <div className="admin-table__header">

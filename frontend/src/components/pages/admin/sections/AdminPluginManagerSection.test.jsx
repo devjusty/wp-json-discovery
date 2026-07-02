@@ -57,6 +57,12 @@ describe('AdminPluginManagerSection', () => {
     vi.restoreAllMocks();
   });
 
+  it('renders the create action in a shadcn card action slot', () => {
+    render(<AdminPluginManagerSection {...buildProps()} />);
+
+    expect(screen.getByRole('button', { name: 'Add plugin' }).closest('[data-slot="card-action"]')).toBeInTheDocument();
+  });
+
   it('supports sort/edit/delete actions', async () => {
     const sortPluginsMutation = { mutate: vi.fn(), isPending: false };
     const onOpenCreateModal = vi.fn();
@@ -118,6 +124,7 @@ describe('AdminPluginManagerSection', () => {
       />
     );
 
-    expect(screen.getByText('Load failed')).toBeInTheDocument();
+    const errorCard = screen.getByText('Load failed').closest('.card--error');
+    expect(errorCard).toHaveAttribute('data-slot', 'card');
   });
 });

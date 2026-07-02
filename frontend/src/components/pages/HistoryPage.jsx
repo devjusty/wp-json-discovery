@@ -8,6 +8,11 @@ import TextInput from '../atoms/TextInput.jsx';
 import StatusBadge from '../molecules/StatusBadge.jsx';
 import NoteEditor from '../molecules/NoteEditor.jsx';
 import {
+  Card,
+  CardContent,
+  CardHeader
+} from '@/components/ui/card.jsx';
+import {
   Table,
   TableBody,
   TableCell,
@@ -141,8 +146,8 @@ function HistoryPage({ headerActions, onRescan, onUseDomain }) {
       subtitle="Browse previously scanned sites and re-scan with one click."
       headerActions={headerActions}
     >
-      <div className="card">
-        <div className="card__content">
+      <Card>
+        <CardContent>
           <div className="history-controls">
             <label className="history-controls__field" htmlFor="history-search">
               Search domains
@@ -197,31 +202,31 @@ function HistoryPage({ headerActions, onRescan, onUseDomain }) {
               Failed in view: {historyMetrics.failedCount}
             </span>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {historyQuery.isLoading ? (
-        <div className="card card--info">
-          <div className="card__content">
+        <Card>
+          <CardContent>
             <p>Loading scan history…</p>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       ) : null}
 
       {historyQuery.error ? (
-        <div className="card card--error">
-          <div className="card__content">
+        <Card>
+          <CardContent>
             <p>{historyQuery.error.message ?? 'Failed to load scan history.'}</p>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       ) : null}
 
       {!historyQuery.isLoading && !historyQuery.error && items.length === 0 ? (
-        <div className="card card--info">
-          <div className="card__content">
+        <Card>
+          <CardContent>
             <p>No previously scanned domains match your filters.</p>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       ) : null}
 
       <Table aria-label="Scan history">
@@ -304,8 +309,8 @@ function HistoryPage({ headerActions, onRescan, onUseDomain }) {
       </div>
 
       {activeDomain ? (
-        <div className="card">
-          <div className="card__header">
+        <Card>
+          <CardHeader>
             <div>
               <h2>Recent runs for {activeDomain}</h2>
               <p className="card__meta">
@@ -314,8 +319,8 @@ function HistoryPage({ headerActions, onRescan, onUseDomain }) {
                   : 'Showing successful runs only. Enable include failed to see errors.'}
               </p>
             </div>
-          </div>
-          <div className="card__content">
+          </CardHeader>
+          <CardContent>
             {domainHistoryQuery.isLoading ? (
               <p className="card__meta">Loading run history…</p>
             ) : domainHistoryQuery.error ? (
@@ -342,10 +347,10 @@ function HistoryPage({ headerActions, onRescan, onUseDomain }) {
                     ) : null}
                   </li>
                 ))}
-              </ul>
+                </ul>
             )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       ) : null}
     </AppLayout>
   );

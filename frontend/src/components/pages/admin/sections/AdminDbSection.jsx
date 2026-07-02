@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
-import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
+import { Card, CardAction, CardContent, CardHeader } from '@/components/ui/card.jsx';
 import Button from '../../../atoms/Button.jsx';
 import ActivityLogsTable from '../ActivityLogsTable.jsx';
 import {
@@ -61,7 +61,7 @@ function AdminDbSection({
                   {isRemoteDb ? 'Turso database endpoint' : 'Local database path'}
                 </p>
               </div>
-              <div className="card__actions">
+              <CardAction>
                 <span className="tooltip">
                   <Button
                     type="button"
@@ -76,7 +76,7 @@ function AdminDbSection({
                     Reload DB, logs, heartbeat, and asset summary data.
                   </span>
                 </span>
-              </div>
+              </CardAction>
             </CardHeader>
             <CardContent>
               <ul className="pill-list">
@@ -303,7 +303,7 @@ function AdminDbSection({
               <p className="card__meta">Most recent entries (up to 75).</p>
             </div>
             {activityLogs.length ? (
-              <div className="card__actions">
+              <CardAction>
                 <label className="admin-filter-field admin-filter-field--compact">
                   Type
                   <select
@@ -317,7 +317,7 @@ function AdminDbSection({
                     ))}
                   </select>
                 </label>
-              </div>
+              </CardAction>
             ) : null}
           </CardHeader>
           <CardContent>

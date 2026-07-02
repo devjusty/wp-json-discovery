@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
+import { Card, CardAction, CardContent, CardHeader } from '@/components/ui/card.jsx';
 import Button from '../../../atoms/Button.jsx';
 import ActivityLogsTable from '../ActivityLogsTable.jsx';
 
@@ -25,7 +25,7 @@ function AdminLogsSection({
               Recent activity log rows (up to 75) with payloads.
             </p>
           </div>
-          <div className="card__actions">
+          <CardAction>
             <span className="tooltip">
               <Button
                 type="button"
@@ -54,7 +54,7 @@ function AdminLogsSection({
                 Remove old activity rows by age and keep recent history.
               </span>
             </span>
-          </div>
+          </CardAction>
         </CardHeader>
         <CardContent>
           {activityLogs.length ? (

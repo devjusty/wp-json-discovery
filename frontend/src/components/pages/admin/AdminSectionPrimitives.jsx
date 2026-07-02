@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import PropTypes from 'prop-types';
+import { Card, CardContent } from '@/components/ui/card.jsx';
 
 // Reusable building blocks for section suspense/loading/status UI.
 
@@ -18,11 +19,11 @@ SectionSuspense.propTypes = {
 
 export function SectionLoadingState({ label }) {
   return (
-    <div className="card card--info">
-      <div className="card__content">
+    <Card>
+      <CardContent>
         <p>{label}</p>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -32,11 +33,11 @@ SectionLoadingState.propTypes = {
 
 export function SnapshotStatusCard({ label, tone }) {
   return (
-    <div className={`card ${tone === 'error' ? 'card--error' : 'card--info'}`}>
-      <div className="card__content">
+    <Card className={tone === 'error' ? 'card--error' : 'card--info'}>
+      <CardContent>
         <p>{label}</p>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 

@@ -57,6 +57,12 @@ describe('AdminThemeManagerSection', () => {
     vi.restoreAllMocks();
   });
 
+  it('renders the create action in a shadcn card action slot', () => {
+    render(<AdminThemeManagerSection {...buildProps()} />);
+
+    expect(screen.getByRole('button', { name: 'Add theme' }).closest('[data-slot="card-action"]')).toBeInTheDocument();
+  });
+
   it('supports sort/edit/delete actions', async () => {
     const sortThemesMutation = { mutate: vi.fn(), isPending: false };
     const onOpenCreateModal = vi.fn();
@@ -81,5 +87,18 @@ describe('AdminThemeManagerSection', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
     expect(deleteThemeMutation.mutate).toHaveBeenCalledWith('astra');
+  });
+
+  it('renders the error state inside a shadcn card', () => {
+    render(
+      <AdminThemeManagerSection
+        {...buildProps({
+          themesQuery: { isLoading: false, isError: true, error: new Error('Failed to load themes.') }
+        })}
+      />
+    );
+
+    const errorCard = screen.getByText('Failed to load themes.').closest('.card--error');
+    expect(errorCard).toHaveAttribute('data-slot', 'card');
   });
 });

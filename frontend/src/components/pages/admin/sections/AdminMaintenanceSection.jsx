@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
+import { Card, CardAction, CardContent, CardHeader } from '@/components/ui/card.jsx';
 import Button from '../../../atoms/Button.jsx';
 import { formatBytes, formatFullTimestamp, formatWalSummary } from '../utils.js';
 
@@ -18,7 +18,7 @@ function AdminMaintenanceSection({ data, maintenanceMutation }) {
               Runs integrity checks and records maintenance markers for the active storage mode.
             </p>
           </div>
-          <div className="card__actions">
+          <CardAction>
             <span className="tooltip">
               <Button
                 type="button"
@@ -32,7 +32,7 @@ function AdminMaintenanceSection({ data, maintenanceMutation }) {
                 Run maintenance checks and write the latest maintenance marker.
               </span>
             </span>
-          </div>
+          </CardAction>
         </CardHeader>
         <CardContent>
           <div className="stat-grid">
@@ -53,11 +53,11 @@ function AdminMaintenanceSection({ data, maintenanceMutation }) {
           </div>
 
           {maintenanceMutation.isError ? (
-            <div className="card card--error">
-              <div className="card__content">
+            <Card className="card--error">
+              <CardContent>
                 <p>{maintenanceMutation.error?.message ?? 'Maintenance failed.'}</p>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           ) : null}
 
           {maintenanceData ? (

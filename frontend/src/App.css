@@ -282,14 +282,6 @@ body {
   padding: 1.5rem 1.75rem 1.75rem;
 }
 
-.card__content--cta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
 .cta-title {
   margin: 0;
   font-size: var(--font-size-lg);

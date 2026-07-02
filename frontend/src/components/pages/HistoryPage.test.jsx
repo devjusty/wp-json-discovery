@@ -83,15 +83,22 @@ describe('HistoryPage', () => {
       ],
       total: 1
     }));
+    fetchDomainScanHistory.mockResolvedValueOnce({ runs: [] });
 
     renderPage({ onRescan, onUseDomain });
 
     expect(screen.getByRole('table', { name: 'Scan history' })).toBeInTheDocument();
+    expect(screen.getByText('Search domains').closest('[data-slot="card"]')).toBeInTheDocument();
 
     await screen.findByText('example.com');
 
     await userEvent.click(screen.getByRole('button', { name: 'Use in scanner' }));
     expect(onUseDomain).toHaveBeenCalledWith('example.com');
+
+    await userEvent.click(screen.getByRole('button', { name: 'View runs' }));
+
+    await screen.findByText(/Recent runs for example.com/i);
+    expect(screen.getByText(/Recent runs for example.com/i).closest('[data-slot="card"]')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Re-scan' }));
     expect(onRescan).toHaveBeenCalledWith('example.com');

@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react';
 import PropTypes from 'prop-types';
-import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
+import { Card, CardAction, CardContent, CardHeader } from '@/components/ui/card.jsx';
 import Button from '../../../atoms/Button.jsx';
 import {
   Dialog,
@@ -64,7 +64,7 @@ function AdminPluginManagerSection({
               Add, edit, or remove plugins in the Turso-backed plugin registry.
             </p>
           </div>
-          <div className="card__actions">
+          <CardAction>
             <Button type="button" size="sm" onClick={onOpenCreateModal}>
               Add plugin
             </Button>
@@ -82,17 +82,17 @@ function AdminPluginManagerSection({
                 Alphabetize plugin entries by label.
               </span>
             </span>
-          </div>
+          </CardAction>
         </CardHeader>
         <CardContent>
           {pluginsQuery.isLoading ? (
             <p className="card__meta">Loading plugins…</p>
           ) : pluginsQuery.isError ? (
-            <div className="card card--error">
-              <div className="card__content">
+            <Card className="card--error">
+              <CardContent>
                 <p>{pluginsQuery.error?.message ?? 'Failed to load plugins.'}</p>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           ) : (
             <Table aria-label="Plugin manager">
               <TableHeader>
