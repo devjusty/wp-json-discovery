@@ -9,6 +9,7 @@ import { Telescope01Icon } from "@hugeicons/core-free-icons";
 function AppLayout({ title, subtitle, headerActions, sidebar, children, onNavigate }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const bodyClass = sidebar ? 'app__body' : 'app__body app__body--single';
+  const mainClass = sidebar ? 'app__main' : 'app__main app__main--full-width';
   const BrandTag = onNavigate ? 'button' : 'div';
 
   return (
@@ -42,7 +43,7 @@ function AppLayout({ title, subtitle, headerActions, sidebar, children, onNaviga
       </header>
       <div className={bodyClass}>
         {sidebar ? <aside className="app__sidebar">{sidebar}</aside> : null}
-        <main className="app__main">{children}</main>
+        <main className={mainClass}>{children}</main>
       </div>
       {sidebar ? (
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>

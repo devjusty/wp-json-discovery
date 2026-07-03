@@ -1064,6 +1064,13 @@ th.sortable .table__sort:hover {
   height: 100%;
 }
 
+.sitemap-scan__snapshot-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
 .stat-chip__top {
   display: flex;
   justify-content: space-between;

@@ -48,6 +48,8 @@ describe('MyScansPage', () => {
 
     await user.click(screen.getByRole('button', { name: /scan again/i }));
     expect(onRescan).toHaveBeenCalledWith('example.com');
+
+    expect(screen.getByRole('main')).toHaveClass('app__main--full-width');
   });
 
   it('confirms before clearing saved scans', async () => {

@@ -18,7 +18,7 @@ vi.mock('@auth0/auth0-react', () => ({
 describe('NoteEditor', () => {
   it('renders textarea when authenticated', () => {
     render(<NoteEditor domain="example.com" />);
-    expect(screen.getByPlaceholderText('Add a note about this domain...')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Add a note about this domain...')).toHaveAttribute('data-slot', 'textarea');
   });
 
   it('shows nothing when not authenticated', () => {

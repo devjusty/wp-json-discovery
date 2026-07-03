@@ -106,4 +106,29 @@ describe('scan panel details', () => {
     expect(screen.getByText('Detected sitemap')).toBeInTheDocument();
     expect(screen.getByText('Primary URL: /sitemap_index.xml · Redirected from /sitemap.xml')).toBeInTheDocument();
   });
+
+  it('keeps the detected sitemap and overview snapshot in the same row', () => {
+    render(
+      <SitemapScanPanel
+        domain="example.com"
+        onScan={() => {}}
+        isRunning={false}
+        result={null}
+        sitemapProbe={{
+          endpoint: '/sitemap.xml',
+          finalUrl: '/sitemap_index.xml',
+          redirectCount: 1,
+          statusCode: 200,
+          durationMs: 80
+        }}
+        sitemapExposure={{ available: true, statusCode: 200 }}
+      />
+    );
+
+    const detectedSitemap = screen.getByText('Detected sitemap');
+    const overviewSnapshot = screen.getByText('Overview snapshot');
+
+    expect(detectedSitemap.closest('.sitemap-scan__snapshot-row')).toBe(overviewSnapshot.closest('.sitemap-scan__snapshot-row'));
+    expect(detectedSitemap.closest('.sitemap-scan__snapshot-row')).toHaveClass('sitemap-scan__snapshot-row');
+  });
 });

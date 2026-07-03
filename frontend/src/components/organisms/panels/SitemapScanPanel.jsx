@@ -138,21 +138,41 @@ function SitemapScanPanel({ domain, onScan, isRunning, result, sitemapProbe, sit
         </div>
       </CardHeader>
       <CardContent>
-        {primarySitemapUrl ? (
-          <div className="stat-chip sitemap-scan__detected-sitemap">
-            <div className="stat-chip__top">
-              <span className="stat-chip__label">Detected sitemap</span>
-              <StatusBadge
-                label={sitemapRedirectCount > 0 ? 'Redirected' : 'Direct'}
-                tone={sitemapRedirectCount > 0 ? 'warning' : 'success'}
-              />
-            </div>
-            <div className="stat-chip__hint">
-              Primary URL: {primarySitemapUrl}
-              {sitemapRedirectSource
-                ? ` · Redirected from ${sitemapRedirectSource}${sitemapRedirectCount > 1 ? ` (${sitemapRedirectCount} hops)` : ''}`
-                : ' · No redirect detected'}
-            </div>
+        {primarySitemapUrl || (!result && !isRunning) ? (
+          <div className="sitemap-scan__snapshot-row">
+            {primarySitemapUrl ? (
+              <div className="stat-chip sitemap-scan__detected-sitemap">
+                <div className="stat-chip__top">
+                  <span className="stat-chip__label">Detected sitemap</span>
+                  <StatusBadge
+                    label={sitemapRedirectCount > 0 ? 'Redirected' : 'Direct'}
+                    tone={sitemapRedirectCount > 0 ? 'warning' : 'success'}
+                  />
+                </div>
+                <div className="stat-chip__hint">
+                  Primary URL: {primarySitemapUrl}
+                  {sitemapRedirectSource
+                    ? ` · Redirected from ${sitemapRedirectSource}${sitemapRedirectCount > 1 ? ` (${sitemapRedirectCount} hops)` : ''}`
+                    : ' · No redirect detected'}
+                </div>
+              </div>
+            ) : null}
+
+            {!result && !isRunning ? (
+              <div className="stat-chip sitemap-scan__overview-snapshot">
+                <div className="stat-chip__top">
+                  <span className="stat-chip__label">Overview snapshot</span>
+                  <StatusBadge
+                    label={initialStatusCode ? `HTTP ${initialStatusCode}` : initialStatus || 'Unknown'}
+                    tone={initialStatus === 'Available' ? 'success' : 'warning'}
+                  />
+                </div>
+                <div className="stat-chip__hint">
+                  {primarySitemapUrl ? `Last checked: ${primarySitemapUrl}` : 'Sitemap availability from initial scan.'}
+                  {initialDuration ? ` · ${initialDuration} ms` : ''}
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -222,23 +242,7 @@ function SitemapScanPanel({ domain, onScan, isRunning, result, sitemapProbe, sit
               </div>
             )}
           </div>
-        ) : (
-          !isRunning && (
-            <div className="stat-chip">
-              <div className="stat-chip__top">
-                <span className="stat-chip__label">Overview snapshot</span>
-                <StatusBadge
-                  label={initialStatusCode ? `HTTP ${initialStatusCode}` : initialStatus || 'Unknown'}
-                  tone={initialStatus === 'Available' ? 'success' : 'warning'}
-                />
-              </div>
-              <div className="stat-chip__hint">
-                {primarySitemapUrl ? `Last checked: ${primarySitemapUrl}` : 'Sitemap availability from initial scan.'}
-                {initialDuration ? ` · ${initialDuration} ms` : ''}
-              </div>
-            </div>
-          )
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );

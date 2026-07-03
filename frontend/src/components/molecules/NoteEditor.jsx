@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea.jsx';
 import { request } from '../../api/client.js';
 
 function NoteEditor({ domain, onNoteSaved }) {
@@ -37,8 +38,7 @@ function NoteEditor({ domain, onNoteSaved }) {
 
   return (
     <div className="note-editor">
-      <textarea
-        className="note-editor__input"
+      <Textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder="Add a note about this domain..."
