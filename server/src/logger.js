@@ -297,6 +297,65 @@ function isErrorLikeType(type) {
   return type.includes('error');
 }
 
+const WAF_MARKERS = [
+  'cloudflare',
+  'captcha',
+  'you have been blocked',
+  'attention required',
+  'ray id',
+  'mod_security',
+  'modsecurity',
+  'web application firewall',
+  'waf',
+  'request blocked',
+  'blocked by security',
+  'rate limit',
+  'too many requests',
+  'bot protection',
+  'sucuri',
+  'incapsula',
+  'akamai'
+];
+
+const AUTH_403_MARKERS = [
+  'auth',
+  'unauthorized',
+  'forbidden',
+  'access denied',
+  'permission denied',
+  'login required',
+  'credentials',
+  'restricted'
+];
+
+const NETWORK_MARKERS = [
+  'fetch failed',
+  'failed to reach target domain',
+  'failed to fetch homepage',
+  'failed to fetch sitemap',
+  'failed to fetch page details',
+  'failed to fetch',
+  'networkerror',
+  'socket hang up',
+  'enotfound',
+  'eai_again',
+  'econnrefused',
+  'econnreset',
+  'ehostunreach',
+  'enetunreach',
+  'etimedout',
+  'getaddrinfo',
+  'und_err_connect_timeout'
+];
+
+function includesAny(haystack, values) {
+  return values.some((value) => haystack.includes(value));
+}
+
+function isAuth403(status, haystack) {
+  return status === 403 && includesAny(haystack, AUTH_403_MARKERS);
+}
+
 export function deriveFailureCategory(payload = {}) {
   const message = `${payload.message ?? ''} ${payload.error ?? ''}`.toLowerCase();
   const detailsRaw = stringifyForCategory(payload.details);
@@ -310,71 +369,10 @@ export function deriveFailureCategory(payload = {}) {
   if (haystack.includes('invalid domain')) return 'invalid_domain';
   if (haystack.includes('admin endpoints are disabled')) return 'admin_disabled';
   if (name.includes('payloadtoolargeerror') || haystack.includes('request entity too large')) return 'payload_too_large';
-  if (code === 'auth_required') return 'auth_required';
-  if (
-    haystack.includes('cloudflare') ||
-    haystack.includes('captcha') ||
-    haystack.includes('you have been blocked') ||
-    haystack.includes('attention required') ||
-    haystack.includes('ray id') ||
-    haystack.includes('mod_security') ||
-    haystack.includes('modsecurity') ||
-    haystack.includes('web application firewall') ||
-    haystack.includes('waf') ||
-    haystack.includes('request blocked') ||
-    haystack.includes('blocked by security') ||
-    haystack.includes('rate limit') ||
-    haystack.includes('too many requests') ||
-    haystack.includes('bot protection') ||
-    haystack.includes('sucuri') ||
-    haystack.includes('incapsula') ||
-    haystack.includes('akamai')
-  ) {
-    return 'blocked_waf';
-  }
-  if (status === 401) return 'auth_required';
-  if (
-    status === 403 && (
-      haystack.includes('auth') ||
-      haystack.includes('unauthorized') ||
-      haystack.includes('forbidden') ||
-      haystack.includes('access denied') ||
-      haystack.includes('permission denied') ||
-      haystack.includes('login required') ||
-      haystack.includes('credentials') ||
-      haystack.includes('restricted')
-    )
-  ) {
-    return 'auth_required';
-  }
-  if (
-    haystack.includes('timed out') ||
-    haystack.includes('timeout') ||
-    haystack.includes('aborterror')
-  ) {
-    return 'timeout';
-  }
-  if (
-    haystack.includes('fetch failed') ||
-    haystack.includes('failed to reach target domain') ||
-    haystack.includes('failed to fetch homepage') ||
-    haystack.includes('failed to fetch sitemap') ||
-    haystack.includes('failed to fetch page details') ||
-    haystack.includes('failed to fetch') ||
-    haystack.includes('networkerror') ||
-    haystack.includes('socket hang up') ||
-    haystack.includes('enotfound') ||
-    haystack.includes('eai_again') ||
-    haystack.includes('econnrefused') ||
-    haystack.includes('econnreset') ||
-    haystack.includes('ehostunreach') ||
-    haystack.includes('enetunreach') ||
-    haystack.includes('etimedout') ||
-    haystack.includes('getaddrinfo') ||
-    haystack.includes('und_err_connect_timeout')
-  ) {
-    return 'network_failure';
-  }
+  if (includesAny(haystack, WAF_MARKERS)) return 'blocked_waf';
+  if (status === 401 || code === 'auth_required' || isAuth403(status, haystack)) return 'auth_required';
+  if (includesAny(haystack, ['timed out', 'timeout', 'aborterror'])) return 'timeout';
+  if (includesAny(haystack, NETWORK_MARKERS)) return 'network_failure';
   if (status === 404 && haystack.includes('/wp-json/')) return 'non_wordpress';
   if (haystack.includes('unexpected response from the wordpress api')) return 'non_wordpress';
   if (Number.isFinite(status) && status >= 500) return 'upstream_http_error';

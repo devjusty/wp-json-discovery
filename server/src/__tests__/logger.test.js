@@ -21,6 +21,33 @@ describe('deriveFailureCategory', () => {
     ).toBe('auth_required');
   });
 
+  it('classifies cloudflare and captcha failures as blocked_waf', () => {
+    expect(
+      deriveFailureCategory({
+        message: 'Attention required by Cloudflare captcha',
+        status: 403
+      })
+    ).toBe('blocked_waf');
+  });
+
+  it('classifies request timeouts as timeout', () => {
+    expect(
+      deriveFailureCategory({
+        error: 'AbortError: request timed out',
+        status: 504
+      })
+    ).toBe('timeout');
+  });
+
+  it('classifies wp-json 404 responses as non_wordpress', () => {
+    expect(
+      deriveFailureCategory({
+        message: 'GET /wp-json/ returned 404',
+        status: 404
+      })
+    ).toBe('non_wordpress');
+  });
+
   it('keeps metrics.heartbeat before proxy.response when pruning activity logs', async () => {
     await execute('delete from activity_logs');
 
