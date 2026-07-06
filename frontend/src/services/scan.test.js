@@ -38,7 +38,7 @@ describe('gatherExposure', () => {
     expect(
       gatherExposure({
         rootResult: { ok: false },
-        userProbe: { ok: false, status: 403, headers: {}, data: [] },
+        userProbe: null,
         settingsProbe: null,
         xmlrpcProbe: null,
         robotsProbe: null,
@@ -47,7 +47,7 @@ describe('gatherExposure', () => {
       })
     ).toMatchObject({
       restApiAvailable: false,
-      userEnumeration: { open: false, statusCode: 403, total: null, sample: null },
+      userEnumeration: { open: false, statusCode: null, total: null, sample: null },
       settingsExposed: { open: false, statusCode: null },
       xmlrpc: { enabled: false, statusCode: null },
       robotsTxt: { available: false, statusCode: null },
