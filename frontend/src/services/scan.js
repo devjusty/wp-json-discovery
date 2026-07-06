@@ -453,36 +453,43 @@ function getHeader(headers, name) {
   return entry ? entry[1] : undefined;
 }
 
-function gatherExposure({ rootResult, userProbe, settingsProbe, xmlrpcProbe, robotsProbe, sitemapProbe, uploadsProbe }) {
-  const userCount = parseHeaderInt(userProbe?.headers, 'x-wp-total');
+function pickUserSample(userProbe) {
+  return Array.isArray(userProbe?.data) && userProbe.data.length > 0
+    ? userProbe.data[0]
+    : null;
+}
 
+function summarizeUserEnumeration(userProbe) {
+  return {
+    open: userProbe?.ok ?? false,
+    statusCode: userProbe?.status ?? null,
+    total: parseHeaderInt(userProbe?.headers, 'x-wp-total'),
+    sample: pickUserSample(userProbe)
+  };
+}
+
+function summarizeAvailability(probe, enabledKey) {
+  return {
+    [enabledKey]: probe?.ok ?? false,
+    statusCode: probe?.status ?? null
+  };
+}
+
+function summarizeXmlrpc(xmlrpcProbe) {
+  return {
+    enabled: xmlrpcProbe ? xmlrpcProbe.status !== 404 : false,
+    statusCode: xmlrpcProbe?.status ?? null
+  };
+}
+
+export function gatherExposure({ rootResult, userProbe, settingsProbe, xmlrpcProbe, robotsProbe, sitemapProbe, uploadsProbe }) {
   return {
     restApiAvailable: rootResult?.ok ?? false,
-    userEnumeration: {
-      open: userProbe?.ok ?? false,
-      statusCode: userProbe?.status ?? null,
-      total: userCount,
-      sample:
-        Array.isArray(userProbe?.data) && userProbe.data.length > 0
-          ? userProbe.data[0]
-          : null
-    },
-    settingsExposed: {
-      open: settingsProbe?.ok ?? false,
-      statusCode: settingsProbe?.status ?? null
-    },
-    xmlrpc: {
-      enabled: xmlrpcProbe ? xmlrpcProbe.status !== 404 : false,
-      statusCode: xmlrpcProbe?.status ?? null
-    },
-    robotsTxt: {
-      available: robotsProbe?.ok ?? false,
-      statusCode: robotsProbe?.status ?? null
-    },
-    sitemapXml: {
-      available: sitemapProbe?.ok ?? false,
-      statusCode: sitemapProbe?.status ?? null
-    },
+    userEnumeration: summarizeUserEnumeration(userProbe),
+    settingsExposed: summarizeAvailability(settingsProbe, 'open'),
+    xmlrpc: summarizeXmlrpc(xmlrpcProbe),
+    robotsTxt: summarizeAvailability(robotsProbe, 'available'),
+    sitemapXml: summarizeAvailability(sitemapProbe, 'available'),
     uploads: {
       indexable: uploadsIndexable(uploadsProbe),
       statusCode: uploadsProbe?.status ?? null
