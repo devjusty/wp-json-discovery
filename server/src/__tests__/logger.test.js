@@ -21,6 +21,16 @@ describe('deriveFailureCategory', () => {
     ).toBe('auth_required');
   });
 
+  it('keeps auth_required code precedence ahead of waf markers', () => {
+    expect(
+      deriveFailureCategory({
+        code: 'auth_required',
+        message: 'Cloudflare captcha challenge',
+        status: 403
+      })
+    ).toBe('auth_required');
+  });
+
   it('classifies cloudflare and captcha failures as blocked_waf', () => {
     expect(
       deriveFailureCategory({

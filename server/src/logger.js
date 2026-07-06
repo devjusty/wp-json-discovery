@@ -369,8 +369,9 @@ export function deriveFailureCategory(payload = {}) {
   if (haystack.includes('invalid domain')) return 'invalid_domain';
   if (haystack.includes('admin endpoints are disabled')) return 'admin_disabled';
   if (name.includes('payloadtoolargeerror') || haystack.includes('request entity too large')) return 'payload_too_large';
+  if (code === 'auth_required') return 'auth_required';
   if (includesAny(haystack, WAF_MARKERS)) return 'blocked_waf';
-  if (status === 401 || code === 'auth_required' || isAuth403(status, haystack)) return 'auth_required';
+  if (status === 401 || isAuth403(status, haystack)) return 'auth_required';
   if (includesAny(haystack, ['timed out', 'timeout', 'aborterror'])) return 'timeout';
   if (includesAny(haystack, NETWORK_MARKERS)) return 'network_failure';
   if (status === 404 && haystack.includes('/wp-json/')) return 'non_wordpress';
