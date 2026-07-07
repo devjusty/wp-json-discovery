@@ -8,7 +8,6 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select.jsx';
-import Button from '../../../atoms/Button.jsx';
 import AdminDbHealthCard from './AdminDbHealthCard.jsx';
 import AdminDbOverviewCard from './AdminDbOverviewCard.jsx';
 import AdminRecentScansCard from './AdminRecentScansCard.jsx';
