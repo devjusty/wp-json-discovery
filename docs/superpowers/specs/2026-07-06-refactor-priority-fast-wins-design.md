@@ -101,6 +101,37 @@ Recommended execution order:
 4. Re-rank the remaining list using the new complexity and hotspot output.
 5. Decide whether to continue with the remaining fast wins or shift to a larger hotspot such as `SitemapScanPanel.jsx` or `AdminDbSection.jsx`.
 
+## Post-Batch Re-rank
+
+Results after completing the first batch:
+- `frontend/src/services/scan.js` no longer reports `gatherExposure` as a top critical function. The next scan-service hotspot is now the local `summarize` helper inside `gatherPerformance`.
+- `server/src/logger.js` still appears as a file hotspot, but `deriveFailureCategory` dropped from the earlier critical state to a smaller moderate-complexity function.
+- `frontend/src/components/pages/admin/sections/AdminMaintenanceSection.jsx` fell out of the large-function list as a refactor priority and now sits at `64` lines.
+- `frontend/src/components/organisms/panels/HomepageInsightsPanel.jsx` remains a large function at `127` lines, but it is no longer one of the top critical findings from the earlier batch.
+
+Updated fast-wins order:
+1. `frontend/src/components/organisms/panels/ExposurePanel.jsx`
+2. `frontend/src/components/organisms/panels/PerformancePanel.jsx`
+3. `frontend/src/components/pages/admin/AdminSidebarNav.jsx`
+4. `frontend/src/components/pages/admin/sections/AdminDomainsSection.jsx`
+5. `frontend/src/components/molecules/forms/DomainForm.jsx`
+
+Why the order changed:
+- `ExposurePanel.jsx` is now one of the strongest remaining quick wins: critical complexity, moderate size (`116` lines), and reachable from existing tests.
+- `PerformancePanel.jsx` shows the same fast-win shape: critical complexity, smaller surface (`103` lines), and panel-local branching.
+- `AdminSidebarNav.jsx`, `AdminDomainsSection.jsx`, and `DomainForm.jsx` are still good cleanup targets, but the refreshed Fallow output suggests they are lower urgency than the two panel-level findings above.
+
+Status of the earlier remaining three:
+- `AdminSidebarNav.jsx` still ranks ahead of the deferred broad files because it is small (`83` lines), local, and has a hotspot score of `5.4`.
+- `AdminDomainsSection.jsx` still ranks ahead of the deferred broad files because it remains bounded (`133` lines) with a hotspot score of `5.2`.
+- `DomainForm.jsx` still stays ahead of the deferred broad files because it is only `80` lines and has low blast radius, even though its hotspot score (`3.1`) is lower than several admin and server files.
+
+Deferred-target decision after the batch:
+- Do not shift to `SitemapScanPanel.jsx` or `AdminDbSection.jsx` yet.
+- `SitemapScanPanel.jsx` remains the highest-complexity component overall (`cyclomatic 63`, `cognitive 80`, `191` lines), and `AdminDbSection.jsx` remains very large (`340` lines) with critical complexity.
+- Both still look like dedicated extraction projects rather than the next fast-win pass.
+- Continue with one more small-batch round first, led by `ExposurePanel.jsx` and `PerformancePanel.jsx`, before writing a deeper plan for `SitemapScanPanel.jsx` or `AdminDbSection.jsx`.
+
 ## Error Handling
 
 This is planning-only work, so no new runtime paths are introduced.
