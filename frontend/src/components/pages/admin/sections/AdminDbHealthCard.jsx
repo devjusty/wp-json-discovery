@@ -20,7 +20,84 @@ function formatRegionList(value = []) {
   return value.join(', ');
 }
 
+function getTursoHealthLabel(turso) {
+  if (turso?.health?.ok) return 'Healthy';
+  if (turso?.health?.error) return `Unavailable (${turso.health.error})`;
+  return 'Unavailable';
+}
+
+function buildRemoteStats(turso, tursoStats, tursoUsage, tursoInstanceSummary) {
+  return [
+    { label: 'Turso health', value: getTursoHealthLabel(turso) },
+    { label: 'Active connections', value: formatNumber(tursoStats?.active_connections) },
+    { label: 'Queries / second', value: formatRate(tursoStats?.queries_per_second) },
+    { label: 'Rows read / second', value: formatRate(tursoStats?.rows_read_per_second) },
+    { label: 'Rows written / second', value: formatRate(tursoStats?.rows_written_per_second) },
+    { label: 'Turso storage', value: formatBytes(tursoStats?.storage_bytes) },
+    {
+      label: `Org requests (${tursoUsage?.period || 'period'})`,
+      value: formatNumber(tursoUsage?.total_requests)
+    },
+    { label: 'Org DB bytes', value: formatBytes(tursoUsage?.database_bytes) },
+    { label: 'Org DB rows', value: formatNumber(tursoUsage?.database_rows) },
+    { label: 'Instances', value: formatNumber(tursoInstanceSummary?.total) },
+    { label: 'Primary region', value: tursoInstanceSummary?.primaryRegion || '—' },
+    {
+      label: 'Replica regions',
+      value: formatRegionList(tursoInstanceSummary?.replicaRegions)
+    }
+  ];
+}
+
+function buildHealthStats(data, isRemoteDb, turso, tursoStats, tursoUsage, tursoInstanceSummary) {
+  return [
+    {
+      label: isRemoteDb ? 'Turso endpoint' : 'Database file',
+      value: data.dbPath || '—'
+    },
+    ...(isRemoteDb ? buildRemoteStats(turso, tursoStats, tursoUsage, tursoInstanceSummary) : []),
+    {
+      label: 'Last heartbeat',
+      value: formatFullTimestamp(data.heartbeat?.latest?.timestamp) || '—'
+    },
+    ...(data.logs?.lastRotatedAt
+      ? [
+          {
+            label: 'Last log rotation',
+            value: formatFullTimestamp(data.logs.lastRotatedAt) || '—'
+          }
+        ]
+      : []),
+    {
+      label: 'Last prune',
+      value: formatFullTimestamp(data.logs?.lastPrunedAt) || '—'
+    },
+    {
+      label: 'Last maintenance',
+      value: formatFullTimestamp(data.logs?.lastMaintenanceAt) || '—'
+    }
+  ];
+}
+
+function StatGridItem({ label, value }) {
+  return (
+    <div className="stat-grid__item">
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  );
+}
+
 function AdminDbHealthCard({ data, isRemoteDb, turso, tursoStats, tursoUsage, tursoInstanceSummary }) {
+  const stats = buildHealthStats(
+    data,
+    isRemoteDb,
+    turso,
+    tursoStats,
+    tursoUsage,
+    tursoInstanceSummary
+  );
+
   return (
     <Card>
       <CardHeader>
@@ -31,86 +108,9 @@ function AdminDbHealthCard({ data, isRemoteDb, turso, tursoStats, tursoUsage, tu
       </CardHeader>
       <CardContent>
         <div className="stat-grid">
-          <div className="stat-grid__item">
-            <dt>{isRemoteDb ? 'Turso endpoint' : 'Database file'}</dt>
-            <dd>{data.dbPath || '—'}</dd>
-          </div>
-          {isRemoteDb ? (
-            <>
-              <div className="stat-grid__item">
-                <dt>Turso health</dt>
-                <dd>
-                  {turso?.health?.ok
-                    ? 'Healthy'
-                    : turso?.health?.error
-                      ? `Unavailable (${turso.health.error})`
-                      : 'Unavailable'}
-                </dd>
-              </div>
-              <div className="stat-grid__item">
-                <dt>Active connections</dt>
-                <dd>{formatNumber(tursoStats?.active_connections)}</dd>
-              </div>
-              <div className="stat-grid__item">
-                <dt>Queries / second</dt>
-                <dd>{formatRate(tursoStats?.queries_per_second)}</dd>
-              </div>
-              <div className="stat-grid__item">
-                <dt>Rows read / second</dt>
-                <dd>{formatRate(tursoStats?.rows_read_per_second)}</dd>
-              </div>
-              <div className="stat-grid__item">
-                <dt>Rows written / second</dt>
-                <dd>{formatRate(tursoStats?.rows_written_per_second)}</dd>
-              </div>
-              <div className="stat-grid__item">
-                <dt>Turso storage</dt>
-                <dd>{formatBytes(tursoStats?.storage_bytes)}</dd>
-              </div>
-              <div className="stat-grid__item">
-                <dt>Org requests ({tursoUsage?.period || 'period'})</dt>
-                <dd>{formatNumber(tursoUsage?.total_requests)}</dd>
-              </div>
-              <div className="stat-grid__item">
-                <dt>Org DB bytes</dt>
-                <dd>{formatBytes(tursoUsage?.database_bytes)}</dd>
-              </div>
-              <div className="stat-grid__item">
-                <dt>Org DB rows</dt>
-                <dd>{formatNumber(tursoUsage?.database_rows)}</dd>
-              </div>
-              <div className="stat-grid__item">
-                <dt>Instances</dt>
-                <dd>{formatNumber(tursoInstanceSummary?.total)}</dd>
-              </div>
-              <div className="stat-grid__item">
-                <dt>Primary region</dt>
-                <dd>{tursoInstanceSummary?.primaryRegion || '—'}</dd>
-              </div>
-              <div className="stat-grid__item">
-                <dt>Replica regions</dt>
-                <dd>{formatRegionList(tursoInstanceSummary?.replicaRegions)}</dd>
-              </div>
-            </>
-          ) : null}
-          <div className="stat-grid__item">
-            <dt>Last heartbeat</dt>
-            <dd>{formatFullTimestamp(data.heartbeat?.latest?.timestamp) || '—'}</dd>
-          </div>
-          {data.logs?.lastRotatedAt ? (
-            <div className="stat-grid__item">
-              <dt>Last log rotation</dt>
-              <dd>{formatFullTimestamp(data.logs?.lastRotatedAt) || '—'}</dd>
-            </div>
-          ) : null}
-          <div className="stat-grid__item">
-            <dt>Last prune</dt>
-            <dd>{formatFullTimestamp(data.logs?.lastPrunedAt) || '—'}</dd>
-          </div>
-          <div className="stat-grid__item">
-            <dt>Last maintenance</dt>
-            <dd>{formatFullTimestamp(data.logs?.lastMaintenanceAt) || '—'}</dd>
-          </div>
+          {stats.map((stat) => (
+            <StatGridItem key={stat.label} label={stat.label} value={stat.value} />
+          ))}
         </div>
       </CardContent>
     </Card>
@@ -131,6 +131,11 @@ AdminDbHealthCard.defaultProps = {
   tursoStats: null,
   tursoUsage: null,
   tursoInstanceSummary: null
+};
+
+StatGridItem.propTypes = {
+  label: PropTypes.string.isRequired,
+  value: PropTypes.string.isRequired
 };
 
 export default AdminDbHealthCard;

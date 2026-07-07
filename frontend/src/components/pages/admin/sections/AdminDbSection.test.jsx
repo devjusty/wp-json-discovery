@@ -123,6 +123,46 @@ describe('AdminDbSection', () => {
     expect(setActiveSection).toHaveBeenNthCalledWith(3, 'logs');
   });
 
+  it('calls snapshotQuery.refetch from the extracted refresh action', () => {
+    const refetch = vi.fn();
+
+    render(
+      <AdminDbSection
+        {...buildProps({
+          snapshotQuery: {
+            refetch,
+            isFetching: false
+          }
+        })}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh snapshot' }));
+
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the loading label and disables the refresh action while fetching', () => {
+    const refetch = vi.fn();
+
+    render(
+      <AdminDbSection
+        {...buildProps({
+          snapshotQuery: {
+            refetch,
+            isFetching: true
+          }
+        })}
+      />
+    );
+
+    const refreshButton = screen.getByRole('button', { name: 'Refreshing…' });
+
+    expect(refreshButton).toBeDisabled();
+    fireEvent.click(refreshButton);
+    expect(refetch).not.toHaveBeenCalled();
+  });
+
   it('renders remote Turso health details when using a remote database', () => {
     render(
       <AdminDbSection
