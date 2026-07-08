@@ -9,13 +9,7 @@ function HomepageInsightsPanel({ insights, htmlPreview }) {
     return null;
   }
 
-  const hasSignals =
-    (insights.meta?.length ?? 0) > 0 ||
-    (insights.comments?.length ?? 0) > 0 ||
-    (insights.assets?.length ?? 0) > 0 ||
-    (insights.scripts?.length ?? 0) > 0 ||
-    (insights.frameworks?.length ?? 0) > 0 ||
-    (insights.other?.length ?? 0) > 0;
+  const hasSignals = hasInsightSignals(insights);
 
   return (
     <div className="grid">
@@ -52,7 +46,7 @@ function HomepageInsightsPanel({ insights, htmlPreview }) {
                     <Badge variant="secondary">{asset.type}</Badge>
                     <span className="muted">×{asset.count}</span>
                   </div>
-                  {renderAssetMatches(asset)}
+                  <AssetMatches asset={asset} />
                 </div>
               ))}
             </div>
@@ -98,13 +92,13 @@ function HomepageInsightsPanel({ insights, htmlPreview }) {
         </CardHeader>
         <CardContent>
           <h3>Comments</h3>
-          {renderList(insights.comments, 'No HTML comments detected.')}
+          <InsightsList items={insights.comments} emptyText="No HTML comments detected." />
 
           <h3>Script hints</h3>
-          {renderList(insights.scripts, 'No script hints detected.')}
+          <InsightsList items={insights.scripts} emptyText="No script hints detected." />
 
           <h3>Other signals</h3>
-          {renderList(insights.other, 'No additional signals detected.')}
+          <InsightsList items={insights.other} emptyText="No additional signals detected." />
         </CardContent>
       </Card>
 
@@ -138,7 +132,12 @@ function HomepageInsightsPanel({ insights, htmlPreview }) {
   );
 }
 
-function renderList(items, emptyText) {
+function hasInsightSignals(insights) {
+  return [insights.meta, insights.comments, insights.assets, insights.scripts, insights.frameworks, insights.other]
+    .some((items) => (items?.length ?? 0) > 0);
+}
+
+function InsightsList({ items, emptyText }) {
   if (!items || items.length === 0) {
     return <p className="card__meta">{emptyText}</p>;
   }
@@ -152,20 +151,20 @@ function renderList(items, emptyText) {
   );
 }
 
-function renderAssetMatches(asset) {
-  if (asset.matches && asset.matches.length > 0) {
-    return (
-      <div className="tag-cloud tag-cloud--compact">
-        {asset.matches.map((match) => (
-          <span key={`${asset.path}:${match.id}`} className="tag">
-            {match.label}
-          </span>
-        ))}
-      </div>
-    );
+function AssetMatches({ asset }) {
+  if (!asset.matches || asset.matches.length === 0) {
+    return <p className="card__meta">No known plugin or theme match.</p>;
   }
 
-  return <p className="card__meta">No known plugin or theme match.</p>;
+  return (
+    <div className="tag-cloud tag-cloud--compact">
+      {asset.matches.map((match) => (
+        <span key={`${asset.path}:${match.id}`} className="tag">
+          {match.label}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 HomepageInsightsPanel.propTypes = {

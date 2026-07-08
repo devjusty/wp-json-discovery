@@ -1,11 +1,11 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-vi.mock('../utils/html.js', () => ({
-  extractAssetSlug: vi.fn((value) => {
-    const segments = String(value ?? '').split('/').filter(Boolean);
-    return segments[segments.length - 1] ?? null;
-  }),
-  getAssetLookups: vi.fn(async () => ({
+const extractAssetSlug = jest.fn((value) => {
+  const match = String(value ?? '').match(/\/wp-content\/(?:plugins|themes)\/([^/]+)/i);
+  return match?.[1]?.toLowerCase() ?? null;
+});
+
+const getAssetLookups = jest.fn(async () => ({
     pluginLookup: new Map([
       [
         'convertkit',
@@ -20,18 +20,24 @@ vi.mock('../utils/html.js', () => ({
       ]
     ]),
     themeLookup: new Map()
-  })),
-  matchAssetSlug: vi.fn((type, slug, pluginLookup, themeLookup) => {
+  }));
+
+const matchAssetSlug = jest.fn((type, slug, pluginLookup, themeLookup) => {
     const lookup = type === 'theme' ? themeLookup : pluginLookup;
     return lookup.get(slug?.toLowerCase?.() ?? '') ?? [];
-  })
+  });
+
+jest.unstable_mockModule('../utils/html.js', () => ({
+  extractAssetSlug,
+  getAssetLookups,
+  matchAssetSlug
 }));
 
-import { aggregateHomepageAssets } from '../utils/homepageAssets.js';
+const { aggregateHomepageAssets } = await import('../utils/homepageAssets.js');
 
 describe('aggregateHomepageAssets', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
   });
 
   it('rematches homepage assets against the current registry', async () => {

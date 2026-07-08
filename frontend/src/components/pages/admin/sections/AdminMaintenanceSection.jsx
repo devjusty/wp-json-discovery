@@ -3,6 +3,57 @@ import { Card, CardAction, CardContent, CardHeader } from '@/components/ui/card.
 import Button from '../../../atoms/Button.jsx';
 import { formatBytes, formatFullTimestamp, formatWalSummary } from '../utils.js';
 
+function StatItem({ label, children }) {
+  return (
+    <div className="stat-grid__item">
+      <dt>{label}</dt>
+      <dd>{children}</dd>
+    </div>
+  );
+}
+
+StatItem.propTypes = {
+  label: PropTypes.string.isRequired,
+  children: PropTypes.node
+};
+
+StatItem.defaultProps = {
+  children: null
+};
+
+function renderIntegrityStatus(integrity) {
+  if (integrity?.ok) {
+    return integrity?.status ?? 'ok';
+  }
+
+  return `Error: ${integrity?.error ?? 'unknown'}`;
+}
+
+function MaintenanceResultStats({ isRemoteDb, maintenanceData }) {
+  if (isRemoteDb) {
+    return <StatItem label="Mode">{maintenanceData.mode || 'turso'}</StatItem>;
+  }
+
+  return (
+    <>
+      <StatItem label="Size">
+        {formatBytes(maintenanceData.size?.beforeBytes)} → {formatBytes(maintenanceData.size?.afterBytes)}
+      </StatItem>
+      <StatItem label="WAL checkpoint">{formatWalSummary(maintenanceData.walCheckpoint)}</StatItem>
+      <StatItem label="Vacuum">{maintenanceData.vacuumRan ? 'Completed' : 'Skipped'}</StatItem>
+    </>
+  );
+}
+
+MaintenanceResultStats.propTypes = {
+  isRemoteDb: PropTypes.bool.isRequired,
+  maintenanceData: PropTypes.object
+};
+
+MaintenanceResultStats.defaultProps = {
+  maintenanceData: null
+};
+
 function AdminMaintenanceSection({ data, maintenanceMutation }) {
   const isRemoteDb = /^(libsql|https?|wss?):\/\//i.test(data?.dbPath ?? '');
   const maintenanceData = maintenanceMutation.data;
@@ -37,19 +88,10 @@ function AdminMaintenanceSection({ data, maintenanceMutation }) {
         <CardContent>
           <div className="stat-grid">
             {hasRotationMarker ? (
-              <div className="stat-grid__item">
-                <dt>Last log rotation</dt>
-                <dd>{formatFullTimestamp(data?.logs?.lastRotatedAt) || '—'}</dd>
-              </div>
+              <StatItem label="Last log rotation">{formatFullTimestamp(data?.logs?.lastRotatedAt) || '—'}</StatItem>
             ) : null}
-            <div className="stat-grid__item">
-              <dt>Last maintenance</dt>
-              <dd>{formatFullTimestamp(data?.logs?.lastMaintenanceAt) || '—'}</dd>
-            </div>
-            <div className="stat-grid__item">
-              <dt>Last prune</dt>
-              <dd>{formatFullTimestamp(data?.logs?.lastPrunedAt) || '—'}</dd>
-            </div>
+            <StatItem label="Last maintenance">{formatFullTimestamp(data?.logs?.lastMaintenanceAt) || '—'}</StatItem>
+            <StatItem label="Last prune">{formatFullTimestamp(data?.logs?.lastPrunedAt) || '—'}</StatItem>
           </div>
 
           {maintenanceMutation.isError ? (
@@ -62,42 +104,9 @@ function AdminMaintenanceSection({ data, maintenanceMutation }) {
 
           {maintenanceData ? (
             <div className="stat-grid">
-              {!isRemoteDb ? (
-                <>
-                  <div className="stat-grid__item">
-                    <dt>Size</dt>
-                    <dd>
-                      {formatBytes(maintenanceData.size?.beforeBytes)} →{' '}
-                      {formatBytes(maintenanceData.size?.afterBytes)}
-                    </dd>
-                  </div>
-                  <div className="stat-grid__item">
-                    <dt>WAL checkpoint</dt>
-                    <dd>{formatWalSummary(maintenanceData.walCheckpoint)}</dd>
-                  </div>
-                  <div className="stat-grid__item">
-                    <dt>Vacuum</dt>
-                    <dd>{maintenanceData.vacuumRan ? 'Completed' : 'Skipped'}</dd>
-                  </div>
-                </>
-              ) : (
-                <div className="stat-grid__item">
-                  <dt>Mode</dt>
-                  <dd>{maintenanceData.mode || 'turso'}</dd>
-                </div>
-              )}
-              <div className="stat-grid__item">
-                <dt>Integrity</dt>
-                <dd>
-                  {maintenanceData.integrity?.ok
-                    ? maintenanceData.integrity?.status ?? 'ok'
-                    : `Error: ${maintenanceData.integrity?.error ?? 'unknown'}`}
-                </dd>
-              </div>
-              <div className="stat-grid__item">
-                <dt>Run at</dt>
-                <dd>{formatFullTimestamp(maintenanceData.maintenanceAt) || '—'}</dd>
-              </div>
+              <MaintenanceResultStats isRemoteDb={isRemoteDb} maintenanceData={maintenanceData} />
+              <StatItem label="Integrity">{renderIntegrityStatus(maintenanceData.integrity)}</StatItem>
+              <StatItem label="Run at">{formatFullTimestamp(maintenanceData.maintenanceAt) || '—'}</StatItem>
             </div>
           ) : (
             <p className="card__meta">
