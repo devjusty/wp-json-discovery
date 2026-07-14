@@ -9,6 +9,9 @@ const config = {
   "docs": {
     "autodocs": "tag"
   },
+  "staticDirs": [
+    "../public"
+  ],
   "addons": [
     "@chromatic-com/storybook",
     "@storybook/addon-vitest",
