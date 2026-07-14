@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types';
-import { Button as UiButton, buttonVariants } from '../ui/button.jsx';
+import { Button as UiButton } from '../ui/button.jsx';
+import { buttonVariants } from '../ui/button.variants.js';
 import { cn } from '@/lib/utils.js';
 
 function Button({ as = 'button', variant = 'primary', size = 'md', className, children, ...props }) {
