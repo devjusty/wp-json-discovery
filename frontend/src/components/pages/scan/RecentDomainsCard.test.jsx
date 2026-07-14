@@ -54,7 +54,7 @@ describe('RecentDomainsCard', () => {
   });
 
   it('keeps scan time and status inline within the domain row', () => {
-    const { container } = render(
+    render(
       <RecentDomainsCard
         items={[
           {

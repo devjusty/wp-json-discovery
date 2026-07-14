@@ -5,9 +5,11 @@ packages:
 allowBuilds:
   browser-tabs-lock: true
   esbuild: true
+  msw: true
   unrs-resolver: true
 
 onlyBuiltDependencies:
   - browser-tabs-lock
   - esbuild
+  - msw
   - unrs-resolver
