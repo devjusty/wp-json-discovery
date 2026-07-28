@@ -6,12 +6,11 @@ const config = {
     "../src/**/*.mdx",
     "../src/**/*.stories.@(js|jsx|mjs|ts|tsx)"
   ],
-  "docs": {
-    "autodocs": "tag"
-  },
+
   "staticDirs": [
     "../public"
   ],
+
   "addons": [
     "@chromatic-com/storybook",
     "@storybook/addon-vitest",
@@ -19,6 +18,7 @@ const config = {
     "@storybook/addon-docs",
     "@storybook/addon-mcp"
   ],
+
   "framework": "@storybook/react-vite"
 };
 export default config;
