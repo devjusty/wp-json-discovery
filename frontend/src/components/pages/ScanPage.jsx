@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -48,14 +48,9 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
   const [activeSection, setActiveSection] = useState('overview');
   const [recentDomainsExpanded, setRecentDomainsExpanded] = useState(false);
 
-  const prevIsAdmin = useRef(isAdmin);
-
-  useEffect(() => {
-    if (prevIsAdmin.current && !isAdmin && activeSection === 'unsupported') {
-      setActiveSection('overview');
-    }
-    prevIsAdmin.current = isAdmin;
-  }, [isAdmin, activeSection]);
+  const visibleSection = !isAdmin && activeSection === 'unsupported'
+    ? 'overview'
+    : activeSection;
 
   const homepageDomain = domain || activeDomain;
   const homepageSummary = useMemo(() => {
@@ -143,7 +138,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
   const sidebar = useMemo(
     () => (
       <ScanSidebarNav
-        activeSection={activeSection}
+        activeSection={visibleSection}
         hasScanResult={Boolean(scanResult)}
         onSectionChange={setActiveSection}
         onOpenHistory={isAdmin ? handleOpenHistory : null}
@@ -151,7 +146,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
         isAdmin={isAdmin}
       />
     ),
-    [activeSection, scanResult, handleOpenHistory, handleOpenAdmin, isAdmin]
+    [visibleSection, scanResult, handleOpenHistory, handleOpenAdmin, isAdmin]
   );
 
   const subtitle = isScanning
@@ -197,7 +192,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
       />
 
       <ScanSectionContent
-        activeSection={activeSection}
+        activeSection={visibleSection}
         scanResult={scanResult}
         homepageResult={homepageResult}
         homepageDomain={homepageDomain}

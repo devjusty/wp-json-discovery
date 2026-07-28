@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   createEmptyPluginDraft,
   createEmptyThemeDraft,
@@ -18,18 +18,28 @@ export default function useAdminEditorState({
   updateThemeMutation,
   setActiveSection
 }) {
-  const [pluginDraft, setPluginDraft] = useState(createEmptyPluginDraft);
+  const [pluginDraft, setPluginDraftState] = useState(createEmptyPluginDraft);
   const [editingPluginId, setEditingPluginId] = useState(null);
   const [pluginValidationError, setPluginValidationError] = useState('');
   const [showCreatePluginModal, setShowCreatePluginModal] = useState(false);
 
-  const [themeDraft, setThemeDraft] = useState(createEmptyThemeDraft);
+  const [themeDraft, setThemeDraftState] = useState(createEmptyThemeDraft);
   const [editingThemeId, setEditingThemeId] = useState(null);
   const [themeValidationError, setThemeValidationError] = useState('');
   const [showCreateThemeModal, setShowCreateThemeModal] = useState(false);
 
+  const setPluginDraft = useCallback((nextDraft) => {
+    setPluginValidationError('');
+    setPluginDraftState(nextDraft);
+  }, []);
+
+  const setThemeDraft = useCallback((nextDraft) => {
+    setThemeValidationError('');
+    setThemeDraftState(nextDraft);
+  }, []);
+
   const resetPluginDraft = useCallback(() => {
-    setPluginDraft(createEmptyPluginDraft());
+    setPluginDraftState(createEmptyPluginDraft());
     setPluginValidationError('');
   }, []);
 
@@ -39,7 +49,7 @@ export default function useAdminEditorState({
   }, [resetPluginDraft]);
 
   const resetThemeDraft = useCallback(() => {
-    setThemeDraft(createEmptyThemeDraft());
+    setThemeDraftState(createEmptyThemeDraft());
     setThemeValidationError('');
   }, []);
 
@@ -56,7 +66,7 @@ export default function useAdminEditorState({
   const startEditing = useCallback((plugin) => {
     setEditingPluginId(plugin.id);
     setPluginValidationError('');
-    setPluginDraft({
+    setPluginDraftState({
       id: plugin.id ?? '',
       label: plugin.label ?? '',
       description: plugin.description ?? '',
@@ -69,7 +79,7 @@ export default function useAdminEditorState({
   const startEditingTheme = useCallback((theme) => {
     setEditingThemeId(theme.id);
     setThemeValidationError('');
-    setThemeDraft({
+    setThemeDraftState({
       id: theme.id ?? '',
       label: theme.label ?? '',
       description: theme.description ?? '',
@@ -78,50 +88,6 @@ export default function useAdminEditorState({
       pathSignals: (theme.pathSignals ?? []).join('\n')
     });
   }, []);
-
-  useEffect(() => {
-    if (pluginValidationError) {
-      setPluginValidationError('');
-    }
-  }, [pluginDraft, editingPluginId, pluginValidationError]);
-
-  useEffect(() => {
-    if (themeValidationError) {
-      setThemeValidationError('');
-    }
-  }, [themeDraft, editingThemeId, themeValidationError]);
-
-  useEffect(() => {
-    if (createPluginMutation.isSuccess) {
-      resetPluginDraft();
-      setShowCreatePluginModal(false);
-      createPluginMutation.reset();
-    }
-  }, [createPluginMutation, resetPluginDraft]);
-
-  useEffect(() => {
-    if (updatePluginMutation.isSuccess) {
-      resetPluginDraft();
-      setEditingPluginId(null);
-      updatePluginMutation.reset();
-    }
-  }, [updatePluginMutation, resetPluginDraft]);
-
-  useEffect(() => {
-    if (createThemeMutation.isSuccess) {
-      resetThemeDraft();
-      setShowCreateThemeModal(false);
-      createThemeMutation.reset();
-    }
-  }, [createThemeMutation, resetThemeDraft]);
-
-  useEffect(() => {
-    if (updateThemeMutation.isSuccess) {
-      resetThemeDraft();
-      setEditingThemeId(null);
-      updateThemeMutation.reset();
-    }
-  }, [updateThemeMutation, resetThemeDraft]);
 
   const handlePluginSave = useCallback(() => {
     const payload = {
@@ -147,11 +113,30 @@ export default function useAdminEditorState({
     setPluginValidationError('');
 
     if (editingPluginId) {
-      updatePluginMutation.mutate({ id: editingPluginId, payload });
+      updatePluginMutation.mutate({ id: editingPluginId, payload }, {
+        onSuccess: () => {
+          resetPluginDraft();
+          setEditingPluginId(null);
+          updatePluginMutation.reset();
+        }
+      });
     } else {
-      createPluginMutation.mutate(payload);
+      createPluginMutation.mutate(payload, {
+        onSuccess: () => {
+          resetPluginDraft();
+          setShowCreatePluginModal(false);
+          createPluginMutation.reset();
+        }
+      });
     }
-  }, [pluginDraft, editingPluginId, managedPlugins, updatePluginMutation, createPluginMutation]);
+  }, [
+    pluginDraft,
+    editingPluginId,
+    managedPlugins,
+    updatePluginMutation,
+    createPluginMutation,
+    resetPluginDraft
+  ]);
 
   const handleThemeSave = useCallback(() => {
     const payload = {
@@ -182,11 +167,30 @@ export default function useAdminEditorState({
 
     setThemeValidationError('');
     if (editingThemeId) {
-      updateThemeMutation.mutate({ id: editingThemeId, payload });
+      updateThemeMutation.mutate({ id: editingThemeId, payload }, {
+        onSuccess: () => {
+          resetThemeDraft();
+          setEditingThemeId(null);
+          updateThemeMutation.reset();
+        }
+      });
     } else {
-      createThemeMutation.mutate(payload);
+      createThemeMutation.mutate(payload, {
+        onSuccess: () => {
+          resetThemeDraft();
+          setShowCreateThemeModal(false);
+          createThemeMutation.reset();
+        }
+      });
     }
-  }, [themeDraft, editingThemeId, managedThemes, updateThemeMutation, createThemeMutation]);
+  }, [
+    themeDraft,
+    editingThemeId,
+    managedThemes,
+    updateThemeMutation,
+    createThemeMutation,
+    resetThemeDraft
+  ]);
 
   const handleCreatePluginFromSuggestion = useCallback(async (suggestion) => {
     const kind = suggestion?.kind === 'namespace' ? 'namespace' : 'asset';
@@ -217,7 +221,7 @@ export default function useAdminEditorState({
     }
 
     cancelPluginEdit();
-    setPluginDraft(buildPluginDraftFromSignal({
+    setPluginDraftState(buildPluginDraftFromSignal({
       kind,
       slug: normalizedSlug,
       namespace: suggestion?.namespace

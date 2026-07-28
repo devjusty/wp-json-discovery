@@ -36,12 +36,7 @@ vi.mock('../../context/ScanContext.jsx', () => ({
     activeDomain: 'example.com'
   }),
   useScanResultsContext: () => ({
-    scanResult: {
-      domain: 'example.com',
-      exposure: {},
-      performance: {},
-      contentOverview: {}
-    },
+    scanResult: null,
     isScanning: false,
     scanError: null,
     homepageResult: null,
@@ -51,7 +46,14 @@ vi.mock('../../context/ScanContext.jsx', () => ({
 }));
 
 vi.mock('./scan/ScanSidebarNav.jsx', () => ({
-  default: () => <nav aria-label="Scan navigation">Scan navigation</nav>
+  default: ({ activeSection, onSectionChange }) => (
+    <nav aria-label="Scan navigation">
+      <span data-testid="active-section">{activeSection}</span>
+      <button type="button" onClick={() => onSectionChange('unsupported')}>
+        Unsupported
+      </button>
+    </nav>
+  )
 }));
 
 vi.mock('./scan/RecentDomainsCard.jsx', () => ({
@@ -122,5 +124,33 @@ describe('ScanPage', () => {
     await user.click(screen.getByRole('button', { name: /clear recent domains/i }));
 
     expect(clearUserRecentRuns).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows overview when unsupported section loses admin access', async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false
+        }
+      }
+    });
+
+    const view = render(
+      <QueryClientProvider client={queryClient}>
+        <ScanPage isAdmin isAuthenticated />
+      </QueryClientProvider>
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Unsupported' }));
+    expect(screen.getByTestId('active-section')).toHaveTextContent('unsupported');
+
+    view.rerender(
+      <QueryClientProvider client={queryClient}>
+        <ScanPage isAdmin={false} isAuthenticated />
+      </QueryClientProvider>
+    );
+
+    expect(screen.getByTestId('active-section')).toHaveTextContent('overview');
   });
 });

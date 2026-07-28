@@ -111,14 +111,6 @@ function HistoryPage({ headerActions, onRescan, onUseDomain }) {
   const hasNextPage = page < totalPages;
 
   useEffect(() => {
-    setPage(1);
-  }, [query, sort, includeFailed]);
-
-  useEffect(() => {
-    setActiveDomain('');
-  }, [page, query, sort, includeFailed]);
-
-  useEffect(() => {
     if (typeof window === 'undefined') {
       return;
     }
@@ -169,14 +161,25 @@ function HistoryPage({ headerActions, onRescan, onUseDomain }) {
                 id="history-search"
                 type="text"
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setPage(1);
+                  setActiveDomain('');
+                }}
                 placeholder="example.com"
               />
             </label>
 
             <label className="history-controls__field" htmlFor="history-sort">
               Sort by
-              <Select value={sort} onValueChange={setSort}>
+              <Select
+                value={sort}
+                onValueChange={(value) => {
+                  setSort(value);
+                  setPage(1);
+                  setActiveDomain('');
+                }}
+              >
                 <SelectTrigger id="history-sort">
                   <SelectValue>{SORT_OPTIONS[sort] ?? SORT_OPTIONS.recent}</SelectValue>
                 </SelectTrigger>
@@ -194,7 +197,11 @@ function HistoryPage({ headerActions, onRescan, onUseDomain }) {
               <Checkbox
                 id="history-show-failed"
                 checked={includeFailed}
-                onCheckedChange={(checked) => setIncludeFailed(Boolean(checked))}
+                onCheckedChange={(checked) => {
+                  setIncludeFailed(Boolean(checked));
+                  setPage(1);
+                  setActiveDomain('');
+                }}
               />
               Include failed scans
             </label>

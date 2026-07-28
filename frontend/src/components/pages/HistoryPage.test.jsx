@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import HistoryPage from './HistoryPage.jsx';
@@ -226,6 +226,44 @@ describe('HistoryPage', () => {
 
     await waitFor(() => {
       expect(fetchScanHistory).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('resets page and selected domain together when filters change', async () => {
+    fetchScanHistory
+      .mockResolvedValueOnce(buildHistoryResponse({
+        items: [{ domain: 'page-one.com', lastStatus: 'success' }],
+        total: 25
+      }))
+      .mockResolvedValueOnce(buildHistoryResponse({
+        items: [{ domain: 'page-two.com', lastStatus: 'success' }],
+        total: 25
+      }))
+      .mockResolvedValueOnce(buildHistoryResponse({
+        items: [{ domain: 'filtered.com', lastStatus: 'success' }],
+        total: 1
+      }));
+    fetchDomainScanHistory.mockResolvedValue({ runs: [] });
+
+    renderPage();
+    await screen.findByText('page-one.com');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await screen.findByText('page-two.com');
+
+    await userEvent.click(screen.getByRole('button', { name: 'View runs' }));
+    await screen.findByText(/Recent runs for page-two.com/i);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search domains' }), {
+      target: { value: 'filtered' }
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Page 1 of 1')).toBeInTheDocument();
+      expect(screen.queryByText(/Recent runs for page-two.com/i)).not.toBeInTheDocument();
+      expect(fetchScanHistory).toHaveBeenLastCalledWith(expect.objectContaining({
+        q: 'filtered',
+        offset: 0
+      }));
     });
   });
 });
