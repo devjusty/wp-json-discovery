@@ -8,6 +8,13 @@ import { formatDurationMs } from '../../../utils/format.js';
 
 const MAX_NAMESPACES_VISIBLE = 12;
 
+const handleCopy = (text) => {
+  if (typeof navigator === 'undefined' || !navigator.clipboard) {
+    return;
+  }
+  navigator.clipboard.writeText(text).catch(() => {});
+};
+
 function ScanSummary({
   domain,
   fetchedAt,
@@ -99,13 +106,6 @@ function ScanSummary({
   const namespaceCountLabel = showAllNamespaces
     ? `Showing all ${namespaceGroups.length}`
     : `Showing ${visibleNamespaces.length} of ${namespaceGroups.length}`;
-
-  const handleCopy = (text) => {
-    if (typeof navigator === 'undefined' || !navigator.clipboard) {
-      return;
-    }
-    navigator.clipboard.writeText(text).catch(() => {});
-  };
 
   if (!hasSummary) {
     return null;

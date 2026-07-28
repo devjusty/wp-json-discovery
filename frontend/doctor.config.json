@@ -1,0 +1,6 @@
+{
+  "$schema": "https://react.doctor/schema/config.json",
+  "ignore": {
+    "files": [".netlify/**", ".storybook/**", "node_modules/**", "dist/**", "build/**", "storybook-static/**"]
+  }
+}

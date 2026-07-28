@@ -44,7 +44,7 @@ function NoteEditor({ domain, onNoteSaved }) {
         placeholder="Add a note about this domain..."
         rows={2}
       />
-      <button className="btn btn--sm" onClick={handleSave} disabled={saving || !text.trim()}>
+      <button type="button" className="btn btn--sm" onClick={handleSave} disabled={saving || !text.trim()}>
         {saving ? 'Saving...' : 'Save Note'}
       </button>
     </div>

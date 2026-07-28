@@ -33,4 +33,25 @@ describe('request', () => {
     expect(init.headers.get('x-user-email')).toBe('user@example.com');
     expect(init.headers.get('x-user-name')).toBe('Test User');
   });
+
+  it('checks response status before consuming the response body', async () => {
+    const events = [];
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      get ok() {
+        events.push('status');
+        return true;
+      },
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: async () => {
+        events.push('body');
+        return { ok: true };
+      },
+      text: async () => JSON.stringify({ ok: true })
+    })));
+
+    await request('/api/test');
+
+    expect(events).toEqual(['status', 'body']);
+  });
 });

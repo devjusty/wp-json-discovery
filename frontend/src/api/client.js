@@ -25,6 +25,18 @@ function shouldAttachAdminKey(path) {
   return path === '/api/logs' || path.startsWith('/api/logs/') || path.startsWith('/api/admin/');
 }
 
+async function readResponseBody(response, contentType) {
+  if (contentType.includes('application/json')) {
+    try {
+      return await response.json();
+    } catch {
+      return response.text();
+    }
+  }
+
+  return response.text();
+}
+
 export async function request(path, options = {}) {
   const url = `${API_BASE_URL}${path}`;
 
@@ -78,20 +90,11 @@ export async function request(path, options = {}) {
 
     const contentType = response.headers.get('content-type') ?? '';
     const responseHeaders = Object.fromEntries(response.headers.entries());
-    let data;
-
-    if (contentType.includes('application/json')) {
-      try {
-        data = await response.json();
-      } catch {
-        data = await response.text();
-      }
-    } else {
-      data = await response.text();
-    }
+    const ok = response.ok;
+    const data = await readResponseBody(response, contentType);
 
     return {
-      ok: response.ok,
+      ok,
       status: response.status,
       data,
       contentType,

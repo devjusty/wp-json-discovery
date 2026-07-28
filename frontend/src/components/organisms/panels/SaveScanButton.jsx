@@ -40,7 +40,7 @@ function SaveScanButton({ domain, onSaved }) {
 
   return (
     <div>
-      <button className="btn btn--sm" onClick={handleSave} disabled={saving}>
+      <button type="button" className="btn btn--sm" onClick={handleSave} disabled={saving}>
         {saving ? 'Saving...' : 'Save to My Scans'}
       </button>
       {error ? <p className="text-error">{error}</p> : null}

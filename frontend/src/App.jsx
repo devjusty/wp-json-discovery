@@ -17,6 +17,23 @@ const AdminPage = lazy(loadAdminPage);
 const HistoryPage = lazy(loadHistoryPage);
 const MyScansPage = lazy(loadMyScansPage);
 
+const prefetchPage = (page) => {
+  if (page === 'scan') {
+    void loadScanPage();
+    return;
+  }
+  if (page === 'my-scans') {
+    void loadMyScansPage();
+    return;
+  }
+  if (page === 'history') {
+    void loadHistoryPage();
+    return;
+  }
+  if (page === 'admin') {
+    void loadAdminPage();
+  }
+};
 
 function AppContent() {
   const {
@@ -38,24 +55,6 @@ function AppContent() {
     staleTime: 5 * 60 * 1000
   });
   const isAdmin = userProfile?.user?.role === 'admin';
-
-  const prefetchPage = (page) => {
-    if (page === 'scan') {
-      void loadScanPage();
-      return;
-    }
-    if (page === 'my-scans') {
-      void loadMyScansPage();
-      return;
-    }
-    if (page === 'history') {
-      void loadHistoryPage();
-      return;
-    }
-    if (page === 'admin') {
-      void loadAdminPage();
-    }
-  };
 
   const headerActions = useMemo(() => {
     return (
