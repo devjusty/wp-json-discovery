@@ -37,6 +37,42 @@ describe('scan capabilities', () => {
     });
   });
 
+  it('defines the complete scan capability registry contract', () => {
+    expect(SCAN_CAPABILITIES.map((capability) => ({
+      id: capability.id,
+      required: capability.required,
+      sections: capability.sections,
+      value: capability.value,
+      cost: capability.cost,
+      defaultOptions: capability.defaultOptions
+    }))).toEqual([
+      {
+        id: 'wordpress',
+        required: true,
+        sections: ['overview', 'exposure', 'performance', 'content', 'core', 'plugins', 'unsupported'],
+        value: 5,
+        cost: 2,
+        defaultOptions: {}
+      },
+      {
+        id: 'homepage',
+        required: false,
+        sections: ['homepage'],
+        value: 4,
+        cost: 3,
+        defaultOptions: {}
+      },
+      {
+        id: 'sitemap',
+        required: false,
+        sections: ['sitemap'],
+        value: 3,
+        cost: 4,
+        defaultOptions: { sitemapUrl: '', maxPages: 50 }
+      }
+    ]);
+  });
+
   it('removes unknown and duplicate IDs while preserving required wordpress', () => {
     expect(normalizeSelection({
       capabilityIds: ['sitemap', 'unknown', 'sitemap'],
@@ -67,11 +103,14 @@ describe('scan capabilities', () => {
     expect(getSectionCapabilityId('missing')).toBeNull();
   });
 
-  it('exposes registry lookup and empty dependencies', () => {
+  it('exposes registry lookup and dependencies for every capability', () => {
     expect(getCapabilityById('homepage')).toBe(SCAN_CAPABILITIES[1]);
     expect(getCapabilityById('missing')).toBeNull();
-    expect(getCapabilityDependencies('sitemap')).toEqual([]);
-    expect(getCapabilityDependencies('missing')).toEqual([]);
+    expect(getCapabilityDependencies()).toEqual({
+      wordpress: [],
+      homepage: [],
+      sitemap: []
+    });
   });
 
   it('runs selected capabilities through existing scan services', async () => {

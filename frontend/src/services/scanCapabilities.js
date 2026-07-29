@@ -82,8 +82,10 @@ export function getSectionCapabilityId(sectionId) {
   return SCAN_CAPABILITIES.find((capability) => capability.sections.includes(sectionId))?.id ?? null;
 }
 
-export function getCapabilityDependencies(id) {
-  return getCapabilityById(id)?.dependencies ?? [];
+export function getCapabilityDependencies() {
+  return Object.fromEntries(
+    SCAN_CAPABILITIES.map((capability) => [capability.id, capability.dependencies])
+  );
 }
 
 export function getCapabilityRunners(capabilityIds = SCAN_CAPABILITIES.map(({ id }) => id)) {
