@@ -34,6 +34,11 @@
       "command": ["npx", "shadcn@latest", "mcp"],
       "enabled": true
     },
+    "turso": {
+      "type": "remote",
+      "url": "https://mcp.turso.ai/mcp",
+      "enabled": true
+    },
     "wp-json-sb-mcp": {
       "type": "remote",
       "url": "http://localhost:6006/mcp",
