@@ -49,7 +49,7 @@ vi.mock('../services/scanCapabilities.js', () => ({
   }
 }));
 
-const { useScan } = await import('./useScan.js');
+const { mergeSession, useScan } = await import('./useScan.js');
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -211,6 +211,45 @@ describe('useScan', () => {
     });
     await waitFor(() => {
       expect(homepage).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('keeps a running sibling during an overlapping stale execution completion', () => {
+    const current = {
+      domain: 'example.com',
+      selection: { capabilityIds: ['homepage', 'wordpress'], options: {} },
+      capabilities: {
+        wordpress: { status: 'running', result: null, error: null },
+        homepage: { status: 'running', result: null, error: null }
+      }
+    };
+    const staleWordpressCompletion = {
+      ...current,
+      capabilities: {
+        wordpress: { status: 'success', result: { source: 'wordpress' }, error: null },
+        homepage: { status: 'idle', result: null, error: null }
+      }
+    };
+
+    const afterWordpress = mergeSession(current, staleWordpressCompletion, ['wordpress']);
+
+    expect(afterWordpress.capabilities.homepage).toEqual({
+      status: 'running',
+      result: null,
+      error: null
+    });
+    const homepageCompletion = {
+      ...staleWordpressCompletion,
+      capabilities: {
+        ...staleWordpressCompletion.capabilities,
+        homepage: { status: 'success', result: { source: 'homepage' }, error: null }
+      }
+    };
+
+    expect(mergeSession(afterWordpress, homepageCompletion, ['homepage']).capabilities.homepage).toEqual({
+      status: 'success',
+      result: { source: 'homepage' },
+      error: null
     });
   });
 });

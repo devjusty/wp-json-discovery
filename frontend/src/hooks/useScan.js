@@ -240,7 +240,7 @@ export function useScan() {
   };
 }
 
-function mergeSession(current, next, updatedCapabilityIds) {
+export function mergeSession(current, next, updatedCapabilityIds) {
   if (!current || current.domain !== next.domain) {
     return next;
   }
@@ -253,7 +253,7 @@ function mergeSession(current, next, updatedCapabilityIds) {
   const capabilities = Object.fromEntries(capabilityIds.map((id) => {
     const currentCapability = current.capabilities[id];
     const nextCapability = next.capabilities[id];
-    const capability = !nextCapability || (!updatedIds.has(id) && isTerminal(currentCapability?.status))
+    const capability = !nextCapability || (!updatedIds.has(id) && currentCapability && currentCapability.status !== 'idle')
       ? currentCapability
       : nextCapability;
     return [id, capability];
