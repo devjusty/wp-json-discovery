@@ -101,7 +101,7 @@ function ScanSettingsPanel({
                       type="text"
                       value={sitemapOptions.sitemapUrl}
                       onChange={(event) => handleSitemapOptionsChange({ sitemapUrl: event.target.value })}
-                      disabled={isScanning}
+                      disabled={isScanning || !onScanSettingsChange}
                     />
                   </label>
                   <label className="grid gap-1 text-xs text-muted-foreground" htmlFor="scan-settings-max-pages">
@@ -114,7 +114,7 @@ function ScanSettingsPanel({
                       max={50}
                       value={sitemapOptions.maxPages}
                       onChange={(event) => handleSitemapOptionsChange({ maxPages: event.target.value })}
-                      disabled={isScanning}
+                      disabled={isScanning || !onScanSettingsChange}
                     />
                   </label>
                 </div>

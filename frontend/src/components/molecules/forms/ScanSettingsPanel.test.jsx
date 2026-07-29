@@ -76,6 +76,20 @@ describe('ScanSettingsPanel', () => {
     expect(screen.getByLabelText('Max pages')).toHaveAttribute('max', '50');
   });
 
+  it('disables sitemap options when no settings change action is available', () => {
+    render(
+      <ScanSettingsPanel
+        scanSettings={{
+          capabilityIds: ['sitemap', 'wordpress'],
+          options: { sitemap: { sitemapUrl: '', maxPages: 50 }, wordpress: {} }
+        }}
+      />
+    );
+
+    expect(screen.getByLabelText('Sitemap URL')).toBeDisabled();
+    expect(screen.getByLabelText('Max pages')).toBeDisabled();
+  });
+
   it('updates and clamps sitemap options without changing other capability options', () => {
     const onScanSettingsChange = vi.fn();
     const selection = {
