@@ -125,6 +125,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
       <ScanSidebarNav
         activeSection={visibleSection}
         hasSession={Boolean(session?.domain)}
+        session={session}
         onSectionChange={setActiveSection}
         onOpenHistory={isAdmin ? handleOpenHistory : null}
         onOpenAdmin={isAdmin ? handleOpenAdmin : null}

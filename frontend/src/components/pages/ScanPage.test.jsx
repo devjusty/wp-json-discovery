@@ -9,7 +9,8 @@ const mocks = vi.hoisted(() => ({
   domainForm: vi.fn(() => null),
   updateScanSettings: vi.fn(),
   saveScanDefaults: vi.fn(),
-  scanResults: null
+  scanResults: null,
+  sidebar: vi.fn()
 }));
 
 vi.mock('../templates/AppLayout.jsx', () => ({
@@ -54,14 +55,17 @@ function createScanResults(overrides = {}) {
 }
 
 vi.mock('./scan/ScanSidebarNav.jsx', () => ({
-  default: ({ activeSection, onSectionChange }) => (
+  default: (props) => {
+    mocks.sidebar(props);
+    return (
     <nav aria-label="Scan navigation">
-      <span data-testid="active-section">{activeSection}</span>
-      <button type="button" onClick={() => onSectionChange('unsupported')}>
+      <span data-testid="active-section">{props.activeSection}</span>
+      <button type="button" onClick={() => props.onSectionChange('unsupported')}>
         Unsupported
       </button>
     </nav>
-  )
+    );
+  }
 }));
 
 vi.mock('./scan/RecentDomainsCard.jsx', () => ({
@@ -188,6 +192,26 @@ describe('ScanPage', () => {
     );
 
     expect(screen.getByTestId('active-section')).toHaveTextContent('overview');
+  });
+
+  it('passes unavailable capability session state into sidebar navigation', () => {
+    mocks.scanResults = createScanResults({
+      session: {
+        domain: 'example.com',
+        capabilities: { sitemap: { status: 'unavailable', error: { message: 'Unavailable' } } }
+      }
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ScanPage />
+      </QueryClientProvider>
+    );
+
+    expect(mocks.sidebar).toHaveBeenCalledWith(expect.objectContaining({
+      session: expect.objectContaining({ capabilities: expect.objectContaining({ sitemap: expect.objectContaining({ status: 'unavailable' }) }) })
+    }));
   });
 
   it('resets the active section when the scan session domain changes', async () => {
