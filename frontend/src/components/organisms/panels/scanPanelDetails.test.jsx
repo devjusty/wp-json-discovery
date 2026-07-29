@@ -61,11 +61,12 @@ describe('scan panel details', () => {
 
   it('clamps typed sitemap page limits to the server maximum', async () => {
     const onSettingsChange = vi.fn();
+    const onScan = vi.fn();
     const user = userEvent.setup();
     render(
       <SitemapScanPanel
         domain="example.com"
-        onScan={vi.fn()}
+        onScan={onScan}
         isRunning={false}
         result={null}
         sitemapProbe={null}
@@ -81,6 +82,12 @@ describe('scan panel details', () => {
 
     expect(maxPages).toHaveAttribute('max', '50');
     expect(onSettingsChange).toHaveBeenLastCalledWith({ sitemapUrl: '', maxPages: 50 });
+
+    onSettingsChange.mockImplementation((nextSettings) => {
+      maxPages.value = nextSettings.maxPages;
+    });
+    await user.click(screen.getByRole('button', { name: 'Scan sitemap' }));
+    expect(onScan).toHaveBeenCalledWith({ sitemapUrl: '', maxPages: 25 });
   });
 
   it('labels plugin summary and unsupported plugin cards as regions', () => {

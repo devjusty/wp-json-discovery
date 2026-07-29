@@ -236,6 +236,31 @@ describe('useScan', () => {
     expect(homepage).toHaveBeenLastCalledWith({ domain: 'example.com', options: { refresh: true } });
   });
 
+  it('preserves running and successful siblings while rerunning one capability', async () => {
+    const homepage = vi.fn().mockResolvedValue({ source: 'homepage' });
+    const wordpress = vi.fn().mockResolvedValue({ source: 'wordpress' });
+    mocks.getCapabilityRunners.mockReturnValue({ wordpress, homepage });
+    const { result } = renderHook(() => useScan(), { wrapper: createWrapper() });
+
+    act(() => {
+      result.current.startScan('example.com', { capabilityIds: ['homepage', 'wordpress'] });
+    });
+    await waitFor(() => expect(result.current.session?.capabilities.homepage.status).toBe('success'));
+
+    const sibling = result.current.session.capabilities.wordpress;
+    sibling.status = 'running';
+
+    act(() => {
+      result.current.runCapability('homepage');
+    });
+    await waitFor(() => expect(result.current.session?.capabilities.homepage.status).toBe('success'));
+    expect(result.current.session.capabilities.wordpress).toMatchObject({ status: 'running' });
+    expect(result.current.session.capabilities.homepage).toMatchObject({
+      status: 'success',
+      result: { source: 'homepage' }
+    });
+  });
+
   it('keeps a running sibling during an overlapping stale execution completion', () => {
     const current = {
       domain: 'example.com',

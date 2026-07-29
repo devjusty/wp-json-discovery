@@ -254,7 +254,7 @@ export function mergeSession(current, next, updatedCapabilityIds) {
   const capabilities = Object.fromEntries(capabilityIds.map((id) => {
     const currentCapability = current.capabilities[id];
     const nextCapability = next.capabilities[id];
-    const capability = !nextCapability || (!updatedIds.has(id) && currentCapability && currentCapability.status !== 'idle')
+    const capability = !nextCapability || (!updatedIds.has(id) && currentCapability)
       ? currentCapability
       : nextCapability;
     return [id, capability];
