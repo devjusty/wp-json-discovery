@@ -30,6 +30,9 @@ export async function executeScanSession(session, runners, onChange, token) {
   let current = cloneSession(session);
 
   while (hasPendingCapabilities(current)) {
+    if (token?.active === false) {
+      break;
+    }
     const pendingIds = getPendingCapabilityIds(current);
     const unavailableIds = pendingIds.filter((id) => hasFailedDependency(current, id));
 

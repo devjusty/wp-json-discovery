@@ -134,17 +134,50 @@ describe('scan session', () => {
     });
   });
 
-  it('returns completed state without updates for inactive tokens', async () => {
+  it('returns idle state without updates or runners for inactive tokens', async () => {
     const onChange = vi.fn();
+    const wordpress = vi.fn().mockResolvedValue({});
+    const homepage = vi.fn().mockResolvedValue({});
     const session = createScanSession('example.com', { capabilityIds: ['homepage'] });
 
     const completed = await executeScanSession(session, {
-      wordpress: vi.fn().mockResolvedValue({}),
-      homepage: vi.fn().mockResolvedValue({})
+      wordpress,
+      homepage
     }, onChange, { active: false });
 
     expect(onChange).not.toHaveBeenCalled();
-    expect(completed.overallStatus).toBe('complete');
+    expect(wordpress).not.toHaveBeenCalled();
+    expect(homepage).not.toHaveBeenCalled();
+    expect(completed.overallStatus).toBe('idle');
+  });
+
+  it('does not schedule dependent runners after its token becomes inactive', async () => {
+    let releaseWordpress;
+    const wordpress = vi.fn(() => new Promise((resolve) => {
+      releaseWordpress = resolve;
+    }));
+    const sitemap = vi.fn();
+    const onChange = vi.fn();
+    const token = { active: true };
+    const session = createScanSession('example.com', {
+      capabilityIds: ['sitemap']
+    }, {
+      sitemap: ['wordpress']
+    });
+
+    const execution = executeScanSession(session, { wordpress, sitemap }, onChange, token);
+
+    await vi.waitFor(() => {
+      expect(wordpress).toHaveBeenCalledOnce();
+    });
+    const publishedBeforeInvalidation = onChange.mock.calls.length;
+    token.active = false;
+    releaseWordpress({ namespaces: ['wp/v2'] });
+
+    await execution;
+
+    expect(sitemap).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenCalledTimes(publishedBeforeInvalidation);
   });
 
   it('does not mutate prior session state during execution', async () => {
