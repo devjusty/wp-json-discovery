@@ -127,6 +127,9 @@ function normalizeSitemapOptions(options, defaultOptions) {
 }
 
 function clampMaxPages(value, fallback) {
-  const maxPages = Number.isFinite(Number(value)) ? Math.trunc(Number(value)) : fallback;
+  const parsedValue = Number(value);
+  const maxPages = Number.isFinite(parsedValue) && parsedValue > 0
+    ? Math.trunc(parsedValue)
+    : fallback;
   return Math.min(50, Math.max(1, maxPages));
 }

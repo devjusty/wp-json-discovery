@@ -146,6 +146,13 @@ describe('scan capabilities', () => {
       capabilityIds: ['sitemap'],
       options: { sitemap: { sitemapUrl: '  /custom-sitemap.xml  ', maxPages: 0.5 } }
     }).options.sitemap).toEqual({ sitemapUrl: '/custom-sitemap.xml', maxPages: 1 });
+
+    for (const maxPages of ['', null, 0]) {
+      expect(normalizeSelection({
+        capabilityIds: ['sitemap'],
+        options: { sitemap: { maxPages } }
+      }).options.sitemap.maxPages).toBe(50);
+    }
   });
 
   it('maps result sections to their capability', () => {

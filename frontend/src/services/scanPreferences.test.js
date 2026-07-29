@@ -73,4 +73,24 @@ describe('scan preferences', () => {
       }
     });
   });
+
+  it('returns normalized preferences when storage rejects writes', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: (key) => storage.get(key) ?? null,
+      setItem: () => {
+        throw new Error('Storage blocked');
+      }
+    });
+
+    expect(saveScanPreferences({
+      capabilityIds: ['sitemap'],
+      options: { sitemap: { maxPages: 10 } }
+    })).toEqual({
+      capabilityIds: ['sitemap', 'wordpress'],
+      options: {
+        wordpress: {},
+        sitemap: { sitemapUrl: '', maxPages: 10 }
+      }
+    });
+  });
 });

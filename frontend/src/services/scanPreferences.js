@@ -23,9 +23,15 @@ export function loadScanPreferences() {
 
 export function saveScanPreferences(selection) {
   const normalizedSelection = normalizeSelection(selection);
-  localStorage.setItem(SCAN_PREFERENCES_KEY, JSON.stringify({
-    version: SCAN_PREFERENCES_VERSION,
-    ...normalizedSelection
-  }));
+
+  try {
+    localStorage.setItem(SCAN_PREFERENCES_KEY, JSON.stringify({
+      version: SCAN_PREFERENCES_VERSION,
+      ...normalizedSelection
+    }));
+  } catch {
+    // Preference persistence is optional when browser storage is blocked.
+  }
+
   return normalizedSelection;
 }
