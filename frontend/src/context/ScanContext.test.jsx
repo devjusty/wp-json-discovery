@@ -154,4 +154,20 @@ describe('ScanProvider', () => {
     });
     expect(result.current.shell.activeDomain).toBe('example.com');
   });
+
+  it('keeps the legacy scan busy while homepage work is still running', () => {
+    const session = {
+      domain: 'example.com',
+      overallStatus: 'running',
+      capabilities: {
+        wordpress: { status: 'success', result: { summary: {} }, error: null },
+        homepage: { status: 'running', result: null, error: null }
+      }
+    };
+    mocks.useScan.mockReturnValue(createCoordinator({ activeDomain: 'example.com', session }));
+
+    const { result } = renderHook(useScanContext, { wrapper });
+
+    expect(result.current.results.isScanning).toBe(true);
+  });
 });

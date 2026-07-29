@@ -82,7 +82,7 @@ export function ScanProvider({ children }) {
       runCapability,
       retryCapability,
       scanResult: wordpress?.result ?? null,
-      isScanning: isCapabilityRunning(wordpress),
+      isScanning: session?.overallStatus === 'running',
       scanError: wordpress?.error ?? null,
       homepageResult: homepage?.result ?? null,
       homepageIsRunning: isCapabilityRunning(homepage),
