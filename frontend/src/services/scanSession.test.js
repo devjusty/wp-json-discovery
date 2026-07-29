@@ -75,6 +75,17 @@ describe('scan session', () => {
     expect(completed.capabilities.homepage.status).toBe('success');
   });
 
+  it('marks missing runners as unavailable instead of throwing', async () => {
+    const session = createScanSession('example.com', { capabilityIds: ['homepage'] });
+
+    const completed = await executeScanSession(session, { wordpress: vi.fn() });
+
+    expect(completed.capabilities.homepage).toMatchObject({
+      status: 'unavailable',
+      error: { code: 'runner_unavailable', retryable: false }
+    });
+  });
+
   it('marks sitemap unavailable when its selected dependency fails without calling its runner', async () => {
     const wordpress = vi.fn().mockRejectedValue(new Error('WordPress unavailable'));
     const sitemap = vi.fn();

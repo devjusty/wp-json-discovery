@@ -181,7 +181,8 @@ export function useScan() {
     const current = sessionRef.current;
     const token = activeTokenRef.current;
     const capability = getCapabilityById(id);
-    if (!current || !token || !isCurrent(token) || !capability?.availability()) {
+    const currentState = current?.capabilities?.[id];
+    if (!current || !token || !isCurrent(token) || !capability?.availability() || ['queued', 'running'].includes(currentState?.status)) {
       return Promise.resolve(current);
     }
 

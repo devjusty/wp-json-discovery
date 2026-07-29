@@ -79,7 +79,7 @@ export async function executeScanSession(session, runners, onChange, token) {
       current = outcome.status === 'fulfilled'
         ? updateCapability(current, id, { status: 'success', result: outcome.value, error: null })
         : updateCapability(current, id, {
-          status: 'failed',
+          status: outcome.reason?.code === 'runner_unavailable' ? 'unavailable' : 'failed',
           result: null,
           error: normalizeScanError(outcome.reason)
         });
@@ -179,6 +179,12 @@ function hasCompletedDependencies(session, id) {
 }
 
 function runCapability(session, id, runners) {
+  if (typeof runners[id] !== 'function') {
+    throw Object.assign(new Error('Capability runner unavailable.'), {
+      code: 'runner_unavailable',
+      retryable: false
+    });
+  }
   return runners[id]({
     domain: session.domain,
     options: session.selection.options[id]

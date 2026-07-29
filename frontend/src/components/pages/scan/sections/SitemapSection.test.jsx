@@ -27,4 +27,21 @@ describe('SitemapSection', () => {
     expect(screen.getByText('Sitemap is unavailable.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /sitemap/i })).not.toBeInTheDocument();
   });
+
+  it('only shows retry for retryable failures', () => {
+    render(
+      <SitemapSection
+        domain="example.com"
+        capability={{ status: 'failed', result: null, error: { message: 'Permanent failure', retryable: false } }}
+        sitemapSettings={{ sitemapUrl: '', maxPages: 50 }}
+        onRun={vi.fn()}
+        onRetry={vi.fn()}
+        sitemapFilter="all"
+        setSitemapFilter={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Permanent failure')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /retry sitemap/i })).not.toBeInTheDocument();
+  });
 });

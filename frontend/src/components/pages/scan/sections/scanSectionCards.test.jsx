@@ -76,6 +76,13 @@ describe('scan section cards', () => {
     expect(screen.getByRole('status', { name: 'Homepage source signals' })).toBeInTheDocument();
   });
 
+  it('does not crash or claim automatic homepage work when scan result is malformed', () => {
+    render(<OverviewSection scanResult={null} homepageDomain="example.com" capabilities={{ homepage: { status: 'unavailable', error: { message: 'Not available' } } }} />);
+
+    expect(screen.getByText(/homepage scan is unavailable/i)).toBeInTheDocument();
+    expect(screen.queryByText(/runs automatically/i)).not.toBeInTheDocument();
+  });
+
   it('uses a shadcn card action slot for the overview homepage tile', () => {
     const { container } = render(
       <OverviewSection

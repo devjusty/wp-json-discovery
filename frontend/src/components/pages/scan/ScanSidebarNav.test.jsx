@@ -56,4 +56,17 @@ describe('ScanSidebarNav', () => {
     await userEvent.click(sitemap);
     expect(onSectionChange).toHaveBeenCalledWith('sitemap');
   });
+
+  it('marks unavailable capability sections without enabling misleading navigation', () => {
+    render(
+      <ScanSidebarNav
+        activeSection="overview"
+        hasSession
+        session={{ domain: 'example.com', capabilities: { sitemap: { status: 'unavailable' } } }}
+        onSectionChange={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Sitemap scan (Unavailable)' })).toBeDisabled();
+  });
 });
