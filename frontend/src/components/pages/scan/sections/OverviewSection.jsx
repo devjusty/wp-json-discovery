@@ -4,8 +4,16 @@ import ScanSummary from '../../../organisms/summary/ScanSummary.jsx';
 import ExposurePanel from '../../../organisms/panels/ExposurePanel.jsx';
 import PerformancePanel from '../../../organisms/panels/PerformancePanel.jsx';
 import ContentOverviewPanel from '../../../organisms/panels/ContentOverviewPanel.jsx';
+import { Button } from '@/components/ui/button.jsx';
+import { SCAN_CAPABILITIES } from '../../../../services/scanCapabilities.js';
 
-function OverviewSection({ scanResult, homepageDomain, homepageResult }) {
+function OverviewSection({
+  scanResult,
+  homepageDomain,
+  homepageResult,
+  additionalCapabilityIds = [],
+  onRunCapability = () => {}
+}) {
   return (
     <>
       <ScanSummary
@@ -18,6 +26,22 @@ function OverviewSection({ scanResult, homepageDomain, homepageResult }) {
         coreDatasets={scanResult.core}
       />
       <HomepageOverviewCard domain={homepageDomain} result={homepageResult} />
+      {additionalCapabilityIds.length > 0 ? (
+        <section className="section" aria-label="Additional scans">
+          <h2>Additional scans</h2>
+          {additionalCapabilityIds.map((id) => {
+            const capability = SCAN_CAPABILITIES.find((item) => item.id === id);
+            return (
+              <div key={id}>
+                <strong>{capability?.label ?? id}</strong>
+                <Button type="button" variant="secondary" size="sm" onClick={() => onRunCapability(id)}>
+                  Run {capability?.label ?? id}
+                </Button>
+              </div>
+            );
+          })}
+        </section>
+      ) : null}
       <section className="section">
         <div className="grid">
           <PerformancePanel performance={scanResult.performance} />
@@ -35,12 +59,16 @@ function OverviewSection({ scanResult, homepageDomain, homepageResult }) {
 OverviewSection.propTypes = {
   scanResult: PropTypes.object.isRequired,
   homepageDomain: PropTypes.string,
-  homepageResult: PropTypes.object
+  homepageResult: PropTypes.object,
+  additionalCapabilityIds: PropTypes.arrayOf(PropTypes.string),
+  onRunCapability: PropTypes.func
 };
 
 OverviewSection.defaultProps = {
   homepageDomain: '',
-  homepageResult: null
+  homepageResult: null,
+  additionalCapabilityIds: [],
+  onRunCapability: () => {}
 };
 
 export default OverviewSection;

@@ -9,17 +9,11 @@ import {
 const mocks = vi.hoisted(() => ({
   loadScanPreferences: vi.fn(),
   saveScanPreferences: vi.fn((selection) => selection),
-  startHomepageScan: vi.fn(),
-  useHomepageScan: vi.fn(),
   useScan: vi.fn()
 }));
 
 vi.mock('../hooks/useScan.js', () => ({
   useScan: mocks.useScan
-}));
-
-vi.mock('../hooks/useHomepageScan.js', () => ({
-  useHomepageScan: mocks.useHomepageScan
 }));
 
 vi.mock('../services/scanPreferences.js', () => ({
@@ -58,7 +52,6 @@ describe('ScanProvider', () => {
       capabilityIds: ['homepage', 'wordpress'],
       options: { homepage: {}, wordpress: {} }
     });
-    mocks.useHomepageScan.mockReturnValue({ startHomepageScan: mocks.startHomepageScan });
     mocks.useScan.mockReturnValue(createCoordinator());
   });
 
@@ -124,8 +117,6 @@ describe('ScanProvider', () => {
       capabilityIds: ['homepage', 'wordpress'],
       options: { homepage: {}, wordpress: {} }
     });
-    expect(mocks.useHomepageScan).not.toHaveBeenCalled();
-    expect(mocks.startHomepageScan).not.toHaveBeenCalled();
   });
 
   it('derives legacy core and homepage values from the current session', () => {

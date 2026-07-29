@@ -41,17 +41,26 @@ vi.mock('./sections/UnsupportedSection.jsx', () => ({
 function buildProps(overrides = {}) {
   return {
     activeSection: 'overview',
-    scanResult: {
+    session: {
       domain: 'example.com',
-      exposure: {},
-      performance: {},
-      contentOverview: {},
+      selection: { capabilityIds: ['wordpress'], options: { wordpress: {} } },
+      capabilities: {
+        wordpress: {
+          status: 'success',
+          result: {
+            domain: 'example.com',
+            exposure: {},
+            performance: {},
+            contentOverview: {}
+          },
+          error: null
+        }
+      }
     },
-    homepageResult: null,
-    homepageDomain: 'example.com',
-    startSitemapScan: vi.fn(),
-    sitemapResult: null,
-    isSitemapRunning: false,
+    scanSettings: { capabilityIds: ['wordpress'], options: { wordpress: {} } },
+    onScanSettingsChange: vi.fn(),
+    onRunCapability: vi.fn(),
+    onRetryCapability: vi.fn(),
     sitemapFilter: 'all',
     setSitemapFilter: vi.fn(),
     unsupportedPlugins: [],
@@ -62,8 +71,8 @@ function buildProps(overrides = {}) {
 }
 
 describe('ScanSectionContent', () => {
-  it('renders empty state when no scan result is available', () => {
-    render(<ScanSectionContent {...buildProps({ scanResult: null })} />);
+  it('renders empty state when no scan session is available', () => {
+    render(<ScanSectionContent {...buildProps({ session: null })} />);
 
     expect(screen.getByText(/enter a domain to discover available rest endpoints/i)).toBeInTheDocument();
   });
@@ -88,5 +97,23 @@ describe('ScanSectionContent', () => {
       expect(screen.getByText(expectedText)).toBeInTheDocument();
       unmount();
     });
+  });
+
+  it('keeps successful WordPress content visible while homepage work runs', () => {
+    const props = buildProps();
+    render(
+      <ScanSectionContent {...buildProps({
+        session: {
+          ...props.session,
+          selection: { capabilityIds: ['homepage', 'wordpress'], options: { homepage: {}, wordpress: {} } },
+          capabilities: {
+            ...props.session.capabilities,
+            homepage: { status: 'running', result: null, error: null }
+          }
+        }
+      })} />
+    );
+
+    expect(screen.getByText('Overview section')).toBeInTheDocument();
   });
 });

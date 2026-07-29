@@ -46,7 +46,7 @@ const SCAN_SECTION_ICONS = {
 
 function ScanSidebarNav({
   activeSection,
-  hasScanResult,
+  hasSession,
   onSectionChange,
   onOpenHistory,
   onOpenAdmin,
@@ -58,7 +58,7 @@ function ScanSidebarNav({
         <p className="sidebar__title">Navigation</p>
         <ul className="sidebar__nav">
           {SCAN_SECTIONS.filter((item) => item.id !== 'unsupported' || isAdmin).map((item) => {
-            const disabled = item.requiresScan && !hasScanResult;
+            const disabled = item.requiresScan && !hasSession;
             const isActive = activeSection === item.id;
 
             return (
@@ -128,7 +128,7 @@ function ScanSidebarNav({
 
 ScanSidebarNav.propTypes = {
   activeSection: PropTypes.string.isRequired,
-  hasScanResult: PropTypes.bool,
+  hasSession: PropTypes.bool,
   onSectionChange: PropTypes.func.isRequired,
   onOpenHistory: PropTypes.func,
   onOpenAdmin: PropTypes.func,
@@ -136,7 +136,7 @@ ScanSidebarNav.propTypes = {
 };
 
 ScanSidebarNav.defaultProps = {
-  hasScanResult: false,
+  hasSession: false,
   isAdmin: false
 };
 

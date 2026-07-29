@@ -56,9 +56,16 @@ StatChip.defaultProps = {
   hide: false,
 };
 
-function SitemapScanPanel({ domain, onScan, isRunning, result, sitemapProbe, sitemapExposure }) {
-  const [maxPages, setMaxPages] = useState(50);
-  const [sitemapUrl, setSitemapUrl] = useState('');
+function SitemapScanPanel({
+  domain,
+  onScan,
+  isRunning,
+  result,
+  sitemapProbe,
+  sitemapExposure,
+  settings = { sitemapUrl: '', maxPages: 50 },
+  onSettingsChange = () => {}
+}) {
   const elapsed = useElapsedTime(isRunning);
 
   const pages = result?.pages ?? [];
@@ -104,8 +111,8 @@ function SitemapScanPanel({ domain, onScan, isRunning, result, sitemapProbe, sit
               type="number"
               min={1}
               max={200}
-              value={maxPages}
-              onChange={(e) => setMaxPages(Number(e.target.value) || 1)}
+              value={settings.maxPages}
+              onChange={(e) => onSettingsChange({ ...settings, maxPages: Number(e.target.value) || 1 })}
               className="sitemap-scan__max-pages"
               aria-label="Max pages"
             />
@@ -117,8 +124,8 @@ function SitemapScanPanel({ domain, onScan, isRunning, result, sitemapProbe, sit
             <TextInput
               id="sitemap-url-override"
               type="text"
-              value={sitemapUrl}
-              onChange={(e) => setSitemapUrl(e.target.value)}
+              value={settings.sitemapUrl}
+              onChange={(e) => onSettingsChange({ ...settings, sitemapUrl: e.target.value })}
               placeholder={placeholderUrl || 'Default: /sitemap.xml'}
               className="sitemap-scan__url-input"
             />
@@ -129,7 +136,7 @@ function SitemapScanPanel({ domain, onScan, isRunning, result, sitemapProbe, sit
               type="button"
               variant="secondary"
               size="sm"
-              onClick={() => onScan({ domain, sitemapUrl: sitemapUrl || undefined, maxPages })}
+              onClick={() => onScan(settings)}
               disabled={isRunning || !domain}
             >
               {isRunning ? 'Scanning…' : 'Scan sitemap'}
@@ -266,7 +273,12 @@ SitemapScanPanel.propTypes = {
   sitemapExposure: PropTypes.shape({
     available: PropTypes.bool,
     statusCode: PropTypes.number
-  })
+  }),
+  settings: PropTypes.shape({
+    sitemapUrl: PropTypes.string,
+    maxPages: PropTypes.number
+  }),
+  onSettingsChange: PropTypes.func
 };
 
 SitemapScanPanel.defaultProps = {
@@ -274,7 +286,9 @@ SitemapScanPanel.defaultProps = {
   isRunning: false,
   result: null,
   sitemapProbe: null,
-  sitemapExposure: null
+  sitemapExposure: null,
+  settings: { sitemapUrl: '', maxPages: 50 },
+  onSettingsChange: () => {}
 };
 
 export default SitemapScanPanel;

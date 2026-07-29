@@ -1,4 +1,3 @@
-import { memo } from 'react';
 import PropTypes from 'prop-types';
 import ExposurePanel from '../../organisms/panels/ExposurePanel.jsx';
 import PerformancePanel from '../../organisms/panels/PerformancePanel.jsx';
@@ -10,16 +9,15 @@ import SitemapSection from './sections/SitemapSection.jsx';
 import CoreDataSection from './sections/CoreDataSection.jsx';
 import PluginsSection from './sections/PluginsSection.jsx';
 import UnsupportedSection from './sections/UnsupportedSection.jsx';
+import { CAPABILITY_IDS, SCAN_CAPABILITIES } from '../../../services/scanCapabilities.js';
 
 function ScanSectionContent({
   activeSection,
-  scanResult,
-  homepageResult,
-  homepageDomain,
-  homepageSummary,
-  startSitemapScan,
-  sitemapResult,
-  isSitemapRunning,
+  session,
+  scanSettings,
+  onScanSettingsChange,
+  onRunCapability,
+  onRetryCapability,
   sitemapFilter,
   setSitemapFilter,
   unsupportedPlugins,
@@ -27,7 +25,21 @@ function ScanSectionContent({
   onRefreshUnsupported,
   showDomains
 }) {
-  if (!scanResult) {
+  if (!session) {
+    return <EmptyScanState />;
+  }
+
+  const wordpress = session.capabilities[CAPABILITY_IDS.WORDPRESS];
+  const homepage = session.capabilities[CAPABILITY_IDS.HOMEPAGE] ?? { status: 'idle', result: null, error: null };
+  const sitemap = session.capabilities[CAPABILITY_IDS.SITEMAP] ?? { status: 'idle', result: null, error: null };
+  const scanResult = wordpress?.result ?? null;
+  const homepageResult = homepage.result;
+  const sitemapSettings = scanSettings.options[CAPABILITY_IDS.SITEMAP] ?? { sitemapUrl: '', maxPages: 50 };
+  const additionalCapabilityIds = SCAN_CAPABILITIES
+    .map(({ id }) => id)
+    .filter((id) => id !== CAPABILITY_IDS.WORDPRESS && !session.selection.capabilityIds.includes(id));
+
+  if (!scanResult && !['homepage', 'sitemap'].includes(activeSection)) {
     return <EmptyScanState />;
   }
 
@@ -36,8 +48,10 @@ function ScanSectionContent({
       return (
         <OverviewSection
           scanResult={scanResult}
-          homepageDomain={homepageDomain}
+          homepageDomain={session.domain}
           homepageResult={homepageResult}
+          additionalCapabilityIds={additionalCapabilityIds}
+          onRunCapability={onRunCapability}
         />
       );
     case 'exposure':
@@ -64,20 +78,27 @@ function ScanSectionContent({
     case 'homepage':
       return (
         <HomepageSection
-          homepageResult={homepageResult}
-          homepageDomain={homepageDomain}
-          homepageSummary={homepageSummary}
+          homepageDomain={session.domain}
+          capability={homepage}
+          onRun={() => onRunCapability(CAPABILITY_IDS.HOMEPAGE)}
+          onRetry={() => onRetryCapability(CAPABILITY_IDS.HOMEPAGE)}
         />
       );
     case 'sitemap':
       return (
         <SitemapSection
-          domain={scanResult.domain}
-          startSitemapScan={startSitemapScan}
-          isSitemapRunning={isSitemapRunning}
-          sitemapResult={sitemapResult}
-          sitemapProbe={scanResult.performance?.sitemap}
-          sitemapExposure={scanResult.exposure?.sitemapXml}
+          domain={session.domain}
+          capability={sitemap}
+          sitemapSettings={sitemapSettings}
+          onSitemapSettingsChange={(settings) => onScanSettingsChange((current) => ({
+            ...current,
+            capabilityIds: Array.from(new Set([...current.capabilityIds, CAPABILITY_IDS.SITEMAP])),
+            options: { ...current.options, [CAPABILITY_IDS.SITEMAP]: settings }
+          }))}
+          onRun={(options) => onRunCapability(CAPABILITY_IDS.SITEMAP, options)}
+          onRetry={() => onRetryCapability(CAPABILITY_IDS.SITEMAP)}
+          sitemapProbe={scanResult?.performance?.sitemap}
+          sitemapExposure={scanResult?.exposure?.sitemapXml}
           sitemapFilter={sitemapFilter}
           setSitemapFilter={setSitemapFilter}
         />
@@ -102,13 +123,11 @@ function ScanSectionContent({
 
 ScanSectionContent.propTypes = {
   activeSection: PropTypes.string.isRequired,
-  scanResult: PropTypes.object,
-  homepageResult: PropTypes.object,
-  homepageDomain: PropTypes.string,
-  homepageSummary: PropTypes.string,
-  startSitemapScan: PropTypes.func.isRequired,
-  sitemapResult: PropTypes.object,
-  isSitemapRunning: PropTypes.bool,
+  session: PropTypes.object,
+  scanSettings: PropTypes.object.isRequired,
+  onScanSettingsChange: PropTypes.func.isRequired,
+  onRunCapability: PropTypes.func.isRequired,
+  onRetryCapability: PropTypes.func.isRequired,
   sitemapFilter: PropTypes.string.isRequired,
   setSitemapFilter: PropTypes.func.isRequired,
   unsupportedPlugins: PropTypes.array,
@@ -118,15 +137,10 @@ ScanSectionContent.propTypes = {
 };
 
 ScanSectionContent.defaultProps = {
-  scanResult: null,
-  homepageResult: null,
-  homepageDomain: '',
-  homepageSummary: '',
-  sitemapResult: null,
-  isSitemapRunning: false,
+  session: null,
   unsupportedPlugins: [],
   unsupportedIsLoading: false,
   showDomains: false
 };
 
-export default memo(ScanSectionContent);
+export default ScanSectionContent;

@@ -214,6 +214,28 @@ describe('useScan', () => {
     });
   });
 
+  it('reruns a completed selected capability with updated options', async () => {
+    const wordpress = vi.fn().mockResolvedValue({ source: 'wordpress' });
+    const homepage = vi.fn().mockResolvedValue({ source: 'homepage' });
+    mocks.getCapabilityRunners.mockReturnValue({ wordpress, homepage });
+    const { result } = renderHook(() => useScan(), { wrapper: createWrapper() });
+
+    act(() => {
+      result.current.startScan('example.com', { capabilityIds: ['wordpress', 'homepage'] });
+    });
+    await waitFor(() => {
+      expect(result.current.session?.capabilities.homepage.status).toBe('success');
+    });
+
+    act(() => {
+      result.current.runCapability('homepage', { refresh: true });
+    });
+    await waitFor(() => {
+      expect(homepage).toHaveBeenCalledTimes(2);
+    });
+    expect(homepage).toHaveBeenLastCalledWith({ domain: 'example.com', options: { refresh: true } });
+  });
+
   it('keeps a running sibling during an overlapping stale execution completion', () => {
     const current = {
       domain: 'example.com',

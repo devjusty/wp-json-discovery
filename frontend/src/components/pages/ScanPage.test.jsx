@@ -25,14 +25,6 @@ vi.mock('../molecules/forms/DomainForm.jsx', () => ({
   default: mocks.domainForm
 }));
 
-vi.mock('../../hooks/useSitemapScan.js', () => ({
-  useSitemapScan: () => ({
-    startSitemapScan: vi.fn(),
-    result: null,
-    isRunning: false
-  })
-}));
-
 vi.mock('../../context/ScanContext.jsx', () => ({
   useScanShellContext: () => ({
     domain: 'example.com',
@@ -42,18 +34,16 @@ vi.mock('../../context/ScanContext.jsx', () => ({
     activeDomain: 'example.com'
   }),
   useScanResultsContext: () => ({
-    scanResult: null,
+    session: null,
     isScanning: false,
-    scanError: null,
-    homepageResult: null,
-    homepageIsRunning: false,
-    homepageError: null,
     scanSettings: {
       capabilityIds: ['homepage', 'wordpress'],
       options: { homepage: {}, wordpress: {} }
     },
     updateScanSettings: mocks.updateScanSettings,
-    saveScanDefaults: mocks.saveScanDefaults
+    saveScanDefaults: mocks.saveScanDefaults,
+    runCapability: vi.fn(),
+    retryCapability: vi.fn()
   })
 }));
 

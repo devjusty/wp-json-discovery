@@ -5,7 +5,16 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import HomepageSourcePanel from '../../../organisms/panels/HomepageSourcePanel.jsx';
 import HomepageInsightsPanel from '../../../organisms/panels/HomepageInsightsPanel.jsx';
 
-function HomepageSection({ homepageResult, homepageDomain, homepageSummary }) {
+function HomepageSection({ capability, homepageDomain, onRun, onRetry }) {
+  const homepageResult = capability?.result ?? null;
+  const isRunning = ['queued', 'running'].includes(capability?.status);
+  const hasFailed = capability?.status === 'failed';
+  const homepageSummary = isRunning
+    ? 'Analyzing…'
+    : homepageResult
+      ? `S${homepageResult.source?.statusCode ?? '—'} · M${homepageResult.insights?.meta?.length ?? 0} · A${homepageResult.insights?.assets?.length ?? 0} · F${homepageResult.insights?.frameworks?.length ?? 0}`
+      : '';
+
   return (
     <section className="section homepage-section">
       <div className="grid">
@@ -22,33 +31,49 @@ function HomepageSection({ homepageResult, homepageDomain, homepageSummary }) {
             <div>
               <h2>Homepage source signals</h2>
               <p className="card__meta">
-                Homepage source signals appear here after a scan completes for{' '}
-                {homepageDomain || 'the selected domain'}.
+                {isRunning
+                  ? `Analyzing homepage source signals for ${homepageDomain || 'the selected domain'}…`
+                  : hasFailed
+                    ? capability.error?.message ?? 'Homepage source analysis failed.'
+                    : `Homepage source signals have not run for ${homepageDomain || 'the selected domain'}.`}
               </p>
             </div>
           </CardHeader>
           <CardContent>
-            {homepageSummary ? (
-              <p className="card__meta">Current summary: {homepageSummary}</p>
+            {isRunning ? <p className="card__meta">Partial WordPress results remain available while this runs.</p> : null}
+            {hasFailed && capability.error?.retryable ? (
+              <Button type="button" variant="secondary" size="sm" onClick={onRetry}>Retry homepage scan</Button>
+            ) : null}
+            {!isRunning && !hasFailed ? (
+              <Button type="button" variant="secondary" size="sm" onClick={onRun}>Run homepage scan</Button>
             ) : null}
           </CardContent>
         </Card>
       )}
+      {homepageResult ? (
+        <Button type="button" variant="secondary" size="sm" onClick={onRun}>Rerun homepage scan</Button>
+      ) : null}
       <HomepageJsonPreview data={homepageResult} />
     </section>
   );
 }
 
 HomepageSection.propTypes = {
-  homepageResult: PropTypes.object,
   homepageDomain: PropTypes.string,
-  homepageSummary: PropTypes.string
+  capability: PropTypes.shape({
+    status: PropTypes.string,
+    result: PropTypes.object,
+    error: PropTypes.shape({ message: PropTypes.string, retryable: PropTypes.bool })
+  }),
+  onRun: PropTypes.func,
+  onRetry: PropTypes.func
 };
 
 HomepageSection.defaultProps = {
-  homepageResult: null,
   homepageDomain: '',
-  homepageSummary: ''
+  capability: null,
+  onRun: () => {},
+  onRetry: () => {}
 };
 
 export default HomepageSection;

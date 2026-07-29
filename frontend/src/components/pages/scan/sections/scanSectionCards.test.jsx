@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import EmptyScanState from './EmptyScanState.jsx';
 import HomepageSection from './HomepageSection.jsx';
@@ -45,7 +46,7 @@ describe('scan section cards', () => {
   });
 
   it('keeps the raw JSON panel collapsed by default', () => {
-    render(<HomepageSection homepageDomain="example.com" homepageSummary="No signals yet" />);
+    render(<HomepageSection homepageDomain="example.com" capability={{ status: 'idle', result: null, error: null }} />);
 
     expect(screen.getByRole('status', { name: 'Homepage source signals' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Raw JSON' })).toBeInTheDocument();
@@ -98,6 +99,24 @@ describe('scan section cards', () => {
     const homepageTile = screen.getByRole('status', { name: 'Homepage source signals' });
     expect(homepageTile).toBeInTheDocument();
     expect(container.querySelector('[data-slot="card-action"]')).toBeInTheDocument();
+  });
+
+  it('runs additional capabilities from overview', async () => {
+    const onRunCapability = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <OverviewSection
+        scanResult={{
+          domain: 'example.com', fetchedAt: '', summary: {}, namespaces: [], metrics: {},
+          plugins: { matched: [], unsupportedNamespaces: [] }, core: [], performance: {}, contentOverview: {}, exposure: {}
+        }}
+        additionalCapabilityIds={['homepage', 'sitemap']}
+        onRunCapability={onRunCapability}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Run Sitemap' }));
+    expect(onRunCapability).toHaveBeenCalledWith('sitemap');
   });
 
   it('labels the plugins empty and unsupported notices as cards', () => {

@@ -181,7 +181,7 @@ export function useScan() {
     const current = sessionRef.current;
     const token = activeTokenRef.current;
     const capability = getCapabilityById(id);
-    if (!current || !token || !isCurrent(token) || !capability?.availability() || current.selection.capabilityIds.includes(id)) {
+    if (!current || !token || !isCurrent(token) || !capability?.availability()) {
       return Promise.resolve(current);
     }
 
@@ -195,7 +195,8 @@ export function useScan() {
     const nextSession = createScanSession(current.domain, selection, getCapabilityDependencies());
     nextSession.capabilities = {
       ...nextSession.capabilities,
-      ...current.capabilities
+      ...current.capabilities,
+      [id]: { status: 'idle', result: null, error: null }
     };
     nextSession.overallStatus = 'running';
     publishSession(nextSession, token, [id]);

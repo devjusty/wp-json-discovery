@@ -1,27 +1,43 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
 import ScanStatusStack from './ScanStatusStack.jsx';
 
 describe('ScanStatusStack', () => {
-  it('renders scanning and homepage-running statuses', () => {
+  it('shows session and per-capability state while partial results are available', () => {
     render(
       <ScanStatusStack
-        isScanning
-        activeDomain="example.com"
-        homepageIsRunning
+        session={{
+          domain: 'example.com',
+          overallStatus: 'running',
+          capabilities: {
+            wordpress: { status: 'success', result: {}, error: null },
+            homepage: { status: 'running', result: null, error: null },
+            sitemap: { status: 'idle', result: null, error: null }
+          }
+        }}
       />
     );
 
     expect(screen.getByText('Scanning example.com…')).toBeInTheDocument();
-    expect(screen.getByText('Analyzing homepage source signals for example.com…')).toBeInTheDocument();
+    expect(screen.getByText('WordPress API: Success')).toBeInTheDocument();
+    expect(screen.getByText('Homepage: Running')).toBeInTheDocument();
+    expect(screen.getByText('Sitemap: Not run')).toBeInTheDocument();
   });
 
   it('renders auth hints when scan requires auth', () => {
     render(
       <ScanStatusStack
-        scanError={{
-          code: 'auth_required',
-          message: 'Authentication required'
+        session={{
+          domain: 'example.com',
+          overallStatus: 'incomplete',
+          capabilities: {
+            wordpress: {
+              status: 'failed',
+              result: null,
+              error: { code: 'auth_required', message: 'Authentication required', retryable: true }
+            }
+          }
         }}
       />
     );
@@ -30,9 +46,28 @@ describe('ScanStatusStack', () => {
     expect(screen.getByText(/requires application passwords/i)).toBeInTheDocument();
   });
 
-  it('renders homepage error fallback message', () => {
-    render(<ScanStatusStack homepageError={{ message: 'Homepage request failed' }} />);
+  it('retries retryable capability failures', async () => {
+    const retryCapability = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ScanStatusStack
+        session={{
+          domain: 'example.com',
+          overallStatus: 'incomplete',
+          capabilities: {
+            homepage: {
+              status: 'failed',
+              result: null,
+              error: { message: 'Homepage request failed', retryable: true }
+            }
+          }
+        }}
+        onRetryCapability={retryCapability}
+      />
+    );
 
     expect(screen.getByText('Homepage request failed')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Retry Homepage' }));
+    expect(retryCapability).toHaveBeenCalledWith('homepage');
   });
 });
