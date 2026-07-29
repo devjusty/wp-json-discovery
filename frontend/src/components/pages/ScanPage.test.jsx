@@ -1,9 +1,15 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ScanPage from './ScanPage.jsx';
 import { clearUserRecentRuns } from '../../api/client.js';
+
+const mocks = vi.hoisted(() => ({
+  domainForm: vi.fn(() => null),
+  updateScanSettings: vi.fn(),
+  saveScanDefaults: vi.fn()
+}));
 
 vi.mock('../templates/AppLayout.jsx', () => ({
   default: ({ children, sidebar, title }) => (
@@ -16,7 +22,7 @@ vi.mock('../templates/AppLayout.jsx', () => ({
 }));
 
 vi.mock('../molecules/forms/DomainForm.jsx', () => ({
-  default: () => <div>Domain form</div>
+  default: mocks.domainForm
 }));
 
 vi.mock('../../hooks/useSitemapScan.js', () => ({
@@ -41,7 +47,13 @@ vi.mock('../../context/ScanContext.jsx', () => ({
     scanError: null,
     homepageResult: null,
     homepageIsRunning: false,
-    homepageError: null
+    homepageError: null,
+    scanSettings: {
+      capabilityIds: ['homepage', 'wordpress'],
+      options: { homepage: {}, wordpress: {} }
+    },
+    updateScanSettings: mocks.updateScanSettings,
+    saveScanDefaults: mocks.saveScanDefaults
   })
 }));
 
@@ -85,6 +97,33 @@ vi.mock('../../utils/scanFeed.js', () => ({
 }));
 
 describe('ScanPage', () => {
+  beforeEach(() => {
+    mocks.domainForm.mockClear();
+    mocks.updateScanSettings.mockClear();
+    mocks.saveScanDefaults.mockClear();
+  });
+
+  it('forwards live scan settings actions to the domain form', () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } }
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ScanPage isAuthenticated />
+      </QueryClientProvider>
+    );
+
+    expect(mocks.domainForm).toHaveBeenCalledWith(expect.objectContaining({
+      scanSettings: {
+        capabilityIds: ['homepage', 'wordpress'],
+        options: { homepage: {}, wordpress: {} }
+      },
+      onScanSettingsChange: mocks.updateScanSettings,
+      onSaveDefaults: mocks.saveScanDefaults
+    }), undefined);
+  });
+
   it('renders scan shell regions', () => {
     const queryClient = new QueryClient({
       defaultOptions: {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ScanSettingsPanel from './ScanSettingsPanel.jsx';
 
@@ -52,6 +52,68 @@ describe('ScanSettingsPanel', () => {
       options: {
         homepage: {},
         sitemap: { sitemapUrl: '', maxPages: 50 },
+        wordpress: {}
+      }
+    });
+  });
+
+  it('shows sitemap options only when sitemap is selected', () => {
+    const { rerender } = render(<ScanSettingsPanel scanSettings={homepageSelection} />);
+
+    expect(screen.queryByLabelText('Sitemap URL')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Max pages')).not.toBeInTheDocument();
+
+    rerender(
+      <ScanSettingsPanel
+        scanSettings={{
+          capabilityIds: ['sitemap', 'wordpress'],
+          options: { sitemap: { sitemapUrl: '', maxPages: 50 }, wordpress: {} }
+        }}
+      />
+    );
+
+    expect(screen.getByLabelText('Sitemap URL')).toBeInTheDocument();
+    expect(screen.getByLabelText('Max pages')).toHaveAttribute('max', '50');
+  });
+
+  it('updates and clamps sitemap options without changing other capability options', () => {
+    const onScanSettingsChange = vi.fn();
+    const selection = {
+      capabilityIds: ['homepage', 'sitemap', 'wordpress'],
+      options: {
+        homepage: {},
+        sitemap: { sitemapUrl: '', maxPages: 50 },
+        wordpress: {}
+      }
+    };
+    const { rerender } = render(
+      <ScanSettingsPanel
+        scanSettings={selection}
+        onScanSettingsChange={onScanSettingsChange}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Sitemap URL'), {
+      target: { value: ' /news-sitemap.xml ' }
+    });
+    const withUrl = {
+      capabilityIds: ['homepage', 'sitemap', 'wordpress'],
+      options: {
+        homepage: {},
+        sitemap: { sitemapUrl: '/news-sitemap.xml', maxPages: 50 },
+        wordpress: {}
+      }
+    };
+    expect(onScanSettingsChange).toHaveBeenLastCalledWith(withUrl);
+
+    rerender(<ScanSettingsPanel scanSettings={withUrl} onScanSettingsChange={onScanSettingsChange} />);
+    fireEvent.change(screen.getByLabelText('Max pages'), { target: { value: '99' } });
+
+    expect(onScanSettingsChange).toHaveBeenLastCalledWith({
+      capabilityIds: ['homepage', 'sitemap', 'wordpress'],
+      options: {
+        homepage: {},
+        sitemap: { sitemapUrl: '/news-sitemap.xml', maxPages: 50 },
         wordpress: {}
       }
     });

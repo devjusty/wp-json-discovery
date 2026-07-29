@@ -35,7 +35,10 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
     scanError,
     homepageResult,
     homepageIsRunning,
-    homepageError
+    homepageError,
+    scanSettings,
+    updateScanSettings,
+    saveScanDefaults
   } = useScanResultsContext();
 
   const {
@@ -167,6 +170,9 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
         initialDomain={scanResult?.domain ?? activeDomain}
         domain={domain}
         onDomainChange={onDomainChange}
+        scanSettings={scanSettings}
+        onScanSettingsChange={updateScanSettings}
+        onSaveDefaults={saveScanDefaults}
       />
 
       {isAuthenticated && (

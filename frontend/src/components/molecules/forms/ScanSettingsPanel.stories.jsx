@@ -19,3 +19,17 @@ export const RecommendedSelection = {
     onSaveDefaults: fn(),
   },
 };
+
+export const SitemapConfigured = {
+  args: {
+    scanSettings: {
+      capabilityIds: ['sitemap', 'wordpress'],
+      options: {
+        sitemap: { sitemapUrl: '/news-sitemap.xml', maxPages: 20 },
+        wordpress: {}
+      }
+    },
+    onScanSettingsChange: fn(),
+    onSaveDefaults: fn(),
+  },
+};
