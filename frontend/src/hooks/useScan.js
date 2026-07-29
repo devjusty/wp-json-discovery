@@ -40,12 +40,13 @@ export function useScan() {
   });
 
   const isCurrent = (token) => token.active && activeTokenRef.current === token;
-  const publishSession = (nextSession, token) => {
+  const publishSession = (nextSession, token, updatedCapabilityIds = []) => {
     if (!isCurrent(token)) {
       return;
     }
-    sessionRef.current = nextSession;
-    setSession(nextSession);
+    const mergedSession = mergeSession(sessionRef.current, nextSession, updatedCapabilityIds);
+    sessionRef.current = mergedSession;
+    setSession(mergedSession);
   };
 
   const reportWordpressSuccess = async (data, token) => {
@@ -151,13 +152,13 @@ export function useScan() {
     const completed = await executeScanSession(
       nextSession,
       getCapabilityRunners(capabilityIds),
-      (changedSession) => publishSession(changedSession, token),
+      (changedSession) => publishSession(changedSession, token, capabilityIds),
       token
     );
     if (!isCurrent(token)) {
       return completed;
     }
-    publishSession(completed, token);
+    publishSession(completed, token, capabilityIds);
     await reportWordpressOutcome(completed, token);
     return completed;
   };
@@ -169,7 +170,7 @@ export function useScan() {
     const token = { active: true };
     activeTokenRef.current = token;
     const nextSession = createScanSession(domain, selection, getCapabilityDependencies());
-    publishSession(nextSession, token);
+    publishSession(nextSession, token, nextSession.selection.capabilityIds);
     logEvent('scan.started', { domain, triggeredAt: new Date().toISOString() });
     return execute(nextSession, nextSession.selection.capabilityIds, token);
   };
@@ -195,7 +196,7 @@ export function useScan() {
       ...current.capabilities
     };
     nextSession.overallStatus = 'running';
-    publishSession(nextSession, token);
+    publishSession(nextSession, token, [id]);
     return execute(nextSession, [id], token);
   };
 
@@ -209,13 +210,13 @@ export function useScan() {
       current,
       id,
       getCapabilityRunners([id]),
-      (changedSession) => publishSession(changedSession, token),
+      (changedSession) => publishSession(changedSession, token, [id]),
       token
     );
     if (!isCurrent(token)) {
       return completed;
     }
-    publishSession(completed, token);
+    publishSession(completed, token, [id]);
     await reportWordpressOutcome(completed, token);
     return completed;
   };
@@ -235,4 +236,49 @@ export function useScan() {
     isRotatingLogs: rotateLogsMutation.isPending,
     rotateLogs
   };
+}
+
+function mergeSession(current, next, updatedCapabilityIds) {
+  if (!current || current.domain !== next.domain) {
+    return next;
+  }
+
+  const updatedIds = new Set(updatedCapabilityIds);
+  const capabilityIds = Array.from(new Set([
+    ...current.selection.capabilityIds,
+    ...next.selection.capabilityIds
+  ])).sort();
+  const capabilities = Object.fromEntries(capabilityIds.map((id) => {
+    const currentCapability = current.capabilities[id];
+    const nextCapability = next.capabilities[id];
+    const capability = !nextCapability || (!updatedIds.has(id) && isTerminal(currentCapability?.status))
+      ? currentCapability
+      : nextCapability;
+    return [id, capability];
+  }));
+
+  return {
+    ...next,
+    selection: {
+      capabilityIds,
+      options: { ...current.selection.options, ...next.selection.options }
+    },
+    capabilities,
+    overallStatus: getOverallStatus(capabilities)
+  };
+}
+
+function isTerminal(status) {
+  return ['success', 'failed', 'unavailable'].includes(status);
+}
+
+function getOverallStatus(capabilities) {
+  const states = Object.values(capabilities);
+  if (states.every(({ status }) => status === 'success')) {
+    return 'complete';
+  }
+  if (states.every(({ status }) => isTerminal(status))) {
+    return 'incomplete';
+  }
+  return states.some(({ status }) => status !== 'idle') ? 'running' : 'idle';
 }

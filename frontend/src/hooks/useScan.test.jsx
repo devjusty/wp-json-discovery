@@ -137,4 +137,51 @@ describe('useScan', () => {
       source: 'wordpress'
     });
   });
+
+  it('keeps a sibling completion when a targeted capability finishes later', async () => {
+    const wordpressDeferred = createDeferred();
+    const homepageDeferred = createDeferred();
+    const wordpress = vi.fn().mockReturnValue(wordpressDeferred.promise);
+    const homepage = vi.fn().mockReturnValue(homepageDeferred.promise);
+    mocks.getCapabilityRunners.mockReturnValue({ wordpress, homepage });
+    const { result } = renderHook(() => useScan(), { wrapper: createWrapper() });
+
+    act(() => {
+      result.current.startScan('example.com', { capabilityIds: ['wordpress'] });
+    });
+    await waitFor(() => {
+      expect(wordpress).toHaveBeenCalledOnce();
+    });
+
+    act(() => {
+      result.current.runCapability('homepage');
+    });
+    await waitFor(() => {
+      expect(homepage).toHaveBeenCalledOnce();
+    });
+
+    wordpressDeferred.resolve({ source: 'wordpress' });
+    await waitFor(() => {
+      expect(result.current.session.capabilities.wordpress).toMatchObject({
+        status: 'success',
+        result: { source: 'wordpress' }
+      });
+    });
+    homepageDeferred.resolve({ source: 'homepage' });
+
+    await waitFor(() => {
+      expect(result.current.session.capabilities.homepage).toMatchObject({
+        status: 'success',
+        result: { source: 'homepage' }
+      });
+    });
+    expect(result.current.session.capabilities.wordpress).toMatchObject({
+      status: 'success',
+      result: { source: 'wordpress' }
+    });
+    expect(result.current.session.capabilities.homepage).toMatchObject({
+      status: 'success',
+      result: { source: 'homepage' }
+    });
+  });
 });
