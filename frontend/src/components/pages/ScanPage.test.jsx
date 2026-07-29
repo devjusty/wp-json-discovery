@@ -1,9 +1,17 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ScanPage from './ScanPage.jsx';
 import { clearUserRecentRuns } from '../../api/client.js';
+
+const mocks = vi.hoisted(() => ({
+  domainForm: vi.fn(() => null),
+  updateScanSettings: vi.fn(),
+  saveScanDefaults: vi.fn(),
+  scanResults: null,
+  sidebar: vi.fn()
+}));
 
 vi.mock('../templates/AppLayout.jsx', () => ({
   default: ({ children, sidebar, title }) => (
@@ -16,15 +24,7 @@ vi.mock('../templates/AppLayout.jsx', () => ({
 }));
 
 vi.mock('../molecules/forms/DomainForm.jsx', () => ({
-  default: () => <div>Domain form</div>
-}));
-
-vi.mock('../../hooks/useSitemapScan.js', () => ({
-  useSitemapScan: () => ({
-    startSitemapScan: vi.fn(),
-    result: null,
-    isRunning: false
-  })
+  default: mocks.domainForm
 }));
 
 vi.mock('../../context/ScanContext.jsx', () => ({
@@ -35,25 +35,37 @@ vi.mock('../../context/ScanContext.jsx', () => ({
     startScan: vi.fn(),
     activeDomain: 'example.com'
   }),
-  useScanResultsContext: () => ({
-    scanResult: null,
-    isScanning: false,
-    scanError: null,
-    homepageResult: null,
-    homepageIsRunning: false,
-    homepageError: null
-  })
+  useScanResultsContext: () => mocks.scanResults
 }));
 
+function createScanResults(overrides = {}) {
+  return {
+    session: null,
+    isScanning: false,
+    scanSettings: {
+      capabilityIds: ['homepage', 'wordpress'],
+      options: { homepage: {}, wordpress: {} }
+    },
+    updateScanSettings: mocks.updateScanSettings,
+    saveScanDefaults: mocks.saveScanDefaults,
+    runCapability: vi.fn(),
+    retryCapability: vi.fn(),
+    ...overrides
+  };
+}
+
 vi.mock('./scan/ScanSidebarNav.jsx', () => ({
-  default: ({ activeSection, onSectionChange }) => (
+  default: (props) => {
+    mocks.sidebar(props);
+    return (
     <nav aria-label="Scan navigation">
-      <span data-testid="active-section">{activeSection}</span>
-      <button type="button" onClick={() => onSectionChange('unsupported')}>
+      <span data-testid="active-section">{props.activeSection}</span>
+      <button type="button" onClick={() => props.onSectionChange('unsupported')}>
         Unsupported
       </button>
     </nav>
-  )
+    );
+  }
 }));
 
 vi.mock('./scan/RecentDomainsCard.jsx', () => ({
@@ -85,6 +97,34 @@ vi.mock('../../utils/scanFeed.js', () => ({
 }));
 
 describe('ScanPage', () => {
+  beforeEach(() => {
+    mocks.domainForm.mockClear();
+    mocks.updateScanSettings.mockClear();
+    mocks.saveScanDefaults.mockClear();
+    mocks.scanResults = createScanResults();
+  });
+
+  it('forwards live scan settings actions to the domain form', () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } }
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ScanPage isAuthenticated />
+      </QueryClientProvider>
+    );
+
+    expect(mocks.domainForm).toHaveBeenCalledWith(expect.objectContaining({
+      scanSettings: {
+        capabilityIds: ['homepage', 'wordpress'],
+        options: { homepage: {}, wordpress: {} }
+      },
+      onScanSettingsChange: mocks.updateScanSettings,
+      onSaveDefaults: mocks.saveScanDefaults
+    }), undefined);
+  });
+
   it('renders scan shell regions', () => {
     const queryClient = new QueryClient({
       defaultOptions: {
@@ -151,6 +191,56 @@ describe('ScanPage', () => {
       </QueryClientProvider>
     );
 
+    expect(screen.getByTestId('active-section')).toHaveTextContent('overview');
+  });
+
+  it('passes unavailable capability session state into sidebar navigation', () => {
+    mocks.scanResults = createScanResults({
+      session: {
+        domain: 'example.com',
+        capabilities: { sitemap: { status: 'unavailable', error: { message: 'Unavailable' } } }
+      }
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ScanPage />
+      </QueryClientProvider>
+    );
+
+    expect(mocks.sidebar).toHaveBeenCalledWith(expect.objectContaining({
+      session: expect.objectContaining({ capabilities: expect.objectContaining({ sitemap: expect.objectContaining({ status: 'unavailable' }) }) })
+    }));
+  });
+
+  it('resets the active section when the scan session domain changes', async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    mocks.scanResults = createScanResults({ session: { domain: 'first.example', capabilities: {} } });
+
+    const view = render(
+      <QueryClientProvider client={queryClient}>
+        <ScanPage isAdmin />
+      </QueryClientProvider>
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Unsupported' }));
+    expect(screen.getByTestId('active-section')).toHaveTextContent('unsupported');
+
+    view.rerender(
+      <QueryClientProvider client={queryClient}>
+        <ScanPage isAdmin />
+      </QueryClientProvider>
+    );
+    expect(screen.getByTestId('active-section')).toHaveTextContent('unsupported');
+
+    mocks.scanResults = createScanResults({ session: { domain: 'second.example', capabilities: {} } });
+    view.rerender(
+      <QueryClientProvider client={queryClient}>
+        <ScanPage isAdmin />
+      </QueryClientProvider>
+    );
     expect(screen.getByTestId('active-section')).toHaveTextContent('overview');
   });
 });

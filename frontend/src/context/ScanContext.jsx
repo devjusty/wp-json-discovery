@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useMemo, useCallback } from 'react';
 import { useScan } from '../hooks/useScan.js';
-import { useHomepageScan } from '../hooks/useHomepageScan.js';
+import { normalizeSelection } from '../services/scanCapabilities.js';
+import { loadScanPreferences, saveScanPreferences } from '../services/scanPreferences.js';
 
 const ScanShellContext = createContext(undefined);
 const ScanResultsContext = createContext(undefined);
@@ -8,33 +9,44 @@ const ScanResultsContext = createContext(undefined);
 export function ScanProvider({ children }) {
   const [activePage, setActivePage] = useState('scan');
   const [domain, setDomain] = useState('');
+  const [scanSettings, setScanSettings] = useState(() => normalizeSelection(loadScanPreferences()));
 
   const {
-    startScan: runScan,
-    scanResult,
-    isScanning,
-    scanError,
+    session,
+    startScan,
+    runCapability,
+    retryCapability,
     isRotatingLogs,
     rotateLogs,
     activeDomain: scanActiveDomain
   } = useScan();
-  const homepageScan = useHomepageScan();
-  const {
-    startHomepageScan,
-    result: homepageResult,
-    isRunning: homepageIsRunning,
-    error: homepageError
-  } = homepageScan;
 
   const handleDomainChange = useCallback((value) => {
     setDomain(value);
   }, []);
 
+  const updateScanSettings = useCallback((next) => {
+    setScanSettings((current) => normalizeSelection(
+      typeof next === 'function' ? next(cloneScanSettings(current)) : next
+    ));
+  }, []);
+
+  const resetScanSettings = useCallback(() => {
+    setScanSettings(() => normalizeSelection(loadScanPreferences()));
+  }, []);
+
+  const saveScanDefaults = useCallback(() => {
+    setScanSettings((current) => saveScanPreferences(normalizeSelection(current)));
+  }, []);
+
   const handleStartScan = useCallback((value) => {
     setDomain(value);
-    runScan(value);
-    startHomepageScan(value);
-  }, [runScan, startHomepageScan]);
+    return startScan(value, normalizeSelection(scanSettings));
+  }, [scanSettings, startScan]);
+
+  const wordpress = session?.capabilities.wordpress;
+  const homepage = session?.capabilities.homepage;
+  const isCapabilityRunning = (capability) => ['queued', 'running'].includes(capability?.status);
 
   const shellValue = useMemo(
     () => ({
@@ -45,7 +57,7 @@ export function ScanProvider({ children }) {
       startScan: handleStartScan,
       isRotatingLogs,
       rotateLogs,
-      activeDomain: domain || scanActiveDomain,
+      activeDomain: scanActiveDomain,
       handleDomainChange
     }),
     [
@@ -61,20 +73,32 @@ export function ScanProvider({ children }) {
 
   const resultsValue = useMemo(
     () => ({
-      scanResult,
-      isScanning,
-      scanError,
-      homepageResult,
-      homepageIsRunning,
-      homepageError
+      session,
+      scanSettings,
+      updateScanSettings,
+      resetScanSettings,
+      saveScanDefaults,
+      startScan: handleStartScan,
+      runCapability,
+      retryCapability,
+      scanResult: wordpress?.result ?? null,
+      isScanning: session?.overallStatus === 'running',
+      scanError: wordpress?.error ?? null,
+      homepageResult: homepage?.result ?? null,
+      homepageIsRunning: isCapabilityRunning(homepage),
+      homepageError: homepage?.error ?? null
     }),
     [
-      scanResult,
-      isScanning,
-      scanError,
-      homepageResult,
-      homepageIsRunning,
-      homepageError
+      session,
+      scanSettings,
+      updateScanSettings,
+      resetScanSettings,
+      saveScanDefaults,
+      handleStartScan,
+      runCapability,
+      retryCapability,
+      wordpress,
+      homepage
     ]
   );
 
@@ -83,6 +107,15 @@ export function ScanProvider({ children }) {
       <ScanResultsContext.Provider value={resultsValue}>{children}</ScanResultsContext.Provider>
     </ScanShellContext.Provider>
   );
+}
+
+function cloneScanSettings(settings) {
+  return {
+    capabilityIds: [...settings.capabilityIds],
+    options: Object.fromEntries(
+      Object.entries(settings.options).map(([id, options]) => [id, { ...options }])
+    )
+  };
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

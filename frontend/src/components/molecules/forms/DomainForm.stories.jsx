@@ -22,6 +22,32 @@ export const Controlled = {
   },
 };
 
+export const ScanSettingsCollapsed = {
+  args: {
+    initialDomain: 'example.com',
+    onSubmit: fn(),
+    scanSettings: {
+      capabilityIds: ['homepage', 'wordpress'],
+      options: {
+        homepage: {},
+        wordpress: {}
+      }
+    },
+    onScanSettingsChange: fn(),
+    onSaveDefaults: fn(),
+  },
+};
+
+export const ScanSettingsExpanded = {
+  args: {
+    ...ScanSettingsCollapsed.args,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Scan settings' }));
+  },
+};
+
 export const SubmitNormalizesDomain = {
   args: {
     initialDomain: 'https://www.example.com',

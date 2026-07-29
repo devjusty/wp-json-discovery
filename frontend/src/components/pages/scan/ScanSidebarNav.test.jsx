@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import ScanSidebarNav from './ScanSidebarNav.jsx';
 
 describe('ScanSidebarNav', () => {
-  it('handles navigation actions and disabled sections', async () => {
+  it('disables scan sections before a session exists', async () => {
     const onSectionChange = vi.fn();
     const onOpenHistory = vi.fn();
     const onOpenAdmin = vi.fn();
@@ -12,7 +12,7 @@ describe('ScanSidebarNav', () => {
     render(
       <ScanSidebarNav
         activeSection="overview"
-        hasScanResult={false}
+        hasSession={false}
         onSectionChange={onSectionChange}
         onOpenHistory={onOpenHistory}
         onOpenAdmin={onOpenAdmin}
@@ -37,13 +37,13 @@ describe('ScanSidebarNav', () => {
     expect(onSectionChange).not.toHaveBeenCalled();
   });
 
-  it('enables scan sections once results are available', async () => {
+  it('enables unselected capability sections once a session has a domain', async () => {
     const onSectionChange = vi.fn();
 
     render(
       <ScanSidebarNav
         activeSection="overview"
-        hasScanResult
+        hasSession
         onSectionChange={onSectionChange}
         onOpenHistory={vi.fn()}
         onOpenAdmin={vi.fn()}
@@ -51,7 +51,22 @@ describe('ScanSidebarNav', () => {
       />
     );
 
-    await userEvent.click(screen.getByRole('button', { name: 'Unsupported' }));
-    expect(onSectionChange).toHaveBeenCalledWith('unsupported');
+    const sitemap = screen.getByRole('button', { name: 'Sitemap scan' });
+    expect(sitemap).toBeEnabled();
+    await userEvent.click(sitemap);
+    expect(onSectionChange).toHaveBeenCalledWith('sitemap');
+  });
+
+  it('marks unavailable capability sections without enabling misleading navigation', () => {
+    render(
+      <ScanSidebarNav
+        activeSection="overview"
+        hasSession
+        session={{ domain: 'example.com', capabilities: { sitemap: { status: 'unavailable' } } }}
+        onSectionChange={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Sitemap scan (Unavailable)' })).toBeDisabled();
   });
 });

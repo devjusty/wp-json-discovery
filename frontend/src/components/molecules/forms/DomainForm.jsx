@@ -8,13 +8,18 @@ import {
 } from '@/components/ui/card.jsx';
 import TextInput from '../../atoms/TextInput.jsx';
 import { normalizeDomain } from '../../../utils/format.js';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible.jsx';
+import ScanSettingsPanel from './ScanSettingsPanel.jsx';
 
 function DomainForm({
   onSubmit,
   isScanning,
   initialDomain,
   domain,
-  onDomainChange
+  onDomainChange,
+  scanSettings,
+  onScanSettingsChange,
+  onSaveDefaults
 }) {
   const isControlled = typeof domain === 'string';
   const [internalDomain, setInternalDomain] = useState(initialDomain ?? '');
@@ -84,6 +89,29 @@ function DomainForm({
               {isScanning ? 'Scanning…' : 'Start scan'}
             </Button>
           </div>
+          <Collapsible>
+            <CollapsibleTrigger
+              render={(
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="mt-3"
+                  disabled={isScanning}
+                />
+              )}
+            >
+              Scan settings
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <ScanSettingsPanel
+                scanSettings={scanSettings}
+                onScanSettingsChange={onScanSettingsChange}
+                onSaveDefaults={onSaveDefaults}
+                isScanning={isScanning}
+              />
+            </CollapsibleContent>
+          </Collapsible>
         </CardContent>
       </form>
     </Card>
@@ -95,14 +123,23 @@ DomainForm.propTypes = {
   isScanning: PropTypes.bool,
   initialDomain: PropTypes.string,
   domain: PropTypes.string,
-  onDomainChange: PropTypes.func
+  onDomainChange: PropTypes.func,
+  scanSettings: PropTypes.shape({
+    capabilityIds: PropTypes.arrayOf(PropTypes.string),
+    options: PropTypes.object
+  }),
+  onScanSettingsChange: PropTypes.func,
+  onSaveDefaults: PropTypes.func
 };
 
 DomainForm.defaultProps = {
   isScanning: false,
   initialDomain: '',
   domain: undefined,
-  onDomainChange: null
+  onDomainChange: null,
+  scanSettings: undefined,
+  onScanSettingsChange: null,
+  onSaveDefaults: null
 };
 
 export default DomainForm;

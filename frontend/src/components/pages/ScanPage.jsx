@@ -10,7 +10,6 @@ import {
   fetchUserRecentRuns,
   request
 } from '../../api/client.js';
-import { useSitemapScan } from '../../hooks/useSitemapScan.js';
 import {
   useScanResultsContext,
   useScanShellContext
@@ -30,19 +29,14 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
     activeDomain
   } = useScanShellContext();
   const {
-    scanResult,
+    session,
     isScanning,
-    scanError,
-    homepageResult,
-    homepageIsRunning,
-    homepageError
+    scanSettings,
+    updateScanSettings,
+    saveScanDefaults,
+    runCapability,
+    retryCapability
   } = useScanResultsContext();
-
-  const {
-    startSitemapScan,
-    result: sitemapResult,
-    isRunning: isSitemapRunning
-  } = useSitemapScan(activeDomain);
 
   const [sitemapFilter, setSitemapFilter] = useState('all');
   const [activeSection, setActiveSection] = useState('overview');
@@ -52,16 +46,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
     ? 'overview'
     : activeSection;
 
-  const homepageDomain = domain || activeDomain;
-  const homepageSummary = useMemo(() => {
-    if (homepageIsRunning) {
-      return 'Analyzing…';
-    }
-    if (!homepageResult) {
-      return 'No signals yet';
-    }
-    return `S${homepageResult.source?.statusCode ?? '—'} · M${homepageResult.insights?.meta?.length ?? 0} · A${homepageResult.insights?.assets?.length ?? 0} · F${homepageResult.insights?.frameworks?.length ?? 0}`;
-  }, [homepageIsRunning, homepageResult]);
+  const scanResult = session?.capabilities.wordpress?.result ?? null;
 
   const unsupportedQuery = useQuery({
     queryKey: ['unsupportedPlugins'],
@@ -114,10 +99,10 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
   }, [recentUserScansQuery]);
 
   useEffect(() => {
-    if (scanResult) {
+    if (session?.domain) {
       setActiveSection('overview');
     }
-  }, [scanResult]);
+  }, [session?.domain]);
 
   const handleOpenHistory = useCallback(() => {
     setActivePage('history');
@@ -139,14 +124,15 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
     () => (
       <ScanSidebarNav
         activeSection={visibleSection}
-        hasScanResult={Boolean(scanResult)}
+        hasSession={Boolean(session?.domain)}
+        session={session}
         onSectionChange={setActiveSection}
         onOpenHistory={isAdmin ? handleOpenHistory : null}
         onOpenAdmin={isAdmin ? handleOpenAdmin : null}
         isAdmin={isAdmin}
       />
     ),
-    [visibleSection, scanResult, handleOpenHistory, handleOpenAdmin, isAdmin]
+    [visibleSection, session, handleOpenHistory, handleOpenAdmin, isAdmin]
   );
 
   const subtitle = isScanning
@@ -167,6 +153,9 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
         initialDomain={scanResult?.domain ?? activeDomain}
         domain={domain}
         onDomainChange={onDomainChange}
+        scanSettings={scanSettings}
+        onScanSettingsChange={updateScanSettings}
+        onSaveDefaults={saveScanDefaults}
       />
 
       {isAuthenticated && (
@@ -184,22 +173,17 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
       )}
 
       <ScanStatusStack
-        isScanning={isScanning}
-        activeDomain={activeDomain}
-        homepageIsRunning={homepageIsRunning}
-        scanError={scanError}
-        homepageError={homepageError}
+        session={session}
+        onRetryCapability={retryCapability}
       />
 
       <ScanSectionContent
         activeSection={visibleSection}
-        scanResult={scanResult}
-        homepageResult={homepageResult}
-        homepageDomain={homepageDomain}
-        homepageSummary={homepageSummary}
-        startSitemapScan={startSitemapScan}
-        sitemapResult={sitemapResult}
-        isSitemapRunning={isSitemapRunning}
+        session={session}
+        scanSettings={scanSettings}
+        onScanSettingsChange={updateScanSettings}
+        onRunCapability={runCapability}
+        onRetryCapability={retryCapability}
         sitemapFilter={sitemapFilter}
         setSitemapFilter={setSitemapFilter}
         unsupportedPlugins={unsupportedQuery.data ?? []}

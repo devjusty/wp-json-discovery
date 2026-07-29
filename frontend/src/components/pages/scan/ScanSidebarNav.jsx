@@ -14,6 +14,7 @@ import {
 } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button.jsx';
 import { Separator } from '@/components/ui/separator.jsx';
+import { getSectionCapabilityId } from '../../../services/scanCapabilities.js';
 
 const loadAdminPage = () => import('../AdminPage.jsx');
 const loadHistoryPage = () => import('../HistoryPage.jsx');
@@ -46,7 +47,8 @@ const SCAN_SECTION_ICONS = {
 
 function ScanSidebarNav({
   activeSection,
-  hasScanResult,
+  hasSession,
+  session,
   onSectionChange,
   onOpenHistory,
   onOpenAdmin,
@@ -58,7 +60,9 @@ function ScanSidebarNav({
         <p className="sidebar__title">Navigation</p>
         <ul className="sidebar__nav">
           {SCAN_SECTIONS.filter((item) => item.id !== 'unsupported' || isAdmin).map((item) => {
-            const disabled = item.requiresScan && !hasScanResult;
+            const capability = session?.capabilities?.[getSectionCapabilityId(item.id)];
+            const unavailable = capability?.status === 'unavailable';
+            const disabled = item.id !== 'unsupported' && (!hasSession || unavailable);
             const isActive = activeSection === item.id;
 
             return (
@@ -72,7 +76,7 @@ function ScanSidebarNav({
                   disabled={disabled}
                 >
                   <HugeiconsIcon aria-hidden="true" icon={SCAN_SECTION_ICONS[item.id]} className="sidebar__link-icon" />
-                  <span className="sidebar__link-label">{item.label}</span>
+                  <span className="sidebar__link-label">{item.label}{unavailable ? ' (Unavailable)' : ''}</span>
                 </Button>
               </li>
             );
@@ -128,7 +132,8 @@ function ScanSidebarNav({
 
 ScanSidebarNav.propTypes = {
   activeSection: PropTypes.string.isRequired,
-  hasScanResult: PropTypes.bool,
+  hasSession: PropTypes.bool,
+  session: PropTypes.object,
   onSectionChange: PropTypes.func.isRequired,
   onOpenHistory: PropTypes.func,
   onOpenAdmin: PropTypes.func,
@@ -136,7 +141,7 @@ ScanSidebarNav.propTypes = {
 };
 
 ScanSidebarNav.defaultProps = {
-  hasScanResult: false,
+  hasSession: false,
   isAdmin: false
 };
 

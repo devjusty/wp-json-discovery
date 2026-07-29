@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
 import SitemapScanPanel from './SitemapScanPanel.jsx';
 import PluginSummaryPanel from './PluginSummaryPanel.jsx';
 import UnsupportedPluginsPanel from './UnsupportedPluginsPanel.jsx';
@@ -19,6 +20,74 @@ describe('scan panel details', () => {
     );
 
     expect(screen.getByRole('region', { name: 'Sitemap scan' })).toBeInTheDocument();
+  });
+
+  it('uses session-controlled sitemap settings for initial scans and reruns', async () => {
+    const onScan = vi.fn();
+    const onSettingsChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <SitemapScanPanel
+        domain="example.com"
+        onScan={onScan}
+        isRunning={false}
+        result={null}
+        sitemapProbe={null}
+        sitemapExposure={null}
+        settings={{ sitemapUrl: '/news-sitemap.xml', maxPages: 25 }}
+        onSettingsChange={onSettingsChange}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Scan sitemap' }));
+    expect(onScan).toHaveBeenCalledWith({ sitemapUrl: '/news-sitemap.xml', maxPages: 25 });
+
+    onScan.mockClear();
+    render(
+      <SitemapScanPanel
+        domain="example.com"
+        onScan={onScan}
+        isRunning={false}
+        result={{ pages: [], totals: {} }}
+        sitemapProbe={null}
+        sitemapExposure={null}
+        settings={{ sitemapUrl: '/news-sitemap.xml', maxPages: 25 }}
+        onSettingsChange={onSettingsChange}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: 'Rerun sitemap' }));
+    expect(onScan).toHaveBeenCalledWith({ sitemapUrl: '/news-sitemap.xml', maxPages: 25 });
+  });
+
+  it('clamps typed sitemap page limits to the server maximum', async () => {
+    const onSettingsChange = vi.fn();
+    const onScan = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <SitemapScanPanel
+        domain="example.com"
+        onScan={onScan}
+        isRunning={false}
+        result={null}
+        sitemapProbe={null}
+        sitemapExposure={null}
+        settings={{ sitemapUrl: '', maxPages: 25 }}
+        onSettingsChange={onSettingsChange}
+      />
+    );
+
+    const maxPages = screen.getByRole('spinbutton', { name: 'Max pages' });
+    await user.clear(maxPages);
+    await user.type(maxPages, '99');
+
+    expect(maxPages).toHaveAttribute('max', '50');
+    expect(onSettingsChange).toHaveBeenLastCalledWith({ sitemapUrl: '', maxPages: 50 });
+
+    onSettingsChange.mockImplementation((nextSettings) => {
+      maxPages.value = nextSettings.maxPages;
+    });
+    await user.click(screen.getByRole('button', { name: 'Scan sitemap' }));
+    expect(onScan).toHaveBeenCalledWith({ sitemapUrl: '', maxPages: 25 });
   });
 
   it('labels plugin summary and unsupported plugin cards as regions', () => {

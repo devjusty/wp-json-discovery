@@ -1,28 +1,51 @@
 import PropTypes from 'prop-types';
+import Button from '../../../atoms/Button.jsx';
+import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
 import SitemapScanPanel from '../../../organisms/panels/SitemapScanPanel.jsx';
 import SitemapPagesTable from '../../../organisms/panels/SitemapPagesTable.jsx';
 
 function SitemapSection({
   domain,
-  startSitemapScan,
-  isSitemapRunning,
-  sitemapResult,
+  capability,
+  sitemapSettings,
+  onSitemapSettingsChange,
+  onRun,
+  onRetry,
   sitemapProbe,
   sitemapExposure,
   sitemapFilter,
   setSitemapFilter
 }) {
+  const isSitemapRunning = ['queued', 'running'].includes(capability?.status);
+  const isUnavailable = capability?.status === 'unavailable';
+  const sitemapResult = capability?.result ?? null;
+
   return (
     <section className="section">
       <div className="grid">
-        <SitemapScanPanel
-          domain={domain}
-          onScan={startSitemapScan}
-          isRunning={isSitemapRunning}
-          result={sitemapResult}
-          sitemapProbe={sitemapProbe}
-          sitemapExposure={sitemapExposure}
-        />
+        {isUnavailable ? (
+          <Card role="alert" className="card card--error">
+            <CardHeader><h2>Sitemap scan</h2></CardHeader>
+            <CardContent><p>{capability.error?.message ?? 'Sitemap scan is unavailable.'}</p></CardContent>
+          </Card>
+        ) : (
+          <SitemapScanPanel
+            domain={domain}
+            onScan={onRun}
+            isRunning={isSitemapRunning}
+            result={sitemapResult}
+            sitemapProbe={sitemapProbe}
+            sitemapExposure={sitemapExposure}
+            settings={sitemapSettings}
+            onSettingsChange={onSitemapSettingsChange}
+          />
+        )}
+        {capability?.status === 'failed' ? (
+          <p role="alert">
+            {capability.error?.message ?? 'Sitemap scan failed.'}
+            {capability.error?.retryable ? <Button type="button" variant="secondary" size="sm" onClick={onRetry}>Retry sitemap scan</Button> : null}
+          </p>
+        ) : null}
         <SitemapPagesTable
           pages={sitemapResult?.pages ?? []}
           filterValue={sitemapFilter}
@@ -35,9 +58,11 @@ function SitemapSection({
 
 SitemapSection.propTypes = {
   domain: PropTypes.string.isRequired,
-  startSitemapScan: PropTypes.func.isRequired,
-  isSitemapRunning: PropTypes.bool,
-  sitemapResult: PropTypes.object,
+  capability: PropTypes.object,
+  sitemapSettings: PropTypes.shape({ sitemapUrl: PropTypes.string, maxPages: PropTypes.number }),
+  onSitemapSettingsChange: PropTypes.func,
+  onRun: PropTypes.func.isRequired,
+  onRetry: PropTypes.func,
   sitemapProbe: PropTypes.object,
   sitemapExposure: PropTypes.object,
   sitemapFilter: PropTypes.string.isRequired,
@@ -45,8 +70,10 @@ SitemapSection.propTypes = {
 };
 
 SitemapSection.defaultProps = {
-  isSitemapRunning: false,
-  sitemapResult: null,
+  capability: null,
+  sitemapSettings: { sitemapUrl: '', maxPages: 50 },
+  onSitemapSettingsChange: () => {},
+  onRetry: () => {},
   sitemapProbe: null,
   sitemapExposure: null
 };
