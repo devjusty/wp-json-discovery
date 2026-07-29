@@ -39,50 +39,66 @@ describe('scan capabilities', () => {
 
   it('defines the complete scan capability registry contract', () => {
     expect(SCAN_CAPABILITIES.map((capability) => Object.keys(capability))).toEqual([
-      ['id', 'required', 'sectionIds', 'value', 'cost', 'baselineEligible', 'dependencies', 'normalizeOptions', 'runner'],
-      ['id', 'required', 'sectionIds', 'value', 'cost', 'baselineEligible', 'dependencies', 'normalizeOptions', 'runner'],
-      ['id', 'required', 'sectionIds', 'value', 'cost', 'baselineEligible', 'dependencies', 'normalizeOptions', 'runner']
+      ['id', 'label', 'description', 'required', 'sectionIds', 'value', 'cost', 'baselineEligible', 'availability', 'defaultOptions', 'dependencies', 'normalizeOptions', 'runner'],
+      ['id', 'label', 'description', 'required', 'sectionIds', 'value', 'cost', 'baselineEligible', 'availability', 'defaultOptions', 'dependencies', 'normalizeOptions', 'runner'],
+      ['id', 'label', 'description', 'required', 'sectionIds', 'value', 'cost', 'baselineEligible', 'availability', 'defaultOptions', 'dependencies', 'normalizeOptions', 'runner']
     ]);
     expect(SCAN_CAPABILITIES.map((capability) => ({
       id: capability.id,
+      label: capability.label,
+      description: capability.description,
       required: capability.required,
       sectionIds: capability.sectionIds,
       value: capability.value,
       cost: capability.cost,
       baselineEligible: capability.baselineEligible,
+      availability: typeof capability.availability,
+      defaultOptions: capability.defaultOptions,
       dependencies: capability.dependencies,
       normalizeOptions: typeof capability.normalizeOptions,
       runner: typeof capability.runner
     }))).toEqual([
       {
         id: 'wordpress',
+        label: 'WordPress API',
+        description: 'Inspect public WordPress REST API data and exposure signals.',
         required: true,
         sectionIds: ['overview', 'exposure', 'performance', 'content', 'core', 'plugins', 'unsupported'],
         value: 5,
         cost: 2,
         baselineEligible: true,
+        availability: 'function',
+        defaultOptions: {},
         dependencies: [],
         normalizeOptions: 'function',
         runner: 'function'
       },
       {
         id: 'homepage',
+        label: 'Homepage',
+        description: 'Inspect homepage assets, markup, and detected platform signals.',
         required: false,
         sectionIds: ['homepage'],
         value: 4,
         cost: 3,
         baselineEligible: true,
+        availability: 'function',
+        defaultOptions: {},
         dependencies: [],
         normalizeOptions: 'function',
         runner: 'function'
       },
       {
         id: 'sitemap',
+        label: 'Sitemap',
+        description: 'Crawl sitemap URLs for page-level discovery signals.',
         required: false,
         sectionIds: ['sitemap'],
         value: 3,
         cost: 4,
         baselineEligible: true,
+        availability: 'function',
+        defaultOptions: { sitemapUrl: '', maxPages: 50 },
         dependencies: [],
         normalizeOptions: 'function',
         runner: 'function'
@@ -108,6 +124,21 @@ describe('scan capabilities', () => {
         wordpress: {}
       }
     });
+  });
+
+  it('excludes unavailable capabilities from recommendations and selections', () => {
+    const homepage = getCapabilityById('homepage');
+    const availability = homepage.availability;
+    homepage.availability = () => false;
+
+    try {
+      expect(getRecommendedCapabilityIds()).toEqual(['wordpress']);
+      expect(normalizeSelection({
+        capabilityIds: ['homepage', 'sitemap']
+      }).capabilityIds).toEqual(['sitemap', 'wordpress']);
+    } finally {
+      homepage.availability = availability;
+    }
   });
 
   it('normalizes sitemap options by trimming its URL and clamping max pages', () => {
