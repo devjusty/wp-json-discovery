@@ -38,39 +38,60 @@ describe('scan capabilities', () => {
   });
 
   it('defines the complete scan capability registry contract', () => {
+    expect(SCAN_CAPABILITIES.map((capability) => Object.keys(capability))).toEqual([
+      ['id', 'required', 'sectionIds', 'value', 'cost', 'baselineEligible', 'dependencies', 'normalizeOptions', 'runner'],
+      ['id', 'required', 'sectionIds', 'value', 'cost', 'baselineEligible', 'dependencies', 'normalizeOptions', 'runner'],
+      ['id', 'required', 'sectionIds', 'value', 'cost', 'baselineEligible', 'dependencies', 'normalizeOptions', 'runner']
+    ]);
     expect(SCAN_CAPABILITIES.map((capability) => ({
       id: capability.id,
       required: capability.required,
-      sections: capability.sections,
+      sectionIds: capability.sectionIds,
       value: capability.value,
       cost: capability.cost,
-      defaultOptions: capability.defaultOptions
+      baselineEligible: capability.baselineEligible,
+      dependencies: capability.dependencies,
+      normalizeOptions: typeof capability.normalizeOptions,
+      runner: typeof capability.runner
     }))).toEqual([
       {
         id: 'wordpress',
         required: true,
-        sections: ['overview', 'exposure', 'performance', 'content', 'core', 'plugins', 'unsupported'],
+        sectionIds: ['overview', 'exposure', 'performance', 'content', 'core', 'plugins', 'unsupported'],
         value: 5,
         cost: 2,
-        defaultOptions: {}
+        baselineEligible: true,
+        dependencies: [],
+        normalizeOptions: 'function',
+        runner: 'function'
       },
       {
         id: 'homepage',
         required: false,
-        sections: ['homepage'],
+        sectionIds: ['homepage'],
         value: 4,
         cost: 3,
-        defaultOptions: {}
+        baselineEligible: true,
+        dependencies: [],
+        normalizeOptions: 'function',
+        runner: 'function'
       },
       {
         id: 'sitemap',
         required: false,
-        sections: ['sitemap'],
+        sectionIds: ['sitemap'],
         value: 3,
         cost: 4,
-        defaultOptions: { sitemapUrl: '', maxPages: 50 }
+        baselineEligible: true,
+        dependencies: [],
+        normalizeOptions: 'function',
+        runner: 'function'
       }
     ]);
+    expect(getCapabilityById('sitemap').normalizeOptions({})).toEqual({
+      sitemapUrl: '',
+      maxPages: 50
+    });
   });
 
   it('removes unknown and duplicate IDs while preserving required wordpress', () => {

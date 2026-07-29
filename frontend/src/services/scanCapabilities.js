@@ -11,35 +11,35 @@ export const SCAN_CAPABILITIES = Object.freeze([
   {
     id: CAPABILITY_IDS.WORDPRESS,
     required: true,
-    sections: ['overview', 'exposure', 'performance', 'content', 'core', 'plugins', 'unsupported'],
+    sectionIds: ['overview', 'exposure', 'performance', 'content', 'core', 'plugins', 'unsupported'],
     value: 5,
     cost: 2,
     baselineEligible: true,
-    defaultOptions: {},
     dependencies: [],
-    run: ({ domain }) => scanDomain(domain)
+    normalizeOptions: () => ({}),
+    runner: ({ domain }) => scanDomain(domain)
   },
   {
     id: CAPABILITY_IDS.HOMEPAGE,
     required: false,
-    sections: ['homepage'],
+    sectionIds: ['homepage'],
     value: 4,
     cost: 3,
     baselineEligible: true,
-    defaultOptions: {},
     dependencies: [],
-    run: ({ domain }) => runHomepageScan({ domain })
+    normalizeOptions: () => ({}),
+    runner: ({ domain }) => runHomepageScan({ domain })
   },
   {
     id: CAPABILITY_IDS.SITEMAP,
     required: false,
-    sections: ['sitemap'],
+    sectionIds: ['sitemap'],
     value: 3,
     cost: 4,
     baselineEligible: true,
-    defaultOptions: { sitemapUrl: '', maxPages: 50 },
     dependencies: [],
-    run: ({ domain, options }) => runSitemapScan({ domain, ...options })
+    normalizeOptions: normalizeSitemapOptions,
+    runner: ({ domain, options }) => runSitemapScan({ domain, ...options })
   }
 ]);
 
@@ -72,14 +72,14 @@ export function normalizeSelection(selection = {}) {
     : {};
   const options = Object.fromEntries(capabilityIds.map((id) => [
     id,
-    normalizeCapabilityOptions(id, sourceOptions[id])
+    getCapabilityById(id).normalizeOptions(sourceOptions[id])
   ]));
 
   return { capabilityIds, options };
 }
 
 export function getSectionCapabilityId(sectionId) {
-  return SCAN_CAPABILITIES.find((capability) => capability.sections.includes(sectionId))?.id ?? null;
+  return SCAN_CAPABILITIES.find((capability) => capability.sectionIds.includes(sectionId))?.id ?? null;
 }
 
 export function getCapabilityDependencies() {
@@ -93,22 +93,17 @@ export function getCapabilityRunners(capabilityIds = SCAN_CAPABILITIES.map(({ id
     capabilityIds
       .map((id) => getCapabilityById(id))
       .filter(Boolean)
-      .map((capability) => [capability.id, capability.run])
+      .map((capability) => [capability.id, capability.runner])
   );
 }
 
-function normalizeCapabilityOptions(id, options) {
-  const capability = getCapabilityById(id);
+function normalizeSitemapOptions(options) {
   const source = options && typeof options === 'object' ? options : {};
 
-  if (id === CAPABILITY_IDS.SITEMAP) {
-    return {
-      sitemapUrl: typeof source.sitemapUrl === 'string' ? source.sitemapUrl.trim() : '',
-      maxPages: clampMaxPages(source.maxPages)
-    };
-  }
-
-  return { ...capability.defaultOptions };
+  return {
+    sitemapUrl: typeof source.sitemapUrl === 'string' ? source.sitemapUrl.trim() : '',
+    maxPages: clampMaxPages(source.maxPages)
+  };
 }
 
 function clampMaxPages(value) {
