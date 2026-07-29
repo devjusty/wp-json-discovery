@@ -88,6 +88,8 @@ describe('ScanSettingsPanel', () => {
 
     expect(screen.getByLabelText('Sitemap URL')).toBeDisabled();
     expect(screen.getByLabelText('Max pages')).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: /Homepage/ })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('checkbox', { name: /Sitemap/ })).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('updates and clamps sitemap options without changing other capability options', () => {

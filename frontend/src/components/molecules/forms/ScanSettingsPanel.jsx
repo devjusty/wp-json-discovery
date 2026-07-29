@@ -68,7 +68,7 @@ function ScanSettingsPanel({
       <div className="mt-2 divide-y divide-border">
         {SCAN_CAPABILITIES.map((capability) => {
           const isSelected = selectedIds.has(capability.id);
-          const isDisabled = isScanning || capability.required;
+          const isDisabled = isScanning || capability.required || !onScanSettingsChange;
 
           return (
             <div key={capability.id}>
