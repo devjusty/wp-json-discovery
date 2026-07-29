@@ -117,7 +117,7 @@ describe('scan section cards', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Run Sitemap' }));
-    expect(onRunCapability).toHaveBeenCalledWith('sitemap');
+    expect(onRunCapability).toHaveBeenCalledWith('sitemap', { sitemapUrl: '', maxPages: 50 });
   });
 
   it('labels the plugins empty and unsupported notices as cards', () => {

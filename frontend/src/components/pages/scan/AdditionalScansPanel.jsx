@@ -24,7 +24,7 @@ function AdditionalScansPanel({ selectedCapabilityIds, capabilities, onRunCapabi
           {capability.defaultOptions.maxPages ? (
             <p className="card__meta">Default max pages: {capability.defaultOptions.maxPages}</p>
           ) : null}
-          <Button type="button" variant="secondary" size="sm" onClick={() => onRunCapability(capability.id)}>
+          <Button type="button" variant="secondary" size="sm" onClick={() => onRunCapability(capability.id, capability.defaultOptions)}>
             Run {capability.label}
           </Button>
         </div>

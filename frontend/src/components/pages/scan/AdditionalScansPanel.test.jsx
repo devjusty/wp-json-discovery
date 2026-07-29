@@ -24,7 +24,7 @@ describe('AdditionalScansPanel', () => {
     expect(screen.getByText('Sitemap')).toBeInTheDocument();
     expect(screen.getByText('Default max pages: 50')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Run Sitemap' }));
-    expect(onRunCapability).toHaveBeenCalledWith('sitemap');
+    expect(onRunCapability).toHaveBeenCalledWith('sitemap', { sitemapUrl: '', maxPages: 50 });
   });
 
   it('omits selected and terminal optional capabilities', () => {
