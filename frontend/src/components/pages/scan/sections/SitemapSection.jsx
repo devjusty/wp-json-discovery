@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types';
 import Button from '../../../atoms/Button.jsx';
+import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
 import SitemapScanPanel from '../../../organisms/panels/SitemapScanPanel.jsx';
 import SitemapPagesTable from '../../../organisms/panels/SitemapPagesTable.jsx';
 
@@ -16,21 +17,29 @@ function SitemapSection({
   setSitemapFilter
 }) {
   const isSitemapRunning = ['queued', 'running'].includes(capability?.status);
+  const isUnavailable = capability?.status === 'unavailable';
   const sitemapResult = capability?.result ?? null;
 
   return (
     <section className="section">
       <div className="grid">
-        <SitemapScanPanel
-          domain={domain}
-          onScan={onRun}
-          isRunning={isSitemapRunning}
-          result={sitemapResult}
-          sitemapProbe={sitemapProbe}
-          sitemapExposure={sitemapExposure}
-          settings={sitemapSettings}
-          onSettingsChange={onSitemapSettingsChange}
-        />
+        {isUnavailable ? (
+          <Card role="alert" className="card card--error">
+            <CardHeader><h2>Sitemap scan</h2></CardHeader>
+            <CardContent><p>{capability.error?.message ?? 'Sitemap scan is unavailable.'}</p></CardContent>
+          </Card>
+        ) : (
+          <SitemapScanPanel
+            domain={domain}
+            onScan={onRun}
+            isRunning={isSitemapRunning}
+            result={sitemapResult}
+            sitemapProbe={sitemapProbe}
+            sitemapExposure={sitemapExposure}
+            settings={sitemapSettings}
+            onSettingsChange={onSitemapSettingsChange}
+          />
+        )}
         {capability?.status === 'failed' ? (
           <p role="alert">
             {capability.error?.message ?? 'Sitemap scan failed.'}

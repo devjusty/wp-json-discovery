@@ -110,9 +110,9 @@ function SitemapScanPanel({
               size="sm"
               type="number"
               min={1}
-              max={200}
+              max={50}
               value={settings.maxPages}
-              onChange={(e) => onSettingsChange({ ...settings, maxPages: Number(e.target.value) || 1 })}
+              onChange={(e) => onSettingsChange({ ...settings, maxPages: clampMaxPages(e.target.value) })}
               className="sitemap-scan__max-pages"
               aria-label="Max pages"
             />
@@ -292,3 +292,8 @@ SitemapScanPanel.defaultProps = {
 };
 
 export default SitemapScanPanel;
+
+function clampMaxPages(value) {
+  const parsedValue = Number(value);
+  return Math.min(50, Math.max(1, Number.isFinite(parsedValue) ? Math.trunc(parsedValue) : 1));
+}

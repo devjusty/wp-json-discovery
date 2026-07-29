@@ -11,7 +11,7 @@ import SitemapSection from './sections/SitemapSection.jsx';
 import CoreDataSection from './sections/CoreDataSection.jsx';
 import PluginsSection from './sections/PluginsSection.jsx';
 import UnsupportedSection from './sections/UnsupportedSection.jsx';
-import { CAPABILITY_IDS, SCAN_CAPABILITIES } from '../../../services/scanCapabilities.js';
+import { CAPABILITY_IDS } from '../../../services/scanCapabilities.js';
 
 const WORDPRESS_SECTION_TITLES = {
   overview: 'Overview',
@@ -46,10 +46,6 @@ function ScanSectionContent({
   const scanResult = wordpress?.result ?? null;
   const homepageResult = homepage.result;
   const sitemapSettings = scanSettings.options[CAPABILITY_IDS.SITEMAP] ?? { sitemapUrl: '', maxPages: 50 };
-  const additionalCapabilityIds = SCAN_CAPABILITIES
-    .map(({ id }) => id)
-    .filter((id) => id !== CAPABILITY_IDS.WORDPRESS && !session.selection.capabilityIds.includes(id));
-
   if (!scanResult && WORDPRESS_SECTION_TITLES[activeSection]) {
     return (
       <WordPressCapabilityState
@@ -68,7 +64,8 @@ function ScanSectionContent({
           scanResult={scanResult}
           homepageDomain={session.domain}
           homepageResult={homepageResult}
-          additionalCapabilityIds={additionalCapabilityIds}
+          capabilities={session.capabilities}
+          selectedCapabilityIds={session.selection.capabilityIds}
           onRunCapability={onRunCapability}
         />
       );

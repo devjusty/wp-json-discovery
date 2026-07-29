@@ -110,7 +110,8 @@ describe('scan section cards', () => {
           domain: 'example.com', fetchedAt: '', summary: {}, namespaces: [], metrics: {},
           plugins: { matched: [], unsupportedNamespaces: [] }, core: [], performance: {}, contentOverview: {}, exposure: {}
         }}
-        additionalCapabilityIds={['homepage', 'sitemap']}
+        capabilities={{ homepage: { status: 'idle' }, sitemap: { status: 'idle' } }}
+        selectedCapabilityIds={['wordpress']}
         onRunCapability={onRunCapability}
       />
     );

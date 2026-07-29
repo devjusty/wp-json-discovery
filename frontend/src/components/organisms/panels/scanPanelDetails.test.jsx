@@ -59,6 +59,30 @@ describe('scan panel details', () => {
     expect(onScan).toHaveBeenCalledWith({ sitemapUrl: '/news-sitemap.xml', maxPages: 25 });
   });
 
+  it('clamps typed sitemap page limits to the server maximum', async () => {
+    const onSettingsChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <SitemapScanPanel
+        domain="example.com"
+        onScan={vi.fn()}
+        isRunning={false}
+        result={null}
+        sitemapProbe={null}
+        sitemapExposure={null}
+        settings={{ sitemapUrl: '', maxPages: 25 }}
+        onSettingsChange={onSettingsChange}
+      />
+    );
+
+    const maxPages = screen.getByRole('spinbutton', { name: 'Max pages' });
+    await user.clear(maxPages);
+    await user.type(maxPages, '99');
+
+    expect(maxPages).toHaveAttribute('max', '50');
+    expect(onSettingsChange).toHaveBeenLastCalledWith({ sitemapUrl: '', maxPages: 50 });
+  });
+
   it('labels plugin summary and unsupported plugin cards as regions', () => {
     render(
       <>
