@@ -52,6 +52,29 @@ describe('scan session', () => {
     expect(changes.some((next) => next.capabilities.homepage.status === 'running')).toBe(true);
   });
 
+  it('records synchronous runner throws as failed capabilities', async () => {
+    const session = createScanSession('example.com', { capabilityIds: ['homepage'] });
+
+    const completed = await executeScanSession(session, {
+      wordpress: vi.fn().mockImplementation(() => {
+        throw new Error('Synchronous WordPress failure');
+      }),
+      homepage: vi.fn().mockResolvedValue({ assets: [] })
+    });
+
+    expect(completed.overallStatus).toBe('incomplete');
+    expect(completed.capabilities.wordpress).toEqual({
+      status: 'failed',
+      result: null,
+      error: {
+        code: 'scan_failed',
+        message: 'Synchronous WordPress failure',
+        retryable: true
+      }
+    });
+    expect(completed.capabilities.homepage.status).toBe('success');
+  });
+
   it('marks sitemap unavailable when its selected dependency fails without calling its runner', async () => {
     const wordpress = vi.fn().mockRejectedValue(new Error('WordPress unavailable'));
     const sitemap = vi.fn();

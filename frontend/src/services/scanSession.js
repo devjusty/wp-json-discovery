@@ -67,7 +67,9 @@ export async function executeScanSession(session, runners, onChange, token) {
       notify(onChange, current, token);
     }
 
-    const settled = await Promise.allSettled(runnableIds.map((id) => runCapability(current, id, runners)));
+    const settled = await Promise.allSettled(
+      runnableIds.map((id) => Promise.resolve().then(() => runCapability(current, id, runners)))
+    );
 
     settled.forEach((outcome, index) => {
       const id = runnableIds[index];
