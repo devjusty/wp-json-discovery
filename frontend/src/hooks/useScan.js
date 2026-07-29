@@ -40,11 +40,13 @@ export function useScan() {
   });
 
   const isCurrent = (token) => token.active && activeTokenRef.current === token;
-  const publishSession = (nextSession, token, updatedCapabilityIds = []) => {
+  const publishSession = (nextSession, token, updatedCapabilityIds = [], replace = false) => {
     if (!isCurrent(token)) {
       return;
     }
-    const mergedSession = mergeSession(sessionRef.current, nextSession, updatedCapabilityIds);
+    const mergedSession = replace
+      ? nextSession
+      : mergeSession(sessionRef.current, nextSession, updatedCapabilityIds);
     sessionRef.current = mergedSession;
     setSession(mergedSession);
   };
@@ -170,7 +172,7 @@ export function useScan() {
     const token = { active: true };
     activeTokenRef.current = token;
     const nextSession = createScanSession(domain, selection, getCapabilityDependencies());
-    publishSession(nextSession, token, nextSession.selection.capabilityIds);
+    publishSession(nextSession, token, nextSession.selection.capabilityIds, true);
     logEvent('scan.started', { domain, triggeredAt: new Date().toISOString() });
     return execute(nextSession, nextSession.selection.capabilityIds, token);
   };

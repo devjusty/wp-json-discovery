@@ -184,4 +184,33 @@ describe('useScan', () => {
       result: { source: 'homepage' }
     });
   });
+
+  it('replaces same-domain optional capability state on a new scan selection', async () => {
+    const wordpress = vi.fn().mockResolvedValue({ source: 'wordpress' });
+    const homepage = vi.fn().mockResolvedValue({ source: 'homepage' });
+    mocks.getCapabilityRunners.mockReturnValue({ wordpress, homepage });
+    const { result } = renderHook(() => useScan(), { wrapper: createWrapper() });
+
+    act(() => {
+      result.current.startScan('example.com', { capabilityIds: ['wordpress', 'homepage'] });
+    });
+    await waitFor(() => {
+      expect(result.current.session?.overallStatus).toBe('complete');
+    });
+
+    act(() => {
+      result.current.startScan('example.com', { capabilityIds: ['wordpress'] });
+    });
+    await waitFor(() => {
+      expect(result.current.session?.selection.capabilityIds).toEqual(['wordpress']);
+    });
+    expect(result.current.session.capabilities.homepage).toBeUndefined();
+
+    act(() => {
+      result.current.runCapability('homepage');
+    });
+    await waitFor(() => {
+      expect(homepage).toHaveBeenCalledTimes(2);
+    });
+  });
 });
