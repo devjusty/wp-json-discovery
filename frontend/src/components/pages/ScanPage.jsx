@@ -99,10 +99,10 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
   }, [recentUserScansQuery]);
 
   useEffect(() => {
-    if (scanResult) {
+    if (session?.domain) {
       setActiveSection('overview');
     }
-  }, [scanResult]);
+  }, [session?.domain]);
 
   const handleOpenHistory = useCallback(() => {
     setActivePage('history');

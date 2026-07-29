@@ -8,7 +8,8 @@ import { clearUserRecentRuns } from '../../api/client.js';
 const mocks = vi.hoisted(() => ({
   domainForm: vi.fn(() => null),
   updateScanSettings: vi.fn(),
-  saveScanDefaults: vi.fn()
+  saveScanDefaults: vi.fn(),
+  scanResults: null
 }));
 
 vi.mock('../templates/AppLayout.jsx', () => ({
@@ -33,7 +34,11 @@ vi.mock('../../context/ScanContext.jsx', () => ({
     startScan: vi.fn(),
     activeDomain: 'example.com'
   }),
-  useScanResultsContext: () => ({
+  useScanResultsContext: () => mocks.scanResults
+}));
+
+function createScanResults(overrides = {}) {
+  return {
     session: null,
     isScanning: false,
     scanSettings: {
@@ -43,9 +48,10 @@ vi.mock('../../context/ScanContext.jsx', () => ({
     updateScanSettings: mocks.updateScanSettings,
     saveScanDefaults: mocks.saveScanDefaults,
     runCapability: vi.fn(),
-    retryCapability: vi.fn()
-  })
-}));
+    retryCapability: vi.fn(),
+    ...overrides
+  };
+}
 
 vi.mock('./scan/ScanSidebarNav.jsx', () => ({
   default: ({ activeSection, onSectionChange }) => (
@@ -91,6 +97,7 @@ describe('ScanPage', () => {
     mocks.domainForm.mockClear();
     mocks.updateScanSettings.mockClear();
     mocks.saveScanDefaults.mockClear();
+    mocks.scanResults = createScanResults();
   });
 
   it('forwards live scan settings actions to the domain form', () => {
@@ -180,6 +187,36 @@ describe('ScanPage', () => {
       </QueryClientProvider>
     );
 
+    expect(screen.getByTestId('active-section')).toHaveTextContent('overview');
+  });
+
+  it('resets the active section when the scan session domain changes', async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    mocks.scanResults = createScanResults({ session: { domain: 'first.example', capabilities: {} } });
+
+    const view = render(
+      <QueryClientProvider client={queryClient}>
+        <ScanPage isAdmin />
+      </QueryClientProvider>
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Unsupported' }));
+    expect(screen.getByTestId('active-section')).toHaveTextContent('unsupported');
+
+    view.rerender(
+      <QueryClientProvider client={queryClient}>
+        <ScanPage isAdmin />
+      </QueryClientProvider>
+    );
+    expect(screen.getByTestId('active-section')).toHaveTextContent('unsupported');
+
+    mocks.scanResults = createScanResults({ session: { domain: 'second.example', capabilities: {} } });
+    view.rerender(
+      <QueryClientProvider client={queryClient}>
+        <ScanPage isAdmin />
+      </QueryClientProvider>
+    );
     expect(screen.getByTestId('active-section')).toHaveTextContent('overview');
   });
 });

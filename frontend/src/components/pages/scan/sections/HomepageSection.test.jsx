@@ -33,6 +33,18 @@ describe('HomepageSection', () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
+  it('shows unavailable homepage state without run controls', () => {
+    render(
+      <HomepageSection
+        homepageDomain="example.com"
+        capability={{ status: 'unavailable', result: null, error: { message: 'Homepage is unavailable.' } }}
+      />
+    );
+
+    expect(screen.getByText('Homepage is unavailable.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /homepage scan/i })).not.toBeInTheDocument();
+  });
+
   it('moves homepage summary details into the fetch section and keeps previews collapsed', async () => {
     const onRun = vi.fn();
     const user = userEvent.setup();

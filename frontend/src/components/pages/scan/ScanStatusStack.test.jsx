@@ -13,7 +13,8 @@ describe('ScanStatusStack', () => {
           capabilities: {
             wordpress: { status: 'success', result: {}, error: null },
             homepage: { status: 'running', result: null, error: null },
-            sitemap: { status: 'idle', result: null, error: null }
+            sitemap: { status: 'unavailable', result: null, error: { message: 'Sitemap dependency failed.' } },
+            other: { status: 'idle', result: null, error: null }
           }
         }}
       />
@@ -22,7 +23,8 @@ describe('ScanStatusStack', () => {
     expect(screen.getByText('Scanning example.com…')).toBeInTheDocument();
     expect(screen.getByText('WordPress API: Success')).toBeInTheDocument();
     expect(screen.getByText('Homepage: Running')).toBeInTheDocument();
-    expect(screen.getByText('Sitemap: Not run')).toBeInTheDocument();
+    expect(screen.getByText('Sitemap: Unavailable')).toBeInTheDocument();
+    expect(screen.getByText('other: Not run')).toBeInTheDocument();
   });
 
   it('renders auth hints when scan requires auth', () => {

@@ -9,6 +9,7 @@ function HomepageSection({ capability, homepageDomain, onRun, onRetry }) {
   const homepageResult = capability?.result ?? null;
   const isRunning = ['queued', 'running'].includes(capability?.status);
   const hasFailed = capability?.status === 'failed';
+  const isUnavailable = capability?.status === 'unavailable';
   const homepageSummary = isRunning
     ? 'Analyzing…'
     : homepageResult
@@ -33,7 +34,7 @@ function HomepageSection({ capability, homepageDomain, onRun, onRetry }) {
               <p className="card__meta">
                 {isRunning
                   ? `Analyzing homepage source signals for ${homepageDomain || 'the selected domain'}…`
-                  : hasFailed
+                  : isUnavailable || hasFailed
                     ? capability.error?.message ?? 'Homepage source analysis failed.'
                     : `Homepage source signals have not run for ${homepageDomain || 'the selected domain'}.`}
               </p>
@@ -44,7 +45,7 @@ function HomepageSection({ capability, homepageDomain, onRun, onRetry }) {
             {hasFailed && capability.error?.retryable ? (
               <Button type="button" variant="secondary" size="sm" onClick={onRetry}>Retry homepage scan</Button>
             ) : null}
-            {!isRunning && !hasFailed ? (
+            {!isRunning && !hasFailed && !isUnavailable ? (
               <Button type="button" variant="secondary" size="sm" onClick={() => onRun('homepage')}>Run homepage scan</Button>
             ) : null}
           </CardContent>
