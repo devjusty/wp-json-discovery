@@ -34,6 +34,8 @@ describe('HomepageSection', () => {
   });
 
   it('moves homepage summary details into the fetch section and keeps previews collapsed', async () => {
+    const onRun = vi.fn();
+    const user = userEvent.setup();
     render(
       <HomepageSection
         homepageDomain="example.com"
@@ -70,6 +72,7 @@ describe('HomepageSection', () => {
             securityHeaders: {}
           }
         }}
+        onRun={onRun}
       />
     );
 
@@ -81,10 +84,13 @@ describe('HomepageSection', () => {
     expect(screen.getByRole('button', { name: 'HTML preview' })).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'HTML preview' })).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Raw JSON' }));
+    await user.click(screen.getByRole('button', { name: 'Rerun homepage scan' }));
+    expect(onRun).toHaveBeenCalledWith('homepage');
+
+    await user.click(screen.getByRole('button', { name: 'Raw JSON' }));
     expect(screen.getByRole('region', { name: 'Raw JSON' })).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'HTML preview' }));
+    await user.click(screen.getByRole('button', { name: 'HTML preview' }));
     expect(screen.getByRole('region', { name: 'HTML preview' })).toBeInTheDocument();
   });
 });

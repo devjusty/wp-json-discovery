@@ -41,6 +41,22 @@ describe('scan panel details', () => {
 
     await user.click(screen.getByRole('button', { name: 'Scan sitemap' }));
     expect(onScan).toHaveBeenCalledWith({ sitemapUrl: '/news-sitemap.xml', maxPages: 25 });
+
+    onScan.mockClear();
+    render(
+      <SitemapScanPanel
+        domain="example.com"
+        onScan={onScan}
+        isRunning={false}
+        result={{ pages: [], totals: {} }}
+        sitemapProbe={null}
+        sitemapExposure={null}
+        settings={{ sitemapUrl: '/news-sitemap.xml', maxPages: 25 }}
+        onSettingsChange={onSettingsChange}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: 'Rerun sitemap' }));
+    expect(onScan).toHaveBeenCalledWith({ sitemapUrl: '/news-sitemap.xml', maxPages: 25 });
   });
 
   it('labels plugin summary and unsupported plugin cards as regions', () => {

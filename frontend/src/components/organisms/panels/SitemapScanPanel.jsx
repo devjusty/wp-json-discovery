@@ -139,7 +139,7 @@ function SitemapScanPanel({
               onClick={() => onScan(settings)}
               disabled={isRunning || !domain}
             >
-              {isRunning ? 'Scanning…' : 'Scan sitemap'}
+              {isRunning ? 'Scanning…' : result ? 'Rerun sitemap' : 'Scan sitemap'}
             </Button>
           </div>
         </div>

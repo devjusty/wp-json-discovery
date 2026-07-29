@@ -45,13 +45,13 @@ function HomepageSection({ capability, homepageDomain, onRun, onRetry }) {
               <Button type="button" variant="secondary" size="sm" onClick={onRetry}>Retry homepage scan</Button>
             ) : null}
             {!isRunning && !hasFailed ? (
-              <Button type="button" variant="secondary" size="sm" onClick={onRun}>Run homepage scan</Button>
+              <Button type="button" variant="secondary" size="sm" onClick={() => onRun('homepage')}>Run homepage scan</Button>
             ) : null}
           </CardContent>
         </Card>
       )}
       {homepageResult ? (
-        <Button type="button" variant="secondary" size="sm" onClick={onRun}>Rerun homepage scan</Button>
+        <Button type="button" variant="secondary" size="sm" onClick={() => onRun('homepage')}>Rerun homepage scan</Button>
       ) : null}
       <HomepageJsonPreview data={homepageResult} />
     </section>

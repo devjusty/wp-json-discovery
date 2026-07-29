@@ -1,4 +1,6 @@
 import PropTypes from 'prop-types';
+import { Button } from '@/components/ui/button.jsx';
+import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
 import ExposurePanel from '../../organisms/panels/ExposurePanel.jsx';
 import PerformancePanel from '../../organisms/panels/PerformancePanel.jsx';
 import ContentOverviewPanel from '../../organisms/panels/ContentOverviewPanel.jsx';
@@ -10,6 +12,15 @@ import CoreDataSection from './sections/CoreDataSection.jsx';
 import PluginsSection from './sections/PluginsSection.jsx';
 import UnsupportedSection from './sections/UnsupportedSection.jsx';
 import { CAPABILITY_IDS, SCAN_CAPABILITIES } from '../../../services/scanCapabilities.js';
+
+const WORDPRESS_SECTION_TITLES = {
+  overview: 'Overview',
+  exposure: 'Exposure',
+  performance: 'Performance',
+  content: 'Content footprint',
+  core: 'Core data',
+  plugins: 'Plugins'
+};
 
 function ScanSectionContent({
   activeSection,
@@ -39,8 +50,15 @@ function ScanSectionContent({
     .map(({ id }) => id)
     .filter((id) => id !== CAPABILITY_IDS.WORDPRESS && !session.selection.capabilityIds.includes(id));
 
-  if (!scanResult && !['homepage', 'sitemap'].includes(activeSection)) {
-    return <EmptyScanState />;
+  if (!scanResult && WORDPRESS_SECTION_TITLES[activeSection]) {
+    return (
+      <WordPressCapabilityState
+        title={WORDPRESS_SECTION_TITLES[activeSection]}
+        capability={wordpress}
+        onRun={() => onRunCapability(CAPABILITY_IDS.WORDPRESS)}
+        onRetry={() => onRetryCapability(CAPABILITY_IDS.WORDPRESS)}
+      />
+    );
   }
 
   switch (activeSection) {
@@ -144,3 +162,44 @@ ScanSectionContent.defaultProps = {
 };
 
 export default ScanSectionContent;
+
+function WordPressCapabilityState({ title, capability, onRun, onRetry }) {
+  const status = capability?.status ?? 'idle';
+  const isRunning = ['queued', 'running'].includes(status);
+  const hasFailed = ['failed', 'unavailable'].includes(status);
+
+  return (
+    <section className="section">
+      <Card className={hasFailed ? 'card card--error' : 'card card--info'} role={hasFailed ? 'alert' : 'status'}>
+        <CardHeader>
+          <h2>{title}</h2>
+        </CardHeader>
+        <CardContent>
+          {isRunning ? <p>WordPress API scan is running.</p> : null}
+          {status === 'idle' ? <p>WordPress API scan has not run.</p> : null}
+          {hasFailed ? <p>{capability?.error?.message ?? 'WordPress API scan failed.'}</p> : null}
+          {status === 'idle' ? (
+            <Button type="button" variant="secondary" size="sm" onClick={onRun}>Run WordPress API scan</Button>
+          ) : null}
+          {status === 'failed' && capability?.error?.retryable ? (
+            <Button type="button" variant="secondary" size="sm" onClick={onRetry}>Retry WordPress API scan</Button>
+          ) : null}
+        </CardContent>
+      </Card>
+    </section>
+  );
+}
+
+WordPressCapabilityState.propTypes = {
+  title: PropTypes.string.isRequired,
+  capability: PropTypes.shape({
+    status: PropTypes.string,
+    error: PropTypes.shape({ message: PropTypes.string, retryable: PropTypes.bool })
+  }),
+  onRun: PropTypes.func.isRequired,
+  onRetry: PropTypes.func.isRequired
+};
+
+WordPressCapabilityState.defaultProps = {
+  capability: null
+};

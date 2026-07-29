@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import ScanSectionContent from './ScanSectionContent.jsx';
 
@@ -115,5 +116,55 @@ describe('ScanSectionContent', () => {
     );
 
     expect(screen.getByText('Overview section')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['overview', 'Overview'],
+    ['exposure', 'Exposure'],
+    ['performance', 'Performance'],
+    ['content', 'Content footprint'],
+    ['core', 'Core data'],
+    ['plugins', 'Plugins']
+  ])('renders %s capability state while WordPress is running', (activeSection, heading) => {
+    const props = buildProps();
+    render(
+      <ScanSectionContent {...buildProps({
+        activeSection,
+        session: {
+          ...props.session,
+          capabilities: {
+            wordpress: { status: 'running', result: null, error: null }
+          }
+        }
+      })} />
+    );
+
+    expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
+    expect(screen.getByText('WordPress API scan is running.')).toBeInTheDocument();
+  });
+
+  it('retries a failed WordPress capability from overview', async () => {
+    const onRetryCapability = vi.fn();
+    const user = userEvent.setup();
+    const props = buildProps();
+    render(
+      <ScanSectionContent {...buildProps({
+        onRetryCapability,
+        session: {
+          ...props.session,
+          capabilities: {
+            wordpress: {
+              status: 'failed',
+              result: null,
+              error: { message: 'REST API blocked', retryable: true }
+            }
+          }
+        }
+      })} />
+    );
+
+    expect(screen.getByText('REST API blocked')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Retry WordPress API scan' }));
+    expect(onRetryCapability).toHaveBeenCalledWith('wordpress');
   });
 });
