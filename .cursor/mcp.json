@@ -1,0 +1,31 @@
+{
+  "mcpServers": {
+    "fallow": {
+      "command": "fallow-mcp"
+    },
+    "shadcn": {
+      "command": "npx",
+      "args": ["shadcn@latest", "mcp"]
+    },
+    "hugeicons": {
+      "command": "npx",
+      "args": ["-y", "@hugeicons/mcp-server"]
+    },
+    "netlify": {
+      "command": "npx",
+      "args": ["-y", "@netlify/mcp"]
+    },
+    "render": {
+      "url": "https://mcp.render.com/mcp",
+      "headers": {
+        "Authorization": "Bearer {env:RENDER_MCP_API_KEY}"
+      }
+    },
+    "turso": {
+      "url": "https://mcp.turso.ai/mcp"
+    },
+    "wp-json-sb-mcp": {
+      "url": "http://localhost:6006/mcp"
+    }
+  }
+}

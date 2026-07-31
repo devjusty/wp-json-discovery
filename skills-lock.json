@@ -15,7 +15,13 @@
       "source": "fallow-rs/fallow-skills",
       "sourceType": "github",
       "skillPath": "fallow/skills/fallow/SKILL.md",
-      "computedHash": "20528461fe8e604890f62243d5396dfda5e49ec280facecbfddc1a00d809977a"
+      "computedHash": "6151ca333a9cfe0d67401991ecf0717dfb20ddeb80e232408ac047a44f0fb7bb"
+    },
+    "fallow-review": {
+      "source": "fallow-rs/fallow-skills",
+      "sourceType": "github",
+      "skillPath": "fallow/skills/fallow-review/SKILL.md",
+      "computedHash": "a8b4074fa14e7ac3900640867932e85d6b973f573d929d0c56de475347322731"
     },
     "impeccable": {
       "source": "pbakaus/impeccable",
@@ -26,7 +32,7 @@
       "source": "shadcn/ui",
       "sourceType": "github",
       "skillPath": "skills/shadcn/SKILL.md",
-      "computedHash": "d81caa0f86aabab65b25e302d454f23a3328760386ed9078345584c0d5c8058e"
+      "computedHash": "c1a68ee06a668aced9ab2b5fbdea5f989864123794eb2e056b339a072dbb7f10"
     },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
