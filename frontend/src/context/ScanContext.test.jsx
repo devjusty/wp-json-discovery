@@ -24,6 +24,7 @@ vi.mock('../services/scanPreferences.js', () => ({
 function createCoordinator(overrides = {}) {
   return {
     activeDomain: '',
+    isScanning: false,
     runCapability: vi.fn(),
     retryCapability: vi.fn(),
     session: null,
@@ -128,7 +129,11 @@ describe('ScanProvider', () => {
         homepage: { status: 'queued', result: { insights: {} }, error: homepageError }
       }
     };
-    mocks.useScan.mockReturnValue(createCoordinator({ activeDomain: 'example.com', session }));
+    mocks.useScan.mockReturnValue(createCoordinator({
+      activeDomain: 'example.com',
+      isScanning: true,
+      session
+    }));
 
     const { result } = renderHook(useScanContext, { wrapper });
 
@@ -164,7 +169,11 @@ describe('ScanProvider', () => {
         homepage: { status: 'running', result: null, error: null }
       }
     };
-    mocks.useScan.mockReturnValue(createCoordinator({ activeDomain: 'example.com', session }));
+    mocks.useScan.mockReturnValue(createCoordinator({
+      activeDomain: 'example.com',
+      isScanning: true,
+      session
+    }));
 
     const { result } = renderHook(useScanContext, { wrapper });
 
