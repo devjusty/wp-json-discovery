@@ -209,17 +209,13 @@ export function useScan() {
     return completed;
   };
 
-  const wordpress = session?.capabilities.wordpress;
-
   return {
     session,
     startScan,
     runCapability,
     retryCapability,
     activeDomain: session?.domain ?? '',
-    scanResult: wordpress?.result ?? null,
-    isScanning: session?.overallStatus === 'running',
-    scanError: wordpress?.error ?? null
+    isScanning: session?.overallStatus === 'running'
   };
 }
 

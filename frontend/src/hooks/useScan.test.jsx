@@ -93,6 +93,9 @@ describe('useScan', () => {
       wordpress: { status: 'success', result: { site: 'wordpress' } },
       homepage: { status: 'success', result: { assets: ['app.js'] } }
     });
+    for (const key of ['scanResult', 'scanError']) {
+      expect(result.current).not.toHaveProperty(key);
+    }
   });
 
   it('does not let a late prior-domain session overwrite a newer session', async () => {

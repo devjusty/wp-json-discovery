@@ -117,7 +117,7 @@ describe('ScanProvider', () => {
     });
   });
 
-  it('derives legacy core and homepage values from the current session', () => {
+  it('exposes session capabilities without privileged Capability projections', () => {
     const wordpressError = { message: 'WordPress failed' };
     const homepageError = { message: 'Homepage failed' };
     const session = {
@@ -132,19 +132,30 @@ describe('ScanProvider', () => {
 
     const { result } = renderHook(useScanContext, { wrapper });
 
-    expect(result.current.results).toMatchObject({
-      session,
-      scanResult: { summary: {} },
-      isScanning: true,
-      scanError: wordpressError,
-      homepageResult: { insights: {} },
-      homepageIsRunning: true,
-      homepageError
+    expect(result.current.results.session).toBe(session);
+    expect(result.current.results.isScanning).toBe(true);
+    expect(result.current.results.session.capabilities.wordpress).toMatchObject({
+      result: { summary: {} },
+      error: wordpressError
     });
+    expect(result.current.results.session.capabilities.homepage).toMatchObject({
+      result: { insights: {} },
+      error: homepageError,
+      status: 'queued'
+    });
+    for (const key of [
+      'scanResult',
+      'scanError',
+      'homepageResult',
+      'homepageIsRunning',
+      'homepageError'
+    ]) {
+      expect(result.current.results).not.toHaveProperty(key);
+    }
     expect(result.current.shell.activeDomain).toBe('example.com');
   });
 
-  it('keeps the legacy scan busy while homepage work is still running', () => {
+  it('keeps isScanning true while any Capability work is still running', () => {
     const session = {
       domain: 'example.com',
       overallStatus: 'running',

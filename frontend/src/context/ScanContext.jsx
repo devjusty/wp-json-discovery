@@ -16,7 +16,8 @@ export function ScanProvider({ children }) {
     startScan,
     runCapability,
     retryCapability,
-    activeDomain: scanActiveDomain
+    activeDomain: scanActiveDomain,
+    isScanning
   } = useScan();
 
   const handleDomainChange = useCallback((value) => {
@@ -41,10 +42,6 @@ export function ScanProvider({ children }) {
     setDomain(value);
     return startScan(value, normalizeSelection(scanSettings));
   }, [scanSettings, startScan]);
-
-  const wordpress = session?.capabilities.wordpress;
-  const homepage = session?.capabilities.homepage;
-  const isCapabilityRunning = (capability) => ['queued', 'running'].includes(capability?.status);
 
   const shellValue = useMemo(
     () => ({
@@ -75,12 +72,7 @@ export function ScanProvider({ children }) {
       startScan: handleStartScan,
       runCapability,
       retryCapability,
-      scanResult: wordpress?.result ?? null,
-      isScanning: session?.overallStatus === 'running',
-      scanError: wordpress?.error ?? null,
-      homepageResult: homepage?.result ?? null,
-      homepageIsRunning: isCapabilityRunning(homepage),
-      homepageError: homepage?.error ?? null
+      isScanning
     }),
     [
       session,
@@ -91,8 +83,7 @@ export function ScanProvider({ children }) {
       handleStartScan,
       runCapability,
       retryCapability,
-      wordpress,
-      homepage
+      isScanning
     ]
   );
 
