@@ -348,6 +348,60 @@ describe('useScan', () => {
       toastError: expect.any(Function),
       isActive: expect.any(Function)
     }));
+    expect(mocks.toastSuccess).toHaveBeenCalledTimes(1);
     expect(mocks.toastSuccess).toHaveBeenCalledWith('Scan complete for example.com');
+  });
+
+  it('fires one Session completion notice per execute batch and suppresses superseded batches', async () => {
+    const firstWordpress = createDeferred();
+    const secondWordpress = createDeferred();
+    const wordpress = vi.fn(({ domain }) => (
+      domain === 'first.example' ? firstWordpress.promise : secondWordpress.promise
+    ));
+    const homepage = vi.fn().mockResolvedValue({ assets: [] });
+    mocks.getCapabilityRunners.mockReturnValue({ wordpress, homepage });
+    const { result } = renderHook(() => useScan(), { wrapper: createWrapper() });
+
+    act(() => {
+      result.current.startScan('first.example', { capabilityIds: ['wordpress', 'homepage'] });
+      result.current.startScan('second.example', { capabilityIds: ['wordpress', 'homepage'] });
+    });
+
+    secondWordpress.resolve({ domain: 'second.example', plugins: { matched: [], unsupportedNamespaces: [] } });
+    await waitFor(() => {
+      expect(result.current.session?.domain).toBe('second.example');
+      expect(result.current.session?.overallStatus).toBe('complete');
+    });
+
+    firstWordpress.resolve({ domain: 'first.example', plugins: { matched: [], unsupportedNamespaces: [] } });
+    await waitFor(() => {
+      expect(mocks.toastSuccess).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('Scan complete for second.example');
+    expect(mocks.toastError).not.toHaveBeenCalled();
+  });
+
+  it('summarizes failed Capabilities in the Session completion notice', async () => {
+    const wordpress = vi.fn().mockRejectedValue({
+      code: 'auth_required',
+      message: 'locked'
+    });
+    const homepage = vi.fn().mockResolvedValue({ assets: [] });
+    mocks.getCapabilityRunners.mockReturnValue({ wordpress, homepage });
+    const { result } = renderHook(() => useScan(), { wrapper: createWrapper() });
+
+    act(() => {
+      result.current.startScan('example.com', { capabilityIds: ['wordpress', 'homepage'] });
+    });
+
+    await waitFor(() => {
+      expect(result.current.session?.overallStatus).toBe('incomplete');
+    });
+    await waitFor(() => {
+      expect(mocks.toastError).toHaveBeenCalledWith(
+        'Authentication required: REST API access is restricted on this site.'
+      );
+    });
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
   });
 });

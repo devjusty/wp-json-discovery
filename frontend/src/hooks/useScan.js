@@ -76,31 +76,35 @@ export function useScan() {
     await Promise.all(token.outcomePromises);
   };
 
-  // Toast-only WordPress reporting — Session completion notice lands in #12.
-  const reportWordpressToasts = (nextSession, token) => {
-    const wordpress = nextSession.capabilities.wordpress;
-    if (wordpress?.status === 'success') {
-      if (!isCurrent(token) || token.wordpressSuccessReported) {
-        return;
-      }
-      token.wordpressSuccessReported = true;
-      toast.success(`Scan complete for ${wordpress.result.domain}`);
+  const notifySessionCompletion = (nextSession, capabilityIds, token) => {
+    if (!isCurrent(token) || token.completionNoticeReported || !nextSession) {
       return;
     }
-    if (['failed', 'unavailable'].includes(wordpress?.status)) {
-      if (!isCurrent(token) || token.wordpressErrorReported) {
-        return;
-      }
-      token.wordpressErrorReported = true;
-      const error = wordpress.error;
-      const friendlyMessage = error?.code === 'auth_required'
-        ? 'Authentication required: REST API access is restricted on this site.'
-        : error?.message || 'Scan failed';
-      toast.error(friendlyMessage);
+    token.completionNoticeReported = true;
+
+    const states = capabilityIds
+      .map((id) => nextSession.capabilities[id])
+      .filter(Boolean);
+    const failed = states.filter(({ status }) => ['failed', 'unavailable'].includes(status));
+    if (failed.length === 0) {
+      toast.success(`Scan complete for ${nextSession.domain}`);
+      return;
     }
+
+    const authFailure = failed.find(({ error }) => error?.code === 'auth_required');
+    if (authFailure) {
+      toast.error('Authentication required: REST API access is restricted on this site.');
+      return;
+    }
+
+    const firstMessage = failed[0]?.error?.message;
+    toast.error(firstMessage
+      ? `Scan finished with issues for ${nextSession.domain}: ${firstMessage}`
+      : `Scan finished with issues for ${nextSession.domain}`);
   };
 
   const execute = async (nextSession, capabilityIds, token) => {
+    token.completionNoticeReported = false;
     const completed = await executeScanSession(
       nextSession,
       getCapabilityRunners(capabilityIds),
@@ -118,7 +122,7 @@ export function useScan() {
     const published = publishSession(completed, token, capabilityIds);
     await invokeSettledOutcomes(published, capabilityIds, token);
     if (isCurrent(token) && published) {
-      reportWordpressToasts(published, token);
+      notifySessionCompletion(published, capabilityIds, token);
     }
     return completed;
   };
@@ -159,10 +163,6 @@ export function useScan() {
     };
     nextSession.overallStatus = 'running';
     token.settledOutcomes?.delete(id);
-    if (id === 'wordpress') {
-      token.wordpressSuccessReported = false;
-      token.wordpressErrorReported = false;
-    }
     publishSession(nextSession, token, [id]);
     return execute(nextSession, [id], token);
   };
@@ -174,10 +174,7 @@ export function useScan() {
       return current;
     }
     token.settledOutcomes?.delete(id);
-    if (id === 'wordpress') {
-      token.wordpressSuccessReported = false;
-      token.wordpressErrorReported = false;
-    }
+    token.completionNoticeReported = false;
     const completed = await retrySessionCapability(
       current,
       id,
@@ -196,7 +193,7 @@ export function useScan() {
     const published = publishSession(completed, token, [id]);
     await invokeSettledOutcomes(published, [id], token);
     if (isCurrent(token) && published) {
-      reportWordpressToasts(published, token);
+      notifySessionCompletion(published, [id], token);
     }
     return completed;
   };
