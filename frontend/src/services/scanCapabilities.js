@@ -1,5 +1,6 @@
 import { runHomepageScan, runReconScan, runSitemapScan } from '../api/client.js';
 import { scanDomain } from './scan.js';
+import { onWordpressSettled } from './wordpressCapabilityOutcome.js';
 
 export const CAPABILITY_IDS = Object.freeze({
   WORDPRESS: 'wordpress',
@@ -37,7 +38,8 @@ export const SCAN_CAPABILITIES = Object.freeze([
     normalizeOptions() {
       return { ...this.defaultOptions };
     },
-    runner: ({ domain }) => scanDomain(domain)
+    runner: ({ domain }) => scanDomain(domain),
+    onSettled: onWordpressSettled
   },
   {
     id: CAPABILITY_IDS.HOMEPAGE,

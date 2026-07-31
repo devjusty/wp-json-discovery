@@ -43,7 +43,7 @@ describe('scan capabilities', () => {
 
   it('defines the complete scan capability registry contract', () => {
     expect(SCAN_CAPABILITIES.map((capability) => Object.keys(capability))).toEqual([
-      ['id', 'label', 'description', 'required', 'sectionIds', 'value', 'cost', 'baselineEligible', 'availability', 'defaultOptions', 'dependencies', 'normalizeOptions', 'runner'],
+      ['id', 'label', 'description', 'required', 'sectionIds', 'value', 'cost', 'baselineEligible', 'availability', 'defaultOptions', 'dependencies', 'normalizeOptions', 'runner', 'onSettled'],
       ['id', 'label', 'description', 'required', 'sectionIds', 'value', 'cost', 'baselineEligible', 'availability', 'defaultOptions', 'dependencies', 'normalizeOptions', 'runner'],
       ['id', 'label', 'description', 'required', 'sectionIds', 'value', 'cost', 'baselineEligible', 'availability', 'defaultOptions', 'dependencies', 'normalizeOptions', 'runner'],
       ['id', 'label', 'description', 'required', 'sectionIds', 'value', 'cost', 'baselineEligible', 'availability', 'defaultOptions', 'dependencies', 'normalizeOptions', 'runner']
@@ -61,7 +61,8 @@ describe('scan capabilities', () => {
       defaultOptions: capability.defaultOptions,
       dependencies: capability.dependencies,
       normalizeOptions: typeof capability.normalizeOptions,
-      runner: typeof capability.runner
+      runner: typeof capability.runner,
+      onSettled: typeof capability.onSettled
     }))).toEqual([
       {
         id: 'wordpress',
@@ -76,7 +77,8 @@ describe('scan capabilities', () => {
         defaultOptions: {},
         dependencies: [],
         normalizeOptions: 'function',
-        runner: 'function'
+        runner: 'function',
+        onSettled: 'function'
       },
       {
         id: 'homepage',
@@ -91,7 +93,8 @@ describe('scan capabilities', () => {
         defaultOptions: {},
         dependencies: [],
         normalizeOptions: 'function',
-        runner: 'function'
+        runner: 'function',
+        onSettled: 'undefined'
       },
       {
         id: 'sitemap',
@@ -106,7 +109,8 @@ describe('scan capabilities', () => {
         defaultOptions: { sitemapUrl: '', maxPages: 50 },
         dependencies: [],
         normalizeOptions: 'function',
-        runner: 'function'
+        runner: 'function',
+        onSettled: 'undefined'
       },
       {
         id: 'recon',
@@ -121,7 +125,8 @@ describe('scan capabilities', () => {
         defaultOptions: {},
         dependencies: [],
         normalizeOptions: 'function',
-        runner: 'function'
+        runner: 'function',
+        onSettled: 'undefined'
       }
     ]);
     expect(getCapabilityById('sitemap').normalizeOptions({})).toEqual({

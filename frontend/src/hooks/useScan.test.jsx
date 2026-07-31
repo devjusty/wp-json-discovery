@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   getCapabilityDependencies: vi.fn(() => ({ wordpress: [], homepage: [] })),
   getCapabilityRunners: vi.fn(),
   logEvent: vi.fn(),
+  onWordpressSettled: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn()
 }));
@@ -43,7 +44,17 @@ vi.mock('../services/scanCapabilities.js', () => ({
     };
   },
   getCapabilityById(id) {
-    return id === 'homepage' ? { id, availability: () => true } : null;
+    if (id === 'homepage') {
+      return { id, availability: () => true };
+    }
+    if (id === 'wordpress') {
+      return {
+        id,
+        availability: () => true,
+        onSettled: mocks.onWordpressSettled
+      };
+    }
+    return null;
   }
 }));
 
@@ -299,5 +310,44 @@ describe('useScan', () => {
       result: { source: 'homepage' },
       error: null
     });
+  });
+
+  it('invokes Capability Outcomes with injected ports when a Capability settles', async () => {
+    const wordpress = vi.fn().mockResolvedValue({
+      domain: 'example.com',
+      plugins: { matched: [], unsupportedNamespaces: [] }
+    });
+    const homepage = vi.fn().mockResolvedValue({ assets: [] });
+    mocks.getCapabilityRunners.mockReturnValue({ wordpress, homepage });
+    mocks.onWordpressSettled.mockResolvedValue(undefined);
+    const { result } = renderHook(() => useScan(), { wrapper: createWrapper() });
+
+    act(() => {
+      result.current.startScan('example.com', { capabilityIds: ['wordpress', 'homepage'] });
+    });
+
+    await waitFor(() => {
+      expect(result.current.session?.overallStatus).toBe('complete');
+    });
+
+    await waitFor(() => {
+      expect(mocks.onWordpressSettled).toHaveBeenCalledTimes(1);
+    });
+
+    const [state, settledSession, ports] = mocks.onWordpressSettled.mock.calls[0];
+    expect(state).toMatchObject({
+      status: 'success',
+      result: { domain: 'example.com' }
+    });
+    expect(settledSession.domain).toBe('example.com');
+    expect(ports).toEqual(expect.objectContaining({
+      isAuthenticated: false,
+      upsertUnsupportedPlugin: expect.any(Function),
+      invalidateQueries: expect.any(Function),
+      logEvent: mocks.logEvent,
+      toastError: expect.any(Function),
+      isActive: expect.any(Function)
+    }));
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('Scan complete for example.com');
   });
 });

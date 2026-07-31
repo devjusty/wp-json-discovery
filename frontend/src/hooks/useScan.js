@@ -23,114 +23,80 @@ export function useScan() {
   const sessionRef = useRef(null);
   const activeTokenRef = useRef(null);
 
+  const createPorts = (token) => ({
+    isAuthenticated,
+    upsertUnsupportedPlugin,
+    invalidateQueries: (query) => queryClient.invalidateQueries(query),
+    logEvent,
+    toastError: (message) => toast.error(message),
+    isActive: () => isCurrent(token)
+  });
+
   const isCurrent = (token) => token.active && activeTokenRef.current === token;
   const publishSession = (nextSession, token, updatedCapabilityIds = [], replace = false) => {
     if (!isCurrent(token)) {
-      return;
+      return null;
     }
     const mergedSession = replace
       ? nextSession
       : mergeSession(sessionRef.current, nextSession, updatedCapabilityIds);
     sessionRef.current = mergedSession;
     setSession(mergedSession);
+    return mergedSession;
   };
 
-  const reportWordpressSuccess = async (data, token) => {
-    if (!isCurrent(token) || token.wordpressSuccessReported) {
+  const invokeSettledOutcomes = async (nextSession, capabilityIds, token) => {
+    if (!isCurrent(token) || !nextSession) {
       return;
     }
-    token.wordpressSuccessReported = true;
+    token.settledOutcomes = token.settledOutcomes ?? new Set();
+    token.outcomePromises = token.outcomePromises ?? [];
+    const ports = createPorts(token);
 
-    const unsupportedNamespaces = data?.plugins?.unsupportedNamespaces ?? [];
-    let persistenceReport = [];
-    if (isAuthenticated && unsupportedNamespaces.length > 0) {
-      const persistenceOutcomes = await Promise.allSettled(
-        unsupportedNamespaces.map((namespace) => upsertUnsupportedPlugin({
-          namespace,
-          domain: data.domain
-        }))
+    for (const id of capabilityIds) {
+      const state = nextSession.capabilities[id];
+      if (!isTerminal(state?.status) || token.settledOutcomes.has(id)) {
+        continue;
+      }
+      token.settledOutcomes.add(id);
+      const onSettled = getCapabilityById(id)?.onSettled;
+      if (typeof onSettled !== 'function') {
+        continue;
+      }
+      token.outcomePromises.push(
+        Promise.resolve().then(() => {
+          if (!isCurrent(token)) {
+            return undefined;
+          }
+          return onSettled(state, nextSession, ports);
+        })
       );
-      if (!isCurrent(token)) {
-        return;
-      }
-
-      persistenceReport = persistenceOutcomes.map((outcome, index) => {
-        const namespace = unsupportedNamespaces[index];
-        if (outcome.status === 'fulfilled') {
-          return { namespace, status: 'fulfilled' };
-        }
-
-        const message = outcome.reason?.message ?? (
-          typeof outcome.reason === 'string' ? outcome.reason : 'Unknown persistence error'
-        );
-        toast.error(message);
-        logEvent('unsupported.persist_failed', { domain: data.domain, namespace, message });
-        return { namespace, status: 'rejected', message };
-      });
-
-      if (persistenceReport.some((item) => item.status === 'fulfilled')) {
-        queryClient.invalidateQueries({ queryKey: ['unsupportedPlugins'] });
-        queryClient.invalidateQueries({ queryKey: ['recentUserScans'] });
-      }
-      logEvent('unsupported.persist_attempt', {
-        domain: data.domain,
-        attempted: persistenceReport.length,
-        fulfilled: persistenceReport.filter((item) => item.status === 'fulfilled').length,
-        rejected: persistenceReport.filter((item) => item.status === 'rejected').length,
-        details: persistenceReport.slice(0, 25)
-      });
     }
 
-    if (!isCurrent(token)) {
-      return;
-    }
-    toast.success(`Scan complete for ${data.domain}`);
-    logEvent('scan.complete', {
-      domain: data.domain,
-      metrics: data.metrics,
-      coreSummary: (data.core ?? []).map((dataset) => ({
-        key: dataset.key,
-        status: dataset.status,
-        rows: dataset.rows.length,
-        durationMs: dataset.durationMs
-      })),
-      matchedPlugins: (data.plugins?.matched ?? []).map((plugin) => ({
-        id: plugin.plugin.id,
-        namespaces: plugin.namespaces,
-        routes: plugin.routes.length
-      })),
-      unsupportedNamespaces: unsupportedNamespaces.slice(0, 50),
-      unsupportedPersistence: persistenceReport.slice(0, 50),
-      snapshotBytes: JSON.stringify(data).length
-    });
+    await Promise.all(token.outcomePromises);
   };
 
-  const reportWordpressError = (error, domain, token) => {
-    if (!isCurrent(token) || token.wordpressErrorReported) {
-      return;
-    }
-    token.wordpressErrorReported = true;
-    const friendlyMessage = error?.code === 'auth_required'
-      ? 'Authentication required: REST API access is restricted on this site.'
-      : error?.message || 'Scan failed';
-    toast.error(friendlyMessage);
-    logEvent('scan.error', {
-      domain,
-      message: friendlyMessage,
-      code: error?.code,
-      status: error?.status,
-      details: error?.details,
-      stack: error?.stack
-    });
-  };
-
-  const reportWordpressOutcome = async (nextSession, token) => {
+  // Toast-only WordPress reporting — Session completion notice lands in #12.
+  const reportWordpressToasts = (nextSession, token) => {
     const wordpress = nextSession.capabilities.wordpress;
     if (wordpress?.status === 'success') {
-      await reportWordpressSuccess(wordpress.result, token);
+      if (!isCurrent(token) || token.wordpressSuccessReported) {
+        return;
+      }
+      token.wordpressSuccessReported = true;
+      toast.success(`Scan complete for ${wordpress.result.domain}`);
+      return;
     }
     if (['failed', 'unavailable'].includes(wordpress?.status)) {
-      reportWordpressError(wordpress.error, nextSession.domain, token);
+      if (!isCurrent(token) || token.wordpressErrorReported) {
+        return;
+      }
+      token.wordpressErrorReported = true;
+      const error = wordpress.error;
+      const friendlyMessage = error?.code === 'auth_required'
+        ? 'Authentication required: REST API access is restricted on this site.'
+        : error?.message || 'Scan failed';
+      toast.error(friendlyMessage);
     }
   };
 
@@ -138,14 +104,22 @@ export function useScan() {
     const completed = await executeScanSession(
       nextSession,
       getCapabilityRunners(capabilityIds),
-      (changedSession) => publishSession(changedSession, token, capabilityIds),
+      (changedSession) => {
+        const published = publishSession(changedSession, token, capabilityIds);
+        if (published) {
+          void invokeSettledOutcomes(published, capabilityIds, token);
+        }
+      },
       token
     );
     if (!isCurrent(token)) {
       return completed;
     }
-    publishSession(completed, token, capabilityIds);
-    await reportWordpressOutcome(completed, token);
+    const published = publishSession(completed, token, capabilityIds);
+    await invokeSettledOutcomes(published, capabilityIds, token);
+    if (isCurrent(token) && published) {
+      reportWordpressToasts(published, token);
+    }
     return completed;
   };
 
@@ -184,6 +158,11 @@ export function useScan() {
       [id]: { status: 'idle', result: null, error: null }
     };
     nextSession.overallStatus = 'running';
+    token.settledOutcomes?.delete(id);
+    if (id === 'wordpress') {
+      token.wordpressSuccessReported = false;
+      token.wordpressErrorReported = false;
+    }
     publishSession(nextSession, token, [id]);
     return execute(nextSession, [id], token);
   };
@@ -194,18 +173,31 @@ export function useScan() {
     if (!current || !token || !isCurrent(token)) {
       return current;
     }
+    token.settledOutcomes?.delete(id);
+    if (id === 'wordpress') {
+      token.wordpressSuccessReported = false;
+      token.wordpressErrorReported = false;
+    }
     const completed = await retrySessionCapability(
       current,
       id,
       getCapabilityRunners([id]),
-      (changedSession) => publishSession(changedSession, token, [id]),
+      (changedSession) => {
+        const published = publishSession(changedSession, token, [id]);
+        if (published) {
+          void invokeSettledOutcomes(published, [id], token);
+        }
+      },
       token
     );
     if (!isCurrent(token)) {
       return completed;
     }
-    publishSession(completed, token, [id]);
-    await reportWordpressOutcome(completed, token);
+    const published = publishSession(completed, token, [id]);
+    await invokeSettledOutcomes(published, [id], token);
+    if (isCurrent(token) && published) {
+      reportWordpressToasts(published, token);
+    }
     return completed;
   };
 
