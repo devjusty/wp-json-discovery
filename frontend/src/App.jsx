@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import './App.css';
 import { ScanProvider, useScanShellContext } from './context/ScanContext.jsx';
+import { useActivityLog } from './hooks/useActivityLog.js';
 import { setTokenProvider, setAuthUserProvider, fetchUserProfile } from './api/client.js';
 import { setScanCapabilityContext } from './services/scanCapabilities.js';
 
@@ -42,10 +43,9 @@ function AppContent() {
     setActivePage,
     setDomain,
     startScan,
-    activeDomain,
-    isRotatingLogs,
-    rotateLogs
+    activeDomain
   } = useScanShellContext();
+  const { isRotatingLogs, rotateLogs } = useActivityLog();
   const { isAuthenticated } = useAuth0();
   const currentScanDomain = activeDomain || '';
 

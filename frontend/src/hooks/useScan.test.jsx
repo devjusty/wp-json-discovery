@@ -6,7 +6,6 @@ const mocks = vi.hoisted(() => ({
   getCapabilityDependencies: vi.fn(() => ({ wordpress: [], homepage: [] })),
   getCapabilityRunners: vi.fn(),
   logEvent: vi.fn(),
-  rotateActivityLog: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn()
 }));
@@ -27,8 +26,7 @@ vi.mock('../api/client.js', () => ({
 }));
 
 vi.mock('../services/logger.js', () => ({
-  logEvent: mocks.logEvent,
-  rotateActivityLog: mocks.rotateActivityLog
+  logEvent: mocks.logEvent
 }));
 
 vi.mock('../services/scanCapabilities.js', () => ({

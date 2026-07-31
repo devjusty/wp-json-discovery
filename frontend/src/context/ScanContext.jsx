@@ -16,8 +16,6 @@ export function ScanProvider({ children }) {
     startScan,
     runCapability,
     retryCapability,
-    isRotatingLogs,
-    rotateLogs,
     activeDomain: scanActiveDomain
   } = useScan();
 
@@ -55,16 +53,12 @@ export function ScanProvider({ children }) {
       domain,
       setDomain,
       startScan: handleStartScan,
-      isRotatingLogs,
-      rotateLogs,
       activeDomain: scanActiveDomain,
       handleDomainChange
     }),
     [
       activePage,
       domain,
-      isRotatingLogs,
-      rotateLogs,
       scanActiveDomain,
       handleStartScan,
       handleDomainChange

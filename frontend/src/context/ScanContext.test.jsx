@@ -24,8 +24,6 @@ vi.mock('../services/scanPreferences.js', () => ({
 function createCoordinator(overrides = {}) {
   return {
     activeDomain: '',
-    isRotatingLogs: false,
-    rotateLogs: vi.fn(),
     runCapability: vi.fn(),
     retryCapability: vi.fn(),
     session: null,

@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth0 } from '@auth0/auth0-react';
 import toast from 'react-hot-toast';
 import { upsertUnsupportedPlugin } from '../api/client.js';
-import { logEvent, rotateActivityLog } from '../services/logger.js';
+import { logEvent } from '../services/logger.js';
 import {
   getCapabilityById,
   getCapabilityDependencies,
@@ -22,22 +22,6 @@ export function useScan() {
   const [session, setSession] = useState(null);
   const sessionRef = useRef(null);
   const activeTokenRef = useRef(null);
-
-  const rotateLogsMutation = useMutation({
-    mutationFn: rotateActivityLog,
-    onSuccess: (data) => {
-      toast.success('Activity log rotated.');
-      logEvent('logs.rotation_triggered', {
-        filename: data?.filename ?? 'unknown',
-        triggeredAt: new Date().toISOString()
-      });
-    },
-    onError: (error) => {
-      const message = error?.message ?? 'Failed to rotate logs.';
-      toast.error(message);
-      logEvent('logs.rotation_failed', { message });
-    }
-  });
 
   const isCurrent = (token) => token.active && activeTokenRef.current === token;
   const publishSession = (nextSession, token, updatedCapabilityIds = [], replace = false) => {
@@ -225,7 +209,6 @@ export function useScan() {
     return completed;
   };
 
-  const rotateLogs = () => rotateLogsMutation.mutate();
   const wordpress = session?.capabilities.wordpress;
 
   return {
@@ -236,9 +219,7 @@ export function useScan() {
     activeDomain: session?.domain ?? '',
     scanResult: wordpress?.result ?? null,
     isScanning: session?.overallStatus === 'running',
-    scanError: wordpress?.error ?? null,
-    isRotatingLogs: rotateLogsMutation.isPending,
-    rotateLogs
+    scanError: wordpress?.error ?? null
   };
 }
 
