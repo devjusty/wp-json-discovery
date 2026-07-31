@@ -21,7 +21,8 @@ const SUPPRESSION_TYPES = new Set([
   'scan.error',
   'proxy.error',
   'homepage-scan.error',
-  'sitemap.scan.error'
+  'sitemap.scan.error',
+  'recon-scan.error'
 ]);
 const HEARTBEAT_SCAN_INTERVAL = 10;
 const HEARTBEAT_TOP_N = 5;

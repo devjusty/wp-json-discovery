@@ -277,6 +277,70 @@ describe('API routes', () => {
     expect(res.statusCode).toEqual(401);
   });
 
+  it('rejects recon scans without admin access', async () => {
+    const res = await request(app).post('/api/recon-scan').send({ domain: 'example.com' });
+    expect(res.statusCode).toEqual(401);
+  });
+
+  it('returns 503 for recon scans when DNS Dumpster key is missing', async () => {
+    const originalKey = process.env.DNS_DUMPSTER_API_KEY;
+    delete process.env.DNS_DUMPSTER_API_KEY;
+
+    const res = await request(app)
+      .post('/api/recon-scan')
+      .set(adminHeaders)
+      .send({ domain: 'example.com' });
+
+    expect(res.statusCode).toEqual(503);
+    expect(res.body.error).toMatch(/not configured/i);
+
+    if (originalKey === undefined) {
+      delete process.env.DNS_DUMPSTER_API_KEY;
+    } else {
+      process.env.DNS_DUMPSTER_API_KEY = originalKey;
+    }
+  });
+
+  it('returns DNS Dumpster records for admin recon scans', async () => {
+    const originalKey = process.env.DNS_DUMPSTER_API_KEY;
+    const fallbackFetch = global.fetch;
+    process.env.DNS_DUMPSTER_API_KEY = 'test-dns-key';
+    global.fetch = async (url) => {
+      const target = String(url);
+      if (target.includes('api.dnsdumpster.com')) {
+        return new Response(JSON.stringify({
+          a: [{ host: 'example.com', ips: [{ ip: '1.2.3.4', asn: '1', country: 'US' }] }],
+          ns: [{ host: 'ns1.example.com', ips: [] }],
+          mx: [],
+          cname: [],
+          txt: ['v=spf1 -all'],
+          total_a_recs: 1
+        }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        });
+      }
+      return fallbackFetch(url);
+    };
+
+    const res = await request(app)
+      .post('/api/recon-scan')
+      .set(adminHeaders)
+      .send({ domain: 'example.com' });
+
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.domain).toBe('example.com');
+    expect(res.body.totalARecs).toBe(1);
+    expect(res.body.txt).toEqual(['v=spf1 -all']);
+
+    global.fetch = fallbackFetch;
+    if (originalKey === undefined) {
+      delete process.env.DNS_DUMPSTER_API_KEY;
+    } else {
+      process.env.DNS_DUMPSTER_API_KEY = originalKey;
+    }
+  });
+
   it('hides failed scans from history by default', async () => {
     await request(app).post('/api/logs').send({
       type: 'scan.complete',

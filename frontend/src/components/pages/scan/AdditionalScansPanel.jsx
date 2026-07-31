@@ -6,6 +6,7 @@ function AdditionalScansPanel({ selectedCapabilityIds, capabilities, onRunCapabi
   const selectedIds = new Set(selectedCapabilityIds);
   const availableCapabilities = SCAN_CAPABILITIES.filter((capability) => (
     !capability.required
+    && capability.availability()
     && !selectedIds.has(capability.id)
     && ['idle', undefined].includes(capabilities[capability.id]?.status)
   ));

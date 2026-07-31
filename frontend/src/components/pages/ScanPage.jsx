@@ -42,7 +42,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
   const [activeSection, setActiveSection] = useState('overview');
   const [recentDomainsExpanded, setRecentDomainsExpanded] = useState(false);
 
-  const visibleSection = !isAdmin && activeSection === 'unsupported'
+  const visibleSection = !isAdmin && (activeSection === 'unsupported' || activeSection === 'recon')
     ? 'overview'
     : activeSection;
 

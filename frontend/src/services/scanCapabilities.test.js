@@ -3,9 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const scanDomain = vi.fn();
 const runHomepageScan = vi.fn();
 const runSitemapScan = vi.fn();
+const runReconScan = vi.fn();
 
 vi.mock('./scan.js', () => ({ scanDomain }));
-vi.mock('../api/client.js', () => ({ runHomepageScan, runSitemapScan }));
+vi.mock('../api/client.js', () => ({ runHomepageScan, runSitemapScan, runReconScan }));
 
 const {
   CAPABILITY_IDS,
@@ -16,19 +17,22 @@ const {
   getRecommendedCapabilityIds,
   getRecommendedSelection,
   getSectionCapabilityId,
-  normalizeSelection
+  normalizeSelection,
+  setScanCapabilityContext
 } = await import('./scanCapabilities.js');
 
 describe('scan capabilities', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setScanCapabilityContext({ isAdmin: false });
   });
 
   it('returns stable recommended capability IDs and selection', () => {
     expect(CAPABILITY_IDS).toEqual({
       WORDPRESS: 'wordpress',
       HOMEPAGE: 'homepage',
-      SITEMAP: 'sitemap'
+      SITEMAP: 'sitemap',
+      RECON: 'recon'
     });
     expect(getRecommendedCapabilityIds()).toEqual(['homepage', 'wordpress']);
     expect(getRecommendedSelection()).toEqual({
@@ -39,6 +43,7 @@ describe('scan capabilities', () => {
 
   it('defines the complete scan capability registry contract', () => {
     expect(SCAN_CAPABILITIES.map((capability) => Object.keys(capability))).toEqual([
+      ['id', 'label', 'description', 'required', 'sectionIds', 'value', 'cost', 'baselineEligible', 'availability', 'defaultOptions', 'dependencies', 'normalizeOptions', 'runner'],
       ['id', 'label', 'description', 'required', 'sectionIds', 'value', 'cost', 'baselineEligible', 'availability', 'defaultOptions', 'dependencies', 'normalizeOptions', 'runner'],
       ['id', 'label', 'description', 'required', 'sectionIds', 'value', 'cost', 'baselineEligible', 'availability', 'defaultOptions', 'dependencies', 'normalizeOptions', 'runner'],
       ['id', 'label', 'description', 'required', 'sectionIds', 'value', 'cost', 'baselineEligible', 'availability', 'defaultOptions', 'dependencies', 'normalizeOptions', 'runner']
@@ -102,12 +107,41 @@ describe('scan capabilities', () => {
         dependencies: [],
         normalizeOptions: 'function',
         runner: 'function'
+      },
+      {
+        id: 'recon',
+        label: 'Domain recon',
+        description: 'Passive DNS and attack-surface lookup via DNS Dumpster (admin only).',
+        required: false,
+        sectionIds: ['recon'],
+        value: 2,
+        cost: 4,
+        baselineEligible: false,
+        availability: 'function',
+        defaultOptions: {},
+        dependencies: [],
+        normalizeOptions: 'function',
+        runner: 'function'
       }
     ]);
     expect(getCapabilityById('sitemap').normalizeOptions({})).toEqual({
       sitemapUrl: '',
       maxPages: 50
     });
+  });
+
+  it('gates recon availability to admins and keeps it out of recommendations', () => {
+    expect(getCapabilityById('recon').availability()).toBe(false);
+    expect(normalizeSelection({
+      capabilityIds: ['recon', 'homepage']
+    }).capabilityIds).toEqual(['homepage', 'wordpress']);
+
+    setScanCapabilityContext({ isAdmin: true });
+    expect(getCapabilityById('recon').availability()).toBe(true);
+    expect(getRecommendedCapabilityIds()).toEqual(['homepage', 'wordpress']);
+    expect(normalizeSelection({
+      capabilityIds: ['recon', 'homepage']
+    }).capabilityIds).toEqual(['homepage', 'recon', 'wordpress']);
   });
 
   it('removes unknown and duplicate IDs while preserving required wordpress', () => {
@@ -159,6 +193,7 @@ describe('scan capabilities', () => {
     expect(getSectionCapabilityId('overview')).toBe('wordpress');
     expect(getSectionCapabilityId('homepage')).toBe('homepage');
     expect(getSectionCapabilityId('sitemap')).toBe('sitemap');
+    expect(getSectionCapabilityId('recon')).toBe('recon');
     expect(getSectionCapabilityId('missing')).toBeNull();
   });
 
@@ -168,15 +203,18 @@ describe('scan capabilities', () => {
     expect(getCapabilityDependencies()).toEqual({
       wordpress: [],
       homepage: [],
-      sitemap: []
+      sitemap: [],
+      recon: []
     });
   });
 
   it('runs selected capabilities through existing scan services', async () => {
+    setScanCapabilityContext({ isAdmin: true });
     scanDomain.mockResolvedValue('wordpress result');
     runHomepageScan.mockResolvedValue('homepage result');
     runSitemapScan.mockResolvedValue('sitemap result');
-    const runners = getCapabilityRunners(['wordpress', 'homepage', 'sitemap']);
+    runReconScan.mockResolvedValue('recon result');
+    const runners = getCapabilityRunners(['wordpress', 'homepage', 'sitemap', 'recon']);
 
     await expect(runners.wordpress({ domain: 'example.com', options: {} })).resolves.toBe('wordpress result');
     await expect(runners.homepage({ domain: 'example.com', options: {} })).resolves.toBe('homepage result');
@@ -184,6 +222,7 @@ describe('scan capabilities', () => {
       domain: 'example.com',
       options: { sitemapUrl: '/sitemap.xml', maxPages: 10 }
     })).resolves.toBe('sitemap result');
+    await expect(runners.recon({ domain: 'example.com', options: {} })).resolves.toBe('recon result');
 
     expect(scanDomain).toHaveBeenCalledWith('example.com');
     expect(runHomepageScan).toHaveBeenCalledWith({ domain: 'example.com' });
@@ -192,5 +231,6 @@ describe('scan capabilities', () => {
       sitemapUrl: '/sitemap.xml',
       maxPages: 10
     });
+    expect(runReconScan).toHaveBeenCalledWith({ domain: 'example.com' });
   });
 });

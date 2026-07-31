@@ -1,11 +1,25 @@
-import { runHomepageScan, runSitemapScan } from '../api/client.js';
+import { runHomepageScan, runReconScan, runSitemapScan } from '../api/client.js';
 import { scanDomain } from './scan.js';
 
 export const CAPABILITY_IDS = Object.freeze({
   WORDPRESS: 'wordpress',
   HOMEPAGE: 'homepage',
-  SITEMAP: 'sitemap'
+  SITEMAP: 'sitemap',
+  RECON: 'recon'
 });
+
+let capabilityContext = { isAdmin: false };
+
+export function setScanCapabilityContext(next = {}) {
+  capabilityContext = {
+    ...capabilityContext,
+    ...(next && typeof next === 'object' ? next : {})
+  };
+}
+
+export function getScanCapabilityContext() {
+  return { ...capabilityContext };
+}
 
 export const SCAN_CAPABILITIES = Object.freeze([
   {
@@ -58,6 +72,23 @@ export const SCAN_CAPABILITIES = Object.freeze([
       return normalizeSitemapOptions(options, this.defaultOptions);
     },
     runner: ({ domain, options }) => runSitemapScan({ domain, ...options })
+  },
+  {
+    id: CAPABILITY_IDS.RECON,
+    label: 'Domain recon',
+    description: 'Passive DNS and attack-surface lookup via DNS Dumpster (admin only).',
+    required: false,
+    sectionIds: ['recon'],
+    value: 2,
+    cost: 4,
+    baselineEligible: false,
+    availability: () => Boolean(getScanCapabilityContext().isAdmin),
+    defaultOptions: {},
+    dependencies: [],
+    normalizeOptions() {
+      return { ...this.defaultOptions };
+    },
+    runner: ({ domain }) => runReconScan({ domain })
   }
 ]);
 

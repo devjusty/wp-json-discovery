@@ -6,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import './App.css';
 import { ScanProvider, useScanShellContext } from './context/ScanContext.jsx';
 import { setTokenProvider, setAuthUserProvider, fetchUserProfile } from './api/client.js';
+import { setScanCapabilityContext } from './services/scanCapabilities.js';
 
 const loadScanPage = () => import('./components/pages/ScanPage.jsx');
 const loadAdminPage = () => import('./components/pages/AdminPage.jsx');
@@ -55,6 +56,10 @@ function AppContent() {
     staleTime: 5 * 60 * 1000
   });
   const isAdmin = userProfile?.user?.role === 'admin';
+
+  useEffect(() => {
+    setScanCapabilityContext({ isAdmin: Boolean(isAdmin) });
+  }, [isAdmin]);
 
   const headerActions = useMemo(() => {
     return (

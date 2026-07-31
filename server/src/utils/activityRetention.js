@@ -5,6 +5,7 @@ const EVENT_RETENTION_RULES = {
   'scan.error': { retentionDays: 90, priority: 100 },
   'homepage-scan.error': { retentionDays: 90, priority: 100 },
   'sitemap.scan.error': { retentionDays: 90, priority: 100 },
+  'recon-scan.error': { retentionDays: 90, priority: 100 },
   'proxy.error': { retentionDays: 90, priority: 100 },
   'metrics.heartbeat': { retentionDays: 90, priority: 100 }
 };

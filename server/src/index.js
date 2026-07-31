@@ -5,6 +5,7 @@ import path from 'node:path';
 import { stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { fetchAndParseSitemap, fetchAndProcessPageDetails } from './sitemap.js';
+import { fetchDnsDumpsterDomain } from './dnsdumpster.js';
 import { logSilently, recordLog, rotateLog, pruneActivityLogs } from './logger.js';
 import { loadEnvFile } from './utils/env.js';
 import { sanitizeDomain } from './utils/domain.js';
@@ -108,6 +109,7 @@ app.use('/api/user/me', (req, res, next) => {
 app.use('/api/admin', requireAdminOrToken);
 app.use('/api/logs', requireAdminOrToken);
 app.use('/api/scan-history', requireAdminOrToken);
+app.use('/api/recon-scan', requireAdminOrToken);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
@@ -646,6 +648,40 @@ app.post('/api/sitemap-scan', wrapAsync(async (req, res) => {
       schemaTypes: allSchemaTypes
     }
   });
+}));
+
+app.post('/api/recon-scan', wrapAsync(async (req, res) => {
+  const { domain } = req.body ?? {};
+
+  if (typeof domain !== 'string' || domain.trim().length === 0) {
+    throw new ValidationError('domain is required');
+  }
+
+  const sanitizedDomain = sanitizeDomain(domain);
+  if (!sanitizedDomain) {
+    throw new ValidationError('Invalid domain provided');
+  }
+
+  try {
+    const result = await fetchDnsDumpsterDomain(sanitizedDomain);
+    logSilently('recon-scan', {
+      domain: sanitizedDomain,
+      durationMs: result.durationMs,
+      totalARecs: result.totalARecs,
+      nsCount: result.ns.length,
+      mxCount: result.mx.length,
+      cnameCount: result.cname.length,
+      txtCount: result.txt.length
+    });
+    res.json(result);
+  } catch (error) {
+    logSilently('recon-scan.error', {
+      domain: sanitizedDomain,
+      message: error.message,
+      statusCode: error.statusCode ?? 500
+    });
+    throw error;
+  }
 }));
 
 app.post('/api/homepage-scan', wrapAsync(async (req, res) => {

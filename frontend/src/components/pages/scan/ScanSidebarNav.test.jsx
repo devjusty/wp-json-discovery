@@ -34,7 +34,22 @@ describe('ScanSidebarNav', () => {
     expect(onOpenAdmin).toHaveBeenCalledTimes(1);
 
     expect(screen.queryByRole('button', { name: 'Unsupported' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Domain recon' })).not.toBeInTheDocument();
     expect(onSectionChange).not.toHaveBeenCalled();
+  });
+
+  it('shows admin-only recon navigation for admins', () => {
+    render(
+      <ScanSidebarNav
+        activeSection="overview"
+        hasSession
+        onSectionChange={vi.fn()}
+        isAdmin
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Domain recon' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Unsupported' })).toBeEnabled();
   });
 
   it('enables unselected capability sections once a session has a domain', async () => {

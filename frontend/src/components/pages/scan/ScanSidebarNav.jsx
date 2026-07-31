@@ -8,6 +8,7 @@ import {
   File01Icon,
   FileCodeIcon,
   FileSearchIcon,
+  GlobalSearchIcon,
   HistoryIcon,
   Home01Icon,
   Shield01Icon
@@ -26,9 +27,10 @@ const SCAN_SECTIONS = [
   { id: "performance", label: "Performance", requiresScan: true },
   { id: "content", label: "Content footprint", requiresScan: true },
   { id: "sitemap", label: "Sitemap scan", requiresScan: true },
+  { id: "recon", label: "Domain recon", requiresScan: true, adminOnly: true },
   { id: "core", label: "Core data", requiresScan: true },
   { id: "plugins", label: "Plugins", requiresScan: true },
-  { id: "unsupported", label: "Unsupported", requiresScan: true },
+  { id: "unsupported", label: "Unsupported", requiresScan: true, adminOnly: true },
 ];
 
 const SCAN_SECTION_ICONS = {
@@ -38,6 +40,7 @@ const SCAN_SECTION_ICONS = {
   performance: DashboardSquare01Icon,
   content: File01Icon,
   sitemap: FileSearchIcon,
+  recon: GlobalSearchIcon,
   core: Database01Icon,
   plugins: FileCodeIcon,
   unsupported: BrickWallShieldIcon,
@@ -59,7 +62,7 @@ function ScanSidebarNav({
       <div className="sidebar__section">
         <p className="sidebar__title">Navigation</p>
         <ul className="sidebar__nav">
-          {SCAN_SECTIONS.filter((item) => item.id !== 'unsupported' || isAdmin).map((item) => {
+          {SCAN_SECTIONS.filter((item) => !item.adminOnly || isAdmin).map((item) => {
             const capability = session?.capabilities?.[getSectionCapabilityId(item.id)];
             const unavailable = capability?.status === 'unavailable';
             const disabled = item.id !== 'unsupported' && (!hasSession || unavailable);

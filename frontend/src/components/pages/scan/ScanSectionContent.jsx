@@ -8,6 +8,7 @@ import EmptyScanState from './sections/EmptyScanState.jsx';
 import OverviewSection from './sections/OverviewSection.jsx';
 import HomepageSection from './sections/HomepageSection.jsx';
 import SitemapSection from './sections/SitemapSection.jsx';
+import ReconSection from './sections/ReconSection.jsx';
 import CoreDataSection from './sections/CoreDataSection.jsx';
 import PluginsSection from './sections/PluginsSection.jsx';
 import UnsupportedSection from './sections/UnsupportedSection.jsx';
@@ -43,6 +44,7 @@ function ScanSectionContent({
   const wordpress = session.capabilities[CAPABILITY_IDS.WORDPRESS];
   const homepage = session.capabilities[CAPABILITY_IDS.HOMEPAGE] ?? { status: 'idle', result: null, error: null };
   const sitemap = session.capabilities[CAPABILITY_IDS.SITEMAP] ?? { status: 'idle', result: null, error: null };
+  const recon = session.capabilities[CAPABILITY_IDS.RECON] ?? { status: 'idle', result: null, error: null };
   const scanResult = wordpress?.result ?? null;
   const homepageResult = homepage.result;
   const sitemapSettings = scanSettings.options[CAPABILITY_IDS.SITEMAP] ?? { sitemapUrl: '', maxPages: 50 };
@@ -116,6 +118,15 @@ function ScanSectionContent({
           sitemapExposure={scanResult?.exposure?.sitemapXml}
           sitemapFilter={sitemapFilter}
           setSitemapFilter={setSitemapFilter}
+        />
+      );
+    case 'recon':
+      return (
+        <ReconSection
+          domain={session.domain}
+          capability={recon}
+          onRun={() => onRunCapability(CAPABILITY_IDS.RECON)}
+          onRetry={() => onRetryCapability(CAPABILITY_IDS.RECON)}
         />
       );
     case 'core':

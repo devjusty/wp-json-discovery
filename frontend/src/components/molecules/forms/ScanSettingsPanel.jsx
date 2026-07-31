@@ -19,6 +19,7 @@ function ScanSettingsPanel({
   const normalizedSettings = normalizeSelection(scanSettings);
   const selectedIds = new Set(normalizedSettings.capabilityIds);
   const sitemapOptions = normalizedSettings.options[CAPABILITY_IDS.SITEMAP];
+  const visibleCapabilities = SCAN_CAPABILITIES.filter((capability) => capability.availability());
   const recommendedLabels = getRecommendedCapabilityIds()
     .map(getCapabilityById)
     .filter(Boolean)
@@ -66,7 +67,7 @@ function ScanSettingsPanel({
         Recommended: {recommendedLabels.join(' and ')}.
       </p>
       <div className="mt-2 divide-y divide-border">
-        {SCAN_CAPABILITIES.map((capability) => {
+        {visibleCapabilities.map((capability) => {
           const isSelected = selectedIds.has(capability.id);
           const isDisabled = isScanning || capability.required || !onScanSettingsChange;
 

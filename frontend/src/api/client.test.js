@@ -34,6 +34,19 @@ describe('request', () => {
     expect(init.headers.get('x-user-name')).toBe('Test User');
   });
 
+  it('attaches the user token to /api/recon-scan requests', async () => {
+    setTokenProvider(async () => 'recon-token');
+
+    await request('/api/recon-scan', {
+      method: 'POST',
+      body: JSON.stringify({ domain: 'example.com' })
+    });
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const [, init] = fetch.mock.calls[0];
+    expect(init.headers.get('authorization')).toBe('Bearer recon-token');
+  });
+
   it('checks response status before consuming the response body', async () => {
     const events = [];
     vi.stubGlobal('fetch', vi.fn(async () => ({

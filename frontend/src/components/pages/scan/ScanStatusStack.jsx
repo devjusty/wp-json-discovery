@@ -5,7 +5,8 @@ import { Card, CardContent } from '@/components/ui/card.jsx';
 const CAPABILITY_LABELS = {
   wordpress: 'WordPress API',
   homepage: 'Homepage',
-  sitemap: 'Sitemap'
+  sitemap: 'Sitemap',
+  recon: 'Domain recon'
 };
 
 function formatStatus(status) {

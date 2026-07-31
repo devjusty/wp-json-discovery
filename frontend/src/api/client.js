@@ -22,7 +22,11 @@ const ADMIN_API_KEY =
     : '';
 
 function shouldAttachAdminKey(path) {
-  return path === '/api/logs' || path.startsWith('/api/logs/') || path.startsWith('/api/admin/');
+  return path === '/api/logs'
+    || path.startsWith('/api/logs/')
+    || path.startsWith('/api/admin/')
+    || path === '/api/recon-scan'
+    || path.startsWith('/api/recon-scan/');
 }
 
 async function readResponseBody(response, contentType) {
@@ -57,6 +61,8 @@ export async function request(path, options = {}) {
       path === '/api/logs' ||
       path.startsWith('/api/logs/') ||
       path.startsWith('/api/scan-history') ||
+      path === '/api/recon-scan' ||
+      path.startsWith('/api/recon-scan/') ||
       path.startsWith('/api/unsupported-plugins')
     )) {
       try {
@@ -164,6 +170,23 @@ export async function runSitemapScan(payload) {
 
   if (!result.ok) {
     throw new Error('Sitemap scan failed');
+  }
+
+  return result.data;
+}
+
+export async function runReconScan(payload) {
+  const result = await request('/api/recon-scan', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+
+  if (!result.ok) {
+    const message =
+      typeof result.data?.error === 'string'
+        ? result.data.error
+        : 'Domain recon scan failed';
+    throw new Error(message);
   }
 
   return result.data;
