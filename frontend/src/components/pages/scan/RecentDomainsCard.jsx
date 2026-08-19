@@ -73,7 +73,7 @@ function RecentDomainsCard({
           )}
         </CardAction>
       </CardHeader>
-      {isExpanded ? (
+      <div className={`recent-domains-card__body ${isExpanded ? 'recent-domains-card__body--open' : ''}`}>
         <CardContent>
           {isLoading ? (
             <p className="card__meta">Loading recent domains…</p>
@@ -126,7 +126,7 @@ function RecentDomainsCard({
             </ul>
           )}
         </CardContent>
-      ) : null}
+      </div>
 
       <AlertDialog open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>
         <AlertDialogContent>

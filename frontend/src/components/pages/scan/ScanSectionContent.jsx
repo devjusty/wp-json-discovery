@@ -23,10 +23,16 @@ const WORDPRESS_SECTION_TITLES = {
   plugins: 'Plugins'
 };
 
-function ScanSectionContent({
+function SwitchBody({
   activeSection,
-  session,
-  scanSettings,
+  scanResult,
+  homepageResult,
+  homepageDomain,
+  capabilities,
+  selectedCapabilityIds,
+  sitemap,
+  recon,
+  sitemapSettings,
   onScanSettingsChange,
   onRunCapability,
   onRetryCapability,
@@ -37,37 +43,15 @@ function ScanSectionContent({
   onRefreshUnsupported,
   showDomains
 }) {
-  if (!session) {
-    return <EmptyScanState />;
-  }
-
-  const wordpress = session.capabilities[CAPABILITY_IDS.WORDPRESS];
-  const homepage = session.capabilities[CAPABILITY_IDS.HOMEPAGE] ?? { status: 'idle', result: null, error: null };
-  const sitemap = session.capabilities[CAPABILITY_IDS.SITEMAP] ?? { status: 'idle', result: null, error: null };
-  const recon = session.capabilities[CAPABILITY_IDS.RECON] ?? { status: 'idle', result: null, error: null };
-  const scanResult = wordpress?.result ?? null;
-  const homepageResult = homepage.result;
-  const sitemapSettings = scanSettings.options[CAPABILITY_IDS.SITEMAP] ?? { sitemapUrl: '', maxPages: 50 };
-  if (!scanResult && WORDPRESS_SECTION_TITLES[activeSection]) {
-    return (
-      <WordPressCapabilityState
-        title={WORDPRESS_SECTION_TITLES[activeSection]}
-        capability={wordpress}
-        onRun={() => onRunCapability(CAPABILITY_IDS.WORDPRESS)}
-        onRetry={() => onRetryCapability(CAPABILITY_IDS.WORDPRESS)}
-      />
-    );
-  }
-
   switch (activeSection) {
     case 'overview':
       return (
         <OverviewSection
           scanResult={scanResult}
-          homepageDomain={session.domain}
+          homepageDomain={homepageDomain}
           homepageResult={homepageResult}
-          capabilities={session.capabilities}
-          selectedCapabilityIds={session.selection.capabilityIds}
+          capabilities={capabilities}
+          selectedCapabilityIds={selectedCapabilityIds}
           onRunCapability={onRunCapability}
         />
       );
@@ -95,8 +79,8 @@ function ScanSectionContent({
     case 'homepage':
       return (
         <HomepageSection
-          homepageDomain={session.domain}
-          capability={homepage}
+          homepageDomain={homepageDomain}
+          capability={homepageResult}
           onRun={() => onRunCapability(CAPABILITY_IDS.HOMEPAGE)}
           onRetry={() => onRetryCapability(CAPABILITY_IDS.HOMEPAGE)}
         />
@@ -104,7 +88,7 @@ function ScanSectionContent({
     case 'sitemap':
       return (
         <SitemapSection
-          domain={session.domain}
+          domain={homepageDomain}
           capability={sitemap}
           sitemapSettings={sitemapSettings}
           onSitemapSettingsChange={(settings) => onScanSettingsChange((current) => ({
@@ -123,7 +107,7 @@ function ScanSectionContent({
     case 'recon':
       return (
         <ReconSection
-          domain={session.domain}
+          domain={homepageDomain}
           capability={recon}
           onRun={() => onRunCapability(CAPABILITY_IDS.RECON)}
           onRetry={() => onRetryCapability(CAPABILITY_IDS.RECON)}
@@ -145,6 +129,67 @@ function ScanSectionContent({
     default:
       return null;
   }
+}
+
+function ScanSectionContent({
+  activeSection,
+  session,
+  scanSettings,
+  onScanSettingsChange,
+  onRunCapability,
+  onRetryCapability,
+  sitemapFilter,
+  setSitemapFilter,
+  unsupportedPlugins,
+  unsupportedIsLoading,
+  onRefreshUnsupported,
+  showDomains
+}) {
+  if (!session) {
+    return <EmptyScanState />;
+  }
+
+  const wordpress = session.capabilities[CAPABILITY_IDS.WORDPRESS];
+  const homepage = session.capabilities[CAPABILITY_IDS.HOMEPAGE] ?? { status: 'idle', result: null, error: null };
+  const sitemap = session.capabilities[CAPABILITY_IDS.SITEMAP] ?? { status: 'idle', result: null, error: null };
+  const recon = session.capabilities[CAPABILITY_IDS.RECON] ?? { status: 'idle', result: null, error: null };
+  const scanResult = wordpress?.result ?? null;
+  const sitemapSettings = scanSettings.options[CAPABILITY_IDS.SITEMAP] ?? { sitemapUrl: '', maxPages: 50 };
+  if (!scanResult && WORDPRESS_SECTION_TITLES[activeSection]) {
+    return (
+      <WordPressCapabilityState
+        title={WORDPRESS_SECTION_TITLES[activeSection]}
+        capability={wordpress}
+        onRun={() => onRunCapability(CAPABILITY_IDS.WORDPRESS)}
+        onRetry={() => onRetryCapability(CAPABILITY_IDS.WORDPRESS)}
+      />
+    );
+  }
+
+  return (
+    <div key={activeSection} className="section-enter">
+      <SwitchBody
+        activeSection={activeSection}
+        scanResult={scanResult}
+        homepageResult={homepage.result}
+        homepageDomain={session.domain}
+        capabilities={session.capabilities}
+        selectedCapabilityIds={session.selection.capabilityIds}
+        sitemap={sitemap}
+        recon={recon}
+        sitemapSettings={sitemapSettings}
+        onScanSettingsChange={onScanSettingsChange}
+        onRunCapability={onRunCapability}
+        onRetryCapability={onRetryCapability}
+        sitemapFilter={sitemapFilter}
+        setSitemapFilter={setSitemapFilter}
+        unsupportedPlugins={unsupportedPlugins}
+        unsupportedIsLoading={unsupportedIsLoading}
+        onRefreshUnsupported={onRefreshUnsupported}
+        showDomains={showDomains}
+      />
+    </div>
+  );
 }
 
 ScanSectionContent.propTypes = {
