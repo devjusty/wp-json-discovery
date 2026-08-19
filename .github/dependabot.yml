@@ -1,0 +1,56 @@
+# Dependabot version updates for the pnpm workspace and GitHub Actions.
+# npm ecosystem covers pnpm (lockfile at repo root). Do not add extra
+# entries for /frontend or /server — that duplicates PRs against the
+# same pnpm-lock.yaml.
+#
+# https://docs.github.com/code-security/dependabot/dependabot-version-updates
+
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: 'chore'
+      include: scope
+    labels:
+      - dependencies
+    groups:
+      # First matching group wins. Keep Storybook together, then batch
+      # remaining minor/patch updates. Major bumps stay as individual PRs.
+      storybook:
+        patterns:
+          - 'storybook'
+          - '@storybook/*'
+          - '@chromatic-com/storybook'
+          - eslint-plugin-storybook
+          - msw-storybook-addon
+      production-minor-patch:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      development-minor-patch:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: 'chore'
+      include: scope
+    labels:
+      - dependencies
+    groups:
+      github-actions:
+        patterns:
+          - '*'
