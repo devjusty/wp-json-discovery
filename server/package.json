@@ -24,7 +24,7 @@
     "morgan": "^1.11.0"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.4",
+    "@eslint/js": "^10.0.1",
     "@jest/globals": "^30.4.1",
     "eslint": "^9.39.4",
     "globals": "^17.7.0",
