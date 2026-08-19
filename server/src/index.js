@@ -610,8 +610,8 @@ app.post('/api/sitemap-scan', wrapAsync(async (req, res) => {
   });
 
   const { sitemapSummaries, seenPages } = await fetchAndParseSitemap(resolvedSitemapUrl, pageLimit);
-  // seenPages is a Map<url, {lastmod}> — pass directly; slicing happens by taking the first pageLimit keys
-  const limitedEntries = new Map(Array.from(seenPages.entries()).slice(0, pageLimit));
+  // seenPages is a Set<url> — convert to array and slice to the page limit
+  const limitedEntries = Array.from(seenPages).slice(0, pageLimit);
   const pages = await fetchAndProcessPageDetails(limitedEntries, sanitizedDomain);
 
   const completedAt = Date.now();
