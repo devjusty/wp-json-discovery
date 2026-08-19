@@ -37,7 +37,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
-  transition: background 0.2s ease, transform 0.2s ease, border 0.2s ease, color 0.2s ease;
+  transition: background 0.2s ease, border 0.2s ease, color 0.2s ease;
 }
 
 .button--sm {
@@ -62,7 +62,6 @@
 
 .button--primary:not(:disabled):hover {
   background: var(--color-primary-strong);
-  transform: translateY(-1px);
 }
 
 .button--secondary {
@@ -73,7 +72,6 @@
 
 .button--secondary:not(:disabled):hover {
   background: var(--color-surface-strong);
-  transform: translateY(-1px);
 }
 
 .button--ghost {

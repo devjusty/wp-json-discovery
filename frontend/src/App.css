@@ -1785,14 +1785,20 @@ th.sortable .table__sort:hover {
   opacity: 0;
   pointer-events: none;
   transition:
-    opacity 0.15s ease,
-    transform 0.15s ease;
+    opacity 0.15s ease-out,
+    transform 0.15s ease-out;
   border: 1px solid var(--color-ink-dark);
   box-shadow: var(--shadow-elev-4);
   z-index: 10;
 }
 
-.tooltip:hover .tooltip__content,
+@media (hover: hover) and (pointer: fine) {
+  .tooltip:hover .tooltip__content {
+    opacity: 1;
+    transform: translate(-50%, -2px);
+  }
+}
+
 .tooltip:focus .tooltip__content {
   opacity: 1;
   transform: translate(-50%, -2px);
