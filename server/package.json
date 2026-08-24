@@ -14,11 +14,11 @@
     "db:import:logs": "node src/db/import-logs.js"
   },
   "dependencies": {
-    "@libsql/client": "^0.15.15",
+    "@libsql/client": "^0.17.4",
     "cheerio": "^1.2.0",
     "cors": "^2.8.6",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.5.2",
+    "express-rate-limit": "^8.6.2",
     "jsonwebtoken": "^9.0.3",
     "jwks-rsa": "^4.1.0",
     "morgan": "^1.11.0"
