@@ -5,8 +5,50 @@ Deliver the best scanner-first WordPress discovery experience with strong triage
 
 ## Planning assumptions
 - Team: 1-2 engineers.
-- Current stack remains: Express + Turso (libSQL) + React.
+- Existing Express + Turso (libSQL) + React stack is the starting point, not a rewrite constraint.
 - Focus on practical, shippable increments with low operational risk.
+
+## From-scratch redesign track
+
+The product reset is documented in [`product-redesign-brief.md`](product-redesign-brief.md). It replaces the current frontend-first assumption with a coordinated frontend and backend rewrite, while requiring a complete working slice before broad migration.
+
+### Phase R0: Capability inventory and contracts
+
+- Inventory every current investigator and admin capability.
+- Measure privacy-preserving workflow events, scan logs, and failure cost.
+- Validate high-value and low-frequency workflows with representative users.
+- Define canonical concepts: investigation, scan session, capability, finding, evidence, availability, and retry.
+- Decide which capabilities are retained, redesigned, deferred, or removed.
+
+### Phase R1: Core scan-to-understanding loop
+
+- Build direct-open investigator entry with one domain field and standard scan action.
+- Normalize URL identity while retaining submitted URL and redirect evidence.
+- Rebuild scan orchestration around independently observable capability states.
+- Deliver progressive results, partial failure handling, section retry, and evidence-level labels.
+- Deliver intent-based summary, inline evidence expansion, authenticated persistence, and local anonymous continuity.
+- Add the compact investigator shell and searchable investigation list.
+
+### Phase R2: Investigator workspace migration
+
+- Migrate validated report sections into the investigation section rail.
+- Add contextual tools, assets, history, and comparison only after their capability inventory case is clear.
+- Adapt dense evidence surfaces for mobile without hiding investigative depth.
+- Verify keyboard, screen-reader, zoom, reduced-motion, and narrow-width workflows.
+
+### Phase R3: Admin workspace migration
+
+- Build dedicated `/admin` shell and operational inbox.
+- Migrate unsupported namespace, asset, registry, scan health, retention, and maintenance workflows.
+- Keep item-level evidence review as default; add only validated bulk actions.
+- Add server-side authentication and authorization for admin operations and private history.
+
+### Deferred redesign options
+
+- Controlled read-only share links with expiration and revocation.
+- JSON, Markdown, or PDF exports.
+- Batch scanning and queued multi-domain workflows.
+- Full change comparison after stable evidence identifiers exist.
 
 ## Current status (March 2026)
 - Completed:
@@ -118,12 +160,12 @@ Deliver the best scanner-first WordPress discovery experience with strong triage
 - Dependencies: confidence model + evidence storage.
 
 ## Recommended execution sequence
-1. P0.1 Retention guardrails (finish hardening + operator controls).
-2. P1.6 Asset intelligence workflow (build on current asset-only plugin flow).
-3. P0.2 Homepage security-header analysis section.
-4. P1.7 Scan profiles.
-5. P0.3 Change detection + webhook alerts (optional track).
-6. Remaining P1/P2 items based on user adoption.
+1. R0 Capability inventory and contracts.
+2. R1 Core scan-to-understanding loop.
+3. R2 Investigator workspace migration.
+4. R3 Admin workspace migration.
+5. Resume validated P0/P1 platform work, including retention guardrails and security-header analysis.
+6. Reconsider deferred options based on adoption and measured workflow friction.
 
 ## Success metrics
 - Scanner completion rate for initiated runs (target: >98%).

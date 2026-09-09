@@ -4,6 +4,8 @@ This directory is intentionally small. Use these files as the source of truth.
 
 - `docs/product-roadmap.md`
   - Strategic roadmap and sequencing (quarter-scale priorities).
+- `docs/product-redesign-brief.md`
+  - Confirmed from-scratch product model, workflows, design principles, and redesign scope.
 - `docs/scan-capabilities.md`
   - What the scanner and admin tools currently do, plus known gaps.
 - `docs/public-api-paths.md`
