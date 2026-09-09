@@ -6,6 +6,20 @@ Rebuild frontend and backend together around a simpler investigator workflow and
 
 This is a product reset, not a visual reskin. The first release must prove the complete scan-to-understanding loop with real scan behavior before migrating every existing report and tool.
 
+## TypeScript Strategy
+
+Introduce TypeScript incrementally as part of the redesign, not as a separate big-bang migration afterward. The redesign creates natural boundaries for new contracts while allowing legacy JavaScript to keep running during the transition.
+
+Migration shape:
+
+1. Add TypeScript configuration and type-check commands for frontend and backend without requiring immediate conversion of existing files.
+2. Build new redesign modules as `.ts` and `.tsx` files. Keep untouched legacy JavaScript operational.
+3. Type high-value boundaries first: scan sessions, capability outcomes, API request and response contracts, progressive scan states, investigations, and admin operations.
+4. Convert legacy modules when the redesign touches them instead of creating a separate conversion pass.
+5. Increase strictness gradually, with migrated areas reaching `strict: true` before broader adoption.
+
+TypeScript types do not replace runtime validation. Server boundaries must still validate domains, authentication data, persisted records, and API payloads at runtime.
+
 ## Product Model
 
 - **Investigator workspace**: low-friction domain discovery for developers, marketers, security analysts, SEO researchers, and designers.

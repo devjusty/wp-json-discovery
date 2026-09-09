@@ -18,6 +18,10 @@ The product reset is documented in [`product-redesign-brief.md`](product-redesig
 - Measure privacy-preserving workflow events, scan logs, and failure cost.
 - Validate high-value and low-frequency workflows with representative users.
 - Define canonical concepts: investigation, scan session, capability, finding, evidence, availability, and retry.
+- Add TypeScript configuration and type-check commands for frontend and backend while keeping existing JavaScript runnable.
+- Establish TypeScript as the default for new redesign modules; do not make R0 a big-bang conversion of legacy files.
+- Type the first stable contracts: scan sessions, capability outcomes, API payloads, progressive states, investigations, and admin operations.
+- Define runtime validation requirements at server boundaries; static types alone do not validate external input or persisted data.
 - Decide which capabilities are retained, redesigned, deferred, or removed.
 
 ### Phase R1: Core scan-to-understanding loop
@@ -28,6 +32,8 @@ The product reset is documented in [`product-redesign-brief.md`](product-redesig
 - Deliver progressive results, partial failure handling, section retry, and evidence-level labels.
 - Deliver intent-based summary, inline evidence expansion, authenticated persistence, and local anonymous continuity.
 - Add the compact investigator shell and searchable investigation list.
+- Build new production modules as `.ts` and `.tsx`; convert legacy modules when touched by redesign work.
+- Increase strictness incrementally, with migrated areas reaching `strict: true` before project-wide adoption.
 
 ### Phase R2: Investigator workspace migration
 
