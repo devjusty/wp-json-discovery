@@ -9,6 +9,7 @@
     "lint:fix": "eslint . --fix",
     "start": "node src/index.js",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "typecheck": "tsc -p tsconfig.json",
     "db:inspect": "node src/db/inspect.js",
     "db:assets": "node src/db/list-assets.js",
     "db:import:logs": "node src/db/import-logs.js"
@@ -26,9 +27,15 @@
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@jest/globals": "^30.4.1",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/morgan": "^1.9.10",
+    "@types/node": "^26.5.0",
     "eslint": "^9.39.4",
     "globals": "^17.7.0",
     "jest": "^30.4.2",
-    "supertest": "^7.2.2"
+    "supertest": "^7.2.2",
+    "typescript": "^7.0.2"
   }
 }

@@ -5,6 +5,7 @@ import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
+import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([globalIgnores(['dist', 'storybook-static']), js.configs.recommended, {
@@ -28,4 +29,8 @@ export default defineConfig([globalIgnores(['dist', 'storybook-static']), js.con
     'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
   },
-}, ...storybook.configs["flat/recommended"]])
+}, ...storybook.configs["flat/recommended"], {
+  files: [tseslint.globs.ts],
+  extends: [tseslint.configs.recommended],
+},
+])

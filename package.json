@@ -5,6 +5,7 @@
     "dev": "pnpm --parallel --recursive run dev",
     "dev:frontend": "pnpm --filter frontend run dev",
     "dev:server": "pnpm --filter wp-json-discovery-server run dev",
+    "typecheck": "pnpm --filter frontend run typecheck && pnpm --filter wp-json-discovery-server run typecheck",
     "check:knip": "knip",
     "knip": "knip",
     "sort:plugins": "node scripts/sort-plugins.mjs",
