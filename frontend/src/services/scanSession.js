@@ -1,3 +1,5 @@
+import { scanSessionSchema } from '@wp-json-discovery/contracts';
+
 import { normalizeSelection } from './scanCapabilities.js';
 
 const DEPENDENCY_ERROR = {
@@ -12,7 +14,7 @@ export function createScanSession(domain, selection, dependencies = {}) {
   return {
     domain,
     selection: cloneSelection(normalizedSelection),
-    dependencies: cloneDependencies(dependencies),
+    dependencies: cloneDependencies(dependencies, normalizedSelection.capabilityIds),
     overallStatus: 'idle',
     capabilities: Object.fromEntries(normalizedSelection.capabilityIds.map((id) => [id, createCapabilityState()]))
   };
@@ -26,8 +28,23 @@ export function normalizeScanError(error) {
   };
 }
 
+function validateContractScanSession(value) {
+  return scanSessionSchema.safeParse(value);
+}
+
+export function validateSessionSnapshot(value) {
+  if (hasLegacySessionKeys(value)) {
+    return validateLegacySessionSnapshot(value);
+  }
+
+  const validation = validateContractScanSession(value);
+  return validation.success
+    ? { ...validation, format: 'contract' }
+    : validation;
+}
+
 export async function executeScanSession(session, runners, onChange, token) {
-  let current = cloneSession(session);
+  let current = cloneAcceptedLegacySession(session);
 
   while (hasPendingCapabilities(current)) {
     if (token?.active === false) {
@@ -91,6 +108,8 @@ export async function executeScanSession(session, runners, onChange, token) {
 }
 
 export async function retryCapability(session, id, runners, onChange, token) {
+  session = cloneAcceptedLegacySession(session);
+
   if (!session.selection.capabilityIds.includes(id) || !['failed', 'unavailable'].includes(session.capabilities[id]?.status)) {
     return cloneSession(session);
   }
@@ -131,6 +150,141 @@ function createCapabilityState() {
   return { status: 'idle', result: null, error: null };
 }
 
+function cloneAcceptedLegacySession(session) {
+  const validation = validateSessionSnapshot(session);
+  if (!validation.success || validation.format !== 'legacy') {
+    const error = new Error(
+      validation.success
+        ? 'Redesigned session snapshots require an explicit migration boundary.'
+        : 'Invalid scan session snapshot.'
+    );
+    error.code = 'invalid_session_snapshot';
+    error.cause = validation.success ? null : validation.error;
+    throw error;
+  }
+  return cloneSession(validation.data);
+}
+
+function isLegacySessionSnapshot(value) {
+  if (!hasLegacySessionKeys(value) || typeof value.domain !== 'string') return false;
+
+  const { selection, dependencies, capabilities, overallStatus } = value;
+  if (!isValidLegacySelection(selection)) return false;
+
+  const selectedCapabilityIds = new Set(selection.capabilityIds);
+  return isValidLegacyDependencies(dependencies, selection.capabilityIds, selectedCapabilityIds)
+    && isValidOverallStatus(overallStatus)
+    && isValidLegacyCapabilities(capabilities, selection.capabilityIds);
+}
+
+function isValidLegacySelection(selection) {
+  if (!isRecord(selection) || !Array.isArray(selection.capabilityIds) || !isRecord(selection.options)) {
+    return false;
+  }
+
+  const capabilityIds = selection.capabilityIds;
+  return capabilityIds.every((id) => typeof id === 'string')
+    && new Set(capabilityIds).size === capabilityIds.length;
+}
+
+function isValidLegacyDependencies(dependencies, capabilityIds, selectedCapabilityIds) {
+  return isRecord(dependencies)
+    && hasExactKeys(dependencies, capabilityIds)
+    && Object.values(dependencies).every((ids) => isValidDependencyList(ids, selectedCapabilityIds));
+}
+
+function isValidDependencyList(ids, selectedCapabilityIds) {
+  return Array.isArray(ids) && ids.every((id) => selectedCapabilityIds.has(id));
+}
+
+function isValidOverallStatus(status) {
+  return ['idle', 'running', 'complete', 'incomplete'].includes(status);
+}
+
+function isValidLegacyCapabilities(capabilities, capabilityIds) {
+  return isRecord(capabilities)
+    && hasExactKeys(capabilities, capabilityIds)
+    && capabilityIds.every((id) => isValidCapabilityState(capabilities[id]));
+}
+
+const CAPABILITY_STATE_VALIDATORS = Object.freeze({
+  idle: isIdleCapabilityState,
+  queued: isQueuedCapabilityState,
+  running: isRunningCapabilityState,
+  success: isSuccessfulCapabilityState,
+  failed: isFailedCapabilityState,
+  unavailable: isUnavailableCapabilityState
+});
+
+function isValidCapabilityState(state) {
+  if (!isRecord(state) || !Object.hasOwn(CAPABILITY_STATE_VALIDATORS, state.status)) return false;
+  return CAPABILITY_STATE_VALIDATORS[state.status](state);
+}
+
+function isIdleCapabilityState(state) {
+  return state.result === null && state.error === null;
+}
+
+function isQueuedCapabilityState(state) {
+  return isIdleCapabilityState(state);
+}
+
+function isRunningCapabilityState() {
+  return true;
+}
+
+function isSuccessfulCapabilityState(state) {
+  return 'result' in state && state.error === null;
+}
+
+function isFailedCapabilityState(state) {
+  return state.result === null && isValidCapabilityError(state.error);
+}
+
+function isUnavailableCapabilityState(state) {
+  return state.result === null
+    && isValidCapabilityError(state.error)
+    && state.error.retryable === false;
+}
+
+function isValidCapabilityError(error) {
+  return isRecord(error)
+    && typeof error.code === 'string'
+    && error.code.length > 0
+    && typeof error.message === 'string'
+    && error.message.length > 0
+    && typeof error.retryable === 'boolean';
+}
+
+function validateLegacySessionSnapshot(value) {
+  if (isLegacySessionSnapshot(value)) {
+    return { success: true, format: 'legacy', data: value };
+  }
+
+  return {
+    success: false,
+    error: new Error('Invalid legacy scan session snapshot.')
+  };
+}
+
+function hasLegacySessionKeys(value) {
+  return Boolean(value)
+    && typeof value === 'object'
+    && 'selection' in value
+    && 'dependencies' in value
+    && 'overallStatus' in value
+    && 'capabilities' in value;
+}
+
+function isRecord(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function hasExactKeys(value, keys) {
+  const valueKeys = Object.keys(value);
+  return valueKeys.length === keys.length && keys.every((key) => valueKeys.includes(key));
+}
+
 function cloneSelection(selection) {
   return {
     capabilityIds: [...selection.capabilityIds],
@@ -138,15 +292,15 @@ function cloneSelection(selection) {
   };
 }
 
-function cloneDependencies(dependencies) {
-  return Object.fromEntries(Object.entries(dependencies).map(([id, ids]) => [id, [...ids]]));
+function cloneDependencies(dependencies, capabilityIds) {
+  return Object.fromEntries(capabilityIds.map((id) => [id, [...(dependencies[id] ?? [])]]));
 }
 
 function cloneSession(session) {
   return {
     ...session,
     selection: cloneSelection(session.selection),
-    dependencies: cloneDependencies(session.dependencies),
+    dependencies: cloneDependencies(session.dependencies, session.selection.capabilityIds),
     capabilities: Object.fromEntries(Object.entries(session.capabilities).map(([id, state]) => [id, {
       ...state,
       error: state.error ? { ...state.error } : null

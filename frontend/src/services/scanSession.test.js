@@ -4,7 +4,8 @@ import {
   createScanSession,
   executeScanSession,
   normalizeScanError,
-  retryCapability
+  retryCapability,
+  validateSessionSnapshot
 } from './scanSession.js';
 
 describe('scan session', () => {
@@ -90,13 +91,22 @@ describe('scan session', () => {
     const wordpress = vi.fn().mockRejectedValue(new Error('WordPress unavailable'));
     const sitemap = vi.fn();
     const session = createScanSession('example.com', {
-      capabilityIds: ['sitemap']
+      capabilityIds: ['sitemap', 'wordpress']
     }, {
       sitemap: ['wordpress']
     });
 
     const completed = await executeScanSession(session, { wordpress, sitemap });
 
+    expect(wordpress).toHaveBeenCalledOnce();
+    expect(completed.capabilities.wordpress).toMatchObject({
+      status: 'failed',
+      error: {
+        code: 'scan_failed',
+        message: 'WordPress unavailable',
+        retryable: true
+      }
+    });
     expect(sitemap).not.toHaveBeenCalled();
     expect(completed.capabilities.sitemap).toEqual({
       status: 'unavailable',
@@ -106,6 +116,39 @@ describe('scan session', () => {
         message: 'Required scan did not complete.',
         retryable: false
       }
+    });
+  });
+
+  it('recovers failed dependency before retrying unavailable capability', async () => {
+    const wordpress = vi.fn()
+      .mockRejectedValueOnce(new Error('WordPress unavailable'))
+      .mockResolvedValueOnce({ namespaces: ['wp/v2'] });
+    const sitemap = vi.fn().mockResolvedValue({ urls: ['/'] });
+    const session = createScanSession('example.com', {
+      capabilityIds: ['sitemap', 'wordpress']
+    }, {
+      sitemap: ['wordpress']
+    });
+    const failed = await executeScanSession(session, { wordpress, sitemap });
+
+    expect(failed.capabilities.wordpress).toMatchObject({
+      status: 'failed',
+      error: { message: 'WordPress unavailable' }
+    });
+    expect(failed.capabilities.sitemap).toMatchObject({
+      status: 'unavailable',
+      error: { code: 'dependency_failed', retryable: false }
+    });
+
+    const recovered = await retryCapability(failed, 'wordpress', { wordpress, sitemap });
+    const retried = await retryCapability(recovered, 'sitemap', { wordpress, sitemap });
+
+    expect(wordpress).toHaveBeenCalledTimes(2);
+    expect(sitemap).toHaveBeenCalledOnce();
+    expect(retried.capabilities.sitemap).toMatchObject({
+      status: 'success',
+      result: { urls: ['/'] },
+      error: null
     });
   });
 
@@ -203,5 +246,115 @@ describe('scan session', () => {
     expect(session).toEqual(original);
     expect(completed).not.toBe(session);
     expect(completed.capabilities).not.toBe(session.capabilities);
+  });
+
+  it('reports malformed contract data instead of treating legacy session data as valid', () => {
+    const validation = validateSessionSnapshot({ status: 'running' });
+
+    expect(validation.success).toBe(false);
+    expect(validation.error).toBeInstanceOf(Error);
+  });
+
+  it('rejects malformed contract data at session execution boundary', async () => {
+    await expect(executeScanSession({ status: 'running' }, {})).rejects.toMatchObject({
+      code: 'invalid_session_snapshot'
+    });
+  });
+
+  it('accepts stale result and error payloads on running legacy capabilities', async () => {
+    const session = createScanSession('example.com', { capabilityIds: ['homepage'] });
+    session.overallStatus = 'running';
+    session.capabilities.homepage = {
+      status: 'running',
+      result: { stale: true },
+      error: { code: 'stale', message: 'Stale error', retryable: true }
+    };
+    session.capabilities.wordpress = {
+      status: 'success',
+      result: { namespaces: [] },
+      error: null
+    };
+
+    const validation = validateSessionSnapshot(session);
+    const accepted = await executeScanSession(session, {});
+
+    expect(validation).toMatchObject({ success: true, format: 'legacy' });
+    expect(accepted.capabilities.homepage).toEqual(session.capabilities.homepage);
+  });
+
+  it('rejects malformed legacy snapshots with explicit validation failure', async () => {
+    const malformedSession = {
+      domain: 'example.com',
+      selection: { capabilityIds: ['homepage'], options: {} },
+      dependencies: {},
+      overallStatus: 'idle',
+      capabilities: { homepage: { status: 'idle' } }
+    };
+
+    const validation = validateSessionSnapshot(malformedSession);
+
+    expect(validation.success).toBe(false);
+    expect(validation.error).toBeInstanceOf(Error);
+    await expect(executeScanSession(malformedSession, {})).rejects.toMatchObject({
+      code: 'invalid_session_snapshot'
+    });
+  });
+
+  it.each([
+    ['numeric capability IDs', 42],
+    ['object capability IDs', {}],
+  ])('rejects %s with explicit invalid session failure', async (_label, capabilityIds) => {
+    const malformedSession = {
+      domain: 'example.com',
+      selection: { capabilityIds, options: {} },
+      dependencies: {},
+      overallStatus: 'idle',
+      capabilities: {}
+    };
+
+    const validation = validateSessionSnapshot(malformedSession);
+
+    expect(validation.success).toBe(false);
+    expect(validation.error).toBeInstanceOf(Error);
+    await expect(executeScanSession(malformedSession, {})).rejects.toMatchObject({
+      code: 'invalid_session_snapshot'
+    });
+  });
+
+  it.each([
+    ['idle capability with result and error', (session) => {
+      session.capabilities.homepage = {
+        status: 'idle',
+        result: { stale: true },
+        error: { code: 'stale', message: 'Stale error', retryable: true }
+      };
+    }],
+    ['failed capability with null error', (session) => {
+      session.capabilities.homepage = { status: 'failed', result: null, error: null };
+    }],
+    ['dependency outside selected capabilities', (session) => {
+      session.dependencies.sitemap = ['recon'];
+    }],
+    ['extra capability key', (session) => {
+      session.capabilities.recon = { status: 'idle', result: null, error: null };
+    }],
+    ['extra dependency key', (session) => {
+      session.dependencies.recon = [];
+    }]
+  ])('rejects %s with explicit invalid session failure', async (_label, mutate) => {
+    const malformedSession = createScanSession('example.com', {
+      capabilityIds: ['homepage'],
+      options: {}
+    }, {
+      sitemap: ['wordpress']
+    });
+    mutate(malformedSession);
+
+    const validation = validateSessionSnapshot(malformedSession);
+
+    expect(validation.success).toBe(false);
+    await expect(executeScanSession(malformedSession, {})).rejects.toMatchObject({
+      code: 'invalid_session_snapshot'
+    });
   });
 });

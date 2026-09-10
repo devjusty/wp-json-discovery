@@ -261,7 +261,7 @@ Create the research brief with sections for:
 
 - Existing scan-log observations.
 - Privacy-preserving workflow-event observations.
-- Task walkthrough/interview notes for opening a scan, finding evidence, recovering from partial failure, and returning to prior investigations.
+- Task walkthrough/interview notes, or an explicit record that human walkthrough/interview evidence is absent, for opening a scan, finding evidence, recovering from partial failure, and returning to prior investigations.
 - Capability decisions supported by evidence.
 - Workflow friction, confidence level, and unresolved questions.
 
@@ -402,7 +402,7 @@ git diff --check
 
 Expected: frozen lockfile, typechecks, contract tests, lint, build, and diff checks pass. Existing known browser-environment and activity-retention failures remain documented if still present.
 
-- [ ] **Step 4: Confirm R0 exit criteria**
+- [ ] **Step 4: Confirm R0 implementation closure and R1 gates**
 
 Before handing off to R1, verify:
 
@@ -410,6 +410,6 @@ Before handing off to R1, verify:
 - Canonical concepts and redesigned API contracts are documented and implemented.
 - Zod schemas compile to ESM and declarations.
 - Both frontend and server consume a shared contract at a real boundary.
-- Runtime validation and failure semantics have tests.
-- One research brief contains log/event and walkthrough findings.
+- Runtime validation at the frontend session and server domain seams has tests; API request/response, persistence, auth, and capability-outcome wiring are deferred until redesigned server surfaces exist in R1.
+- Research brief records available log/event observations, static walkthrough hypotheses, and explicit research limitations; human interviews/walkthroughs and analytics validation remain an explicit open gate before R1 commitment.
 - No legacy response shape was accidentally promoted to future API status.

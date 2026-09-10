@@ -44,13 +44,15 @@ Use discriminated unions for state-bearing values so unavailable, failed, partia
 
 ## Validation Flow
 
+The following is the intended R1 flow, not a claim about R0 runtime wiring. R0 validates the frontend session seam and server domain boundary only. API request/response, persistence, authentication, and capability-outcome validation are defined by these schemas but remain deferred until redesigned server surfaces exist in R1.
+
 1. The investigator submits a domain.
 2. Frontend normalizes the domain and sends the redesigned request shape.
-3. Server validates the request with the shared schema before scan work begins.
-4. Server emits capability outcomes using shared outcome schemas.
-5. Persistence validates investigation and session records before writes and after reads.
-6. Frontend validates received payloads before rendering.
-7. Malformed responses become explicit unavailable or error evidence rather than silent rendering failures.
+3. [R1] Server validates the request with the shared schema before scan work begins.
+4. [R1] Server emits capability outcomes using shared outcome schemas.
+5. [R1] Persistence validates investigation and session records before writes and after reads.
+6. [R1] Frontend validates received payloads before rendering.
+7. [R1] Malformed responses become explicit unavailable or error evidence rather than silent rendering failures.
 
 TypeScript types do not replace runtime validation. Domains, authentication data, persisted records, and API payloads remain untrusted at their respective boundaries.
 
@@ -97,9 +99,9 @@ R0 is complete when:
 - Every current investigator and admin capability is classified as retained, redesigned, deferred, or removed.
 - Canonical domain concepts and redesigned API contracts are documented and implemented.
 - Zod schemas compile to ESM and declarations, with inferred types available to both workspaces.
-- Runtime validation rules and failure semantics are covered by tests.
+- R0 runtime validation at the frontend session and server domain seams is covered by tests; API, persistence, auth, and capability-outcome wiring remain R1 work.
 - Shared contracts are consumed by both frontend and server at real boundaries.
-- One research brief records log/event observations and walkthrough findings.
+- One research brief records available log/event observations, static walkthrough hypotheses, and the explicit absence of human validation evidence.
 - R1 can begin without inventing session, capability, finding, evidence, or availability semantics during UI implementation.
 
 R1 success measures should prioritize time-to-useful-finding, scan completion, comprehension of evidence levels, recovery from partial failure, navigation friction, and repeat investigation use.

@@ -1,4 +1,5 @@
 import net from 'node:net';
+import { parseDomainIdentity } from '@wp-json-discovery/contracts';
 
 const BLOCKED_SUFFIXES = ['.local', '.localhost', '.internal', '.lan'];
 
@@ -46,5 +47,5 @@ export function sanitizeDomain(input) {
     return null;
   }
 
-  return trimmed;
+  return parseDomainIdentity({ submitted: input, normalized: trimmed }).normalized;
 }

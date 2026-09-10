@@ -14,9 +14,13 @@ The product reset is documented in [`product-redesign-brief.md`](product-redesig
 
 ### Phase R0: Capability inventory and contracts
 
+R0 implementation is complete before R1 UI work starts. See the [scan capability inventory](scan-capability-inventory.md), [R0 research brief](research/2026-09-09-r0-research-brief.md), and [R0 contracts design](superpowers/specs/2026-09-09-r0-contracts-design.md). R0 wires runtime validation only at the frontend session and server domain seams. API request/response, persistence, authentication, and capability-outcome runtime wiring are schema-defined but deferred until redesigned server surfaces exist in R1.
+
+Human validation and research remain an explicit open gate before committing to R1 scope. The R0 research brief contains repository observations and static walkthrough hypotheses, not interviews, moderated walkthroughs, or analytics evidence.
+
 - Inventory every current investigator and admin capability.
-- Measure privacy-preserving workflow events, scan logs, and failure cost.
-- Validate high-value and low-frequency workflows with representative users.
+- R1 gate: measure privacy-preserving workflow events, scan logs, and failure cost.
+- R1 gate: validate high-value and low-frequency workflows with representative users.
 - Define canonical concepts: investigation, scan session, capability, finding, evidence, availability, and retry.
 - Add TypeScript configuration and type-check commands for frontend and backend while keeping existing JavaScript runnable.
 - Establish TypeScript as the default for new redesign modules; do not make R0 a big-bang conversion of legacy files.
