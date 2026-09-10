@@ -11,6 +11,7 @@ function SitemapSection({
   onSitemapSettingsChange,
   onRun,
   onRetry,
+  baselineAvailable,
   sitemapProbe,
   sitemapExposure,
   sitemapFilter,
@@ -19,16 +20,30 @@ function SitemapSection({
   const isSitemapRunning = ['queued', 'running'].includes(capability?.status);
   const isUnavailable = capability?.status === 'unavailable';
   const sitemapResult = capability?.result ?? null;
+  const isIdle = !capability?.status || capability.status === 'idle';
 
   return (
     <section className="section">
       <div className="grid">
-        {isUnavailable ? (
+        {isIdle && baselineAvailable ? (
+          <Card role="region" aria-label="Sitemap action">
+            <CardHeader><h2>Check sitemap</h2></CardHeader>
+            <CardContent>
+              <p>Check sitemap for page-level SEO signals when you need them.</p>
+              <Button type="button" variant="secondary" size="sm" onClick={() => onRun(sitemapSettings)}>
+                Check sitemap
+              </Button>
+            </CardContent>
+          </Card>
+        ) : isUnavailable ? (
           <Card role="alert" className="card card--error">
             <CardHeader><h2>Sitemap scan</h2></CardHeader>
-            <CardContent><p>{capability.error?.message ?? 'Sitemap scan is unavailable.'}</p></CardContent>
+            <CardContent>
+              <p>{capability.error?.message ?? 'Sitemap scan is unavailable.'}</p>
+              {capability.error?.retryable ? <Button type="button" variant="secondary" size="sm" onClick={onRetry}>Retry sitemap scan</Button> : null}
+            </CardContent>
           </Card>
-        ) : (
+        ) : !isIdle ? (
           <SitemapScanPanel
             domain={domain}
             onScan={onRun}
@@ -39,6 +54,11 @@ function SitemapSection({
             settings={sitemapSettings}
             onSettingsChange={onSitemapSettingsChange}
           />
+        ) : (
+          <Card role="status" aria-label="Sitemap action">
+            <CardHeader><h2>Check sitemap</h2></CardHeader>
+            <CardContent><p>Run WordPress baseline scan before checking sitemap.</p></CardContent>
+          </Card>
         )}
         {capability?.status === 'failed' ? (
           <p role="alert">
@@ -63,6 +83,7 @@ SitemapSection.propTypes = {
   onSitemapSettingsChange: PropTypes.func,
   onRun: PropTypes.func.isRequired,
   onRetry: PropTypes.func,
+  baselineAvailable: PropTypes.bool,
   sitemapProbe: PropTypes.object,
   sitemapExposure: PropTypes.object,
   sitemapFilter: PropTypes.string.isRequired,
@@ -74,6 +95,7 @@ SitemapSection.defaultProps = {
   sitemapSettings: { sitemapUrl: '', maxPages: 50 },
   onSitemapSettingsChange: () => {},
   onRetry: () => {},
+  baselineAvailable: false,
   sitemapProbe: null,
   sitemapExposure: null
 };

@@ -107,7 +107,7 @@ describe('scan capabilities', () => {
         baselineEligible: true,
         availability: 'function',
         defaultOptions: { sitemapUrl: '', maxPages: 50 },
-        dependencies: [],
+        dependencies: ['wordpress'],
         normalizeOptions: 'function',
         runner: 'function',
         onSettled: 'undefined'
@@ -208,7 +208,7 @@ describe('scan capabilities', () => {
     expect(getCapabilityDependencies()).toEqual({
       wordpress: [],
       homepage: [],
-      sitemap: [],
+      sitemap: ['wordpress'],
       recon: []
     });
   });

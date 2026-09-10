@@ -16,7 +16,14 @@ vi.mock('../../organisms/panels/ContentOverviewPanel.jsx', () => ({
 }));
 
 vi.mock('./sections/OverviewSection.jsx', () => ({
-  default: () => <div>Overview section</div>
+  default: ({ scanResult }) => (
+    <div>
+      <div>Overview section</div>
+      {scanResult?.identity?.evidence?.status ? <span>{scanResult.identity.evidence.status === 'unavailable' ? 'Unavailable' : scanResult.identity.evidence.status} {scanResult.identity.evidence.reason}</span> : null}
+      {scanResult?.findings?.length ? <span>Actionable findings</span> : null}
+      {scanResult?.findings?.map((finding) => <span key={finding.id}>{finding.title}</span>)}
+    </div>
+  )
 }));
 
 vi.mock('./sections/HomepageSection.jsx', () => ({
@@ -24,7 +31,13 @@ vi.mock('./sections/HomepageSection.jsx', () => ({
 }));
 
 vi.mock('./sections/SitemapSection.jsx', () => ({
-  default: () => <div>Sitemap section</div>
+  default: ({ onRun, onRetry }) => (
+    <div>
+      <div>Sitemap section</div>
+      <button type="button" onClick={() => onRun({ sitemapUrl: '', maxPages: 50 })}>Contextual sitemap run</button>
+      <button type="button" onClick={onRetry}>Contextual sitemap retry</button>
+    </div>
+  )
 }));
 
 vi.mock('./sections/CoreDataSection.jsx', () => ({
@@ -118,6 +131,53 @@ describe('ScanSectionContent', () => {
     expect(screen.getByText('Overview section')).toBeInTheDocument();
   });
 
+  it('renders layered evidence labels and actionable findings from successful records', () => {
+    render(<ScanSectionContent {...buildProps({
+      session: {
+        ...buildProps().session,
+        capabilities: {
+          wordpress: {
+            status: 'success',
+            result: {
+              domain: 'example.com',
+              identity: { value: 'WordPress', evidence: { status: 'observed', source: 'wp-json' } },
+              exposure: { records: [{ label: 'REST API', value: 'Public', evidence: { status: 'observed', source: 'wp-json' } }] },
+              findings: [{ id: 'users-open', title: 'User enumeration open', evidence: { status: 'observed' } }]
+            },
+            error: null
+          }
+        }
+      }
+    })} />);
+
+    expect(screen.getByText(/observed/i)).toBeInTheDocument();
+    expect(screen.getByText(/action/i)).toBeInTheDocument();
+    expect(screen.getByText('User enumeration open')).toBeInTheDocument();
+  });
+
+  it('shows unavailable evidence with its reason instead of an empty success state', () => {
+    render(<ScanSectionContent {...buildProps({
+      session: {
+        ...buildProps().session,
+        capabilities: {
+          wordpress: {
+            status: 'success',
+            result: {
+              domain: 'example.com',
+              identity: { value: null, evidence: { status: 'unavailable', reason: 'No identifying response' } },
+              exposure: { records: [] },
+              findings: []
+            },
+            error: null
+          }
+        }
+      }
+    })} />);
+
+    expect(screen.getByText(/Unavailable/)).toBeInTheDocument();
+    expect(screen.getByText(/Unavailable.*No identifying response/)).toBeInTheDocument();
+  });
+
   it.each([
     ['overview', 'Overview'],
     ['exposure', 'Exposure'],
@@ -166,5 +226,18 @@ describe('ScanSectionContent', () => {
     expect(screen.getByText('REST API blocked')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Retry WordPress API scan' }));
     expect(onRetryCapability).toHaveBeenCalledWith('wordpress');
+  });
+
+  it('routes contextual sitemap actions through supplied canonical handlers', async () => {
+    const onRunCapability = vi.fn();
+    const onRetryCapability = vi.fn();
+    const user = userEvent.setup();
+    render(<ScanSectionContent {...buildProps({ activeSection: 'sitemap', onRunCapability, onRetryCapability })} />);
+
+    await user.click(screen.getByRole('button', { name: 'Contextual sitemap run' }));
+    await user.click(screen.getByRole('button', { name: 'Contextual sitemap retry' }));
+
+    expect(onRunCapability).toHaveBeenCalledWith('sitemap', { sitemapUrl: '', maxPages: 50 });
+    expect(onRetryCapability).toHaveBeenCalledWith('sitemap');
   });
 });

@@ -12,7 +12,7 @@ describe('DomainForm', () => {
 
     await user.click(screen.getByRole('button', { name: 'Start scan' }));
 
-    expect(onSubmit).toHaveBeenCalledWith('example.com');
+    expect(onSubmit).toHaveBeenCalledWith('example.com', 'https://WWW.Example.com/');
   });
 
   it('passes scan settings actions through its disclosure', async () => {

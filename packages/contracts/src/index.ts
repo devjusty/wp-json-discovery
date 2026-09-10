@@ -392,6 +392,7 @@ export const investigationRecordSchema = z.object({
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
   sessionIds: z.array(identifierSchema).min(1),
+  latestSession: scanSessionSchema.optional(),
 }).strict().superRefine((record, context) => {
   if (Date.parse(record.updatedAt) < Date.parse(record.createdAt)) {
     context.addIssue({ code: 'custom', message: 'updatedAt must be on or after createdAt', path: ['updatedAt'] });
@@ -411,6 +412,14 @@ export const persistedRecordSchema = z.discriminatedUnion('recordType', [
   sessionRecordSchema,
 ]);
 export type PersistedRecord = z.infer<typeof persistedRecordSchema>;
+
+const anonymousPersistedRecordSchema = sessionRecordSchema;
+
+export const claimInvestigationRequestSchema = z.object({
+  domain: domainIdentitySchema,
+  anonymousRecord: anonymousPersistedRecordSchema,
+}).strict();
+export type ClaimInvestigationRequest = z.infer<typeof claimInvestigationRequestSchema>;
 
 export const parseDomainIdentity = (value: unknown): DomainIdentity =>
   domainIdentitySchema.parse(value);

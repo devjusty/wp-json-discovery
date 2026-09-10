@@ -72,4 +72,49 @@ describe('ScanStatusStack', () => {
     await user.click(screen.getByRole('button', { name: 'Retry Homepage' }));
     expect(retryCapability).toHaveBeenCalledWith('homepage');
   });
+
+  it('uses stable investigator labels without retry for non-retryable unavailable capabilities', async () => {
+    const retryCapability = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ScanStatusStack
+        session={{
+          domain: { normalized: 'example.com' },
+          status: 'completed',
+          capabilityStates: {
+            wordpress: { status: 'success', outcome: { status: 'success', result: {}, error: null }, retry: { status: 'not-retryable' } },
+            homepage: { status: 'unavailable', outcome: { status: 'unavailable', result: null, error: { code: 'runner_unavailable', message: 'No homepage runner', retryable: false } }, retry: { status: 'not-retryable' } }
+          }
+        }}
+        onRetryCapability={retryCapability}
+        retryingCapabilityId="homepage"
+      />
+    );
+
+    expect(screen.getByText('WordPress API: Complete')).toBeInTheDocument();
+    expect(screen.getByText('Homepage: Unavailable')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /retry homepage/i })).not.toBeInTheDocument();
+    await user.click(screen.getByText('WordPress API: Complete'));
+    expect(retryCapability).not.toHaveBeenCalled();
+  });
+
+  it('retries retryable unavailable investigator capabilities', async () => {
+    const retryCapability = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ScanStatusStack
+        session={{
+          domain: { normalized: 'example.com' },
+          status: 'completed',
+          capabilityStates: {
+            sitemap: { status: 'unavailable', outcome: { status: 'unavailable', result: null, error: { code: 'temporary', message: 'Try again', retryable: true } }, retry: { status: 'retryable' } }
+          }
+        }}
+        onRetryCapability={retryCapability}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Retry Sitemap' }));
+    expect(retryCapability).toHaveBeenCalledWith('sitemap');
+  });
 });

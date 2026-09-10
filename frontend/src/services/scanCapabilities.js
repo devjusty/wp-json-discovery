@@ -69,7 +69,7 @@ export const SCAN_CAPABILITIES = Object.freeze([
     baselineEligible: true,
     availability: () => true,
     defaultOptions: { sitemapUrl: '', maxPages: 50 },
-    dependencies: [],
+    dependencies: [CAPABILITY_IDS.WORDPRESS],
     normalizeOptions(options) {
       return normalizeSitemapOptions(options, this.defaultOptions);
     },

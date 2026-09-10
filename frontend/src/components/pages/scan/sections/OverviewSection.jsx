@@ -5,6 +5,13 @@ import ExposurePanel from '../../../organisms/panels/ExposurePanel.jsx';
 import PerformancePanel from '../../../organisms/panels/PerformancePanel.jsx';
 import ContentOverviewPanel from '../../../organisms/panels/ContentOverviewPanel.jsx';
 import AdditionalScansPanel from '../AdditionalScansPanel.jsx';
+import {
+  evidenceLabel,
+  evidenceReasons,
+  evidenceSources,
+  evidenceStatus,
+  normalizeEvidence
+} from '../../../../utils/evidence.js';
 
 function OverviewSection({
   scanResult,
@@ -31,6 +38,16 @@ function OverviewSection({
 
   return (
     <>
+      <IdentityLayer result={scanResult} />
+      <section className="section">
+        <div className="grid">
+          <ExposurePanel
+            exposure={scanResult.exposure}
+            homepageSecurityHeaders={homepageResult?.securityHeaders}
+          />
+        </div>
+      </section>
+      <ActionableFindings findings={scanResult.findings} />
       <ScanSummary
         domain={scanResult.domain}
         fetchedAt={scanResult.fetchedAt}
@@ -54,18 +71,104 @@ function OverviewSection({
         <div className="grid">
           <PerformancePanel performance={scanResult.performance} />
           <ContentOverviewPanel overview={scanResult.contentOverview} />
-          <ExposurePanel
-            exposure={scanResult.exposure}
-            homepageSecurityHeaders={homepageResult?.securityHeaders}
-          />
         </div>
       </section>
     </>
   );
 }
 
+function IdentityLayer({ result }) {
+  const identity = result?.identity;
+  const evidence = normalizeEvidence(identity?.evidence, identity);
+  const hasValue = typeof identity?.value === 'string' && identity.value.trim().length > 0;
+  const status = hasValue ? evidenceStatus(evidence.successful) : 'unavailable';
+  const value = status === 'unavailable' ? 'Unavailable' : identity.value;
+  const reason = evidenceReasons(evidence.unavailable) || identity?.reason || (status === 'unavailable'
+    ? 'No identifying evidence was returned.'
+    : 'WordPress REST response');
+
+  return (
+    <Card role="region" aria-label="Identity layer">
+      <CardHeader>
+        <CardTitle>Site profile</CardTitle>
+        <CardDescription>What this site identifies itself as.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="evidence-row">
+          <strong>{value}</strong>
+          <EvidenceLabel
+            status={status}
+            source={evidenceSources([...evidence.successful, ...evidence.unavailable])}
+            reason={reason}
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ActionableFindings({ findings }) {
+  const supportedFindings = [];
+  const unavailableFindings = [];
+  (findings ?? []).forEach((finding) => {
+    const evidence = normalizeEvidence(finding?.evidence, finding);
+    if (evidence.successful.length > 0) {
+      supportedFindings.push({ finding, evidence });
+    } else if (finding) {
+      unavailableFindings.push({ finding, evidence: evidence.unavailable });
+    }
+  });
+
+  return (
+    <>
+      {supportedFindings.length > 0 ? (
+        <section className="section" aria-label="Actionable findings">
+          <h2>Actionable findings</h2>
+          <ul>
+            {supportedFindings.map(({ finding, evidence }) => (
+              <li key={finding.id}>
+                <strong>{finding.title ?? finding.summary}</strong>{' '}
+                 <EvidenceLabel
+                   status={evidenceStatus(evidence.successful)}
+                   source={evidenceSources([...evidence.successful, ...evidence.unavailable])}
+                   reason={evidenceReasons(evidence.unavailable)}
+                 />
+                {evidence.unavailable.length > 0 ? (
+                  <span className="card__meta"> Unavailable: {evidenceReasons(evidence.unavailable)}</span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {unavailableFindings.length > 0 ? (
+        <section className="section" aria-label="Unavailable findings">
+          <h2>Unavailable findings</h2>
+          <ul>
+            {unavailableFindings.map(({ finding, evidence }) => (
+              <li key={finding.id}>
+                <strong>{finding.title ?? finding.summary}</strong>{' '}
+                <EvidenceLabel status="unavailable" source={evidenceSources(evidence)} reason={evidenceReasons(evidence) || 'Successful evidence was not returned.'} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+    </>
+  );
+}
+
+function EvidenceLabel({ status, source, reason }) {
+  const label = evidenceLabel(status);
+  return (
+    <span className="card__meta">
+      {label}{source ? ` · Source: ${source}` : ''}{reason ? ` · ${reason}` : ''}
+    </span>
+  );
+}
+
 OverviewSection.propTypes = {
-  scanResult: PropTypes.object.isRequired,
+  scanResult: PropTypes.object,
   homepageDomain: PropTypes.string,
   homepageResult: PropTypes.object,
   capabilities: PropTypes.object,
