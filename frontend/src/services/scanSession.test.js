@@ -87,6 +87,20 @@ describe('scan session', () => {
     });
   });
 
+  it('retries an unavailable capability when its runner becomes available', async () => {
+    const session = createScanSession('example.com', { capabilityIds: ['homepage'] });
+    const unavailable = await executeScanSession(session, {});
+    const retried = await retryCapability(unavailable, 'homepage', {
+      homepage: vi.fn().mockResolvedValue({ assets: [] })
+    });
+
+    expect(retried.capabilities.homepage).toMatchObject({
+      status: 'success',
+      result: { assets: [] },
+      error: null
+    });
+  });
+
   it('marks sitemap unavailable when its selected dependency fails without calling its runner', async () => {
     const wordpress = vi.fn().mockRejectedValue(new Error('WordPress unavailable'));
     const sitemap = vi.fn();
@@ -253,6 +267,21 @@ describe('scan session', () => {
 
     expect(validation.success).toBe(false);
     expect(validation.error).toBeInstanceOf(Error);
+  });
+
+  it('validates redesigned snapshots at the migration boundary', () => {
+    const validation = validateSessionSnapshot({
+      id: 'session-1',
+      investigationId: 'investigation-1',
+      status: 'completed',
+      startedAt: '2026-09-09T12:00:00.000Z',
+      completedAt: '2026-09-09T12:00:00.000Z',
+      selectedCapabilities: [],
+      capabilityStates: {},
+      overall: { status: 'complete' }
+    });
+
+    expect(validation).toMatchObject({ success: true, format: 'contract' });
   });
 
   it('rejects malformed contract data at session execution boundary', async () => {

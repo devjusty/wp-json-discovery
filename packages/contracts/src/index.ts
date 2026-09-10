@@ -18,7 +18,6 @@ export const capabilityStatusSchema = z.enum([
   'success',
   'failed',
   'unavailable',
-  'partial',
 ]);
 export type CapabilityStatus = z.infer<typeof capabilityStatusSchema>;
 
@@ -35,14 +34,11 @@ const retryStatusIssues = (
   retry: RetryState,
 ): ValidationIssue[] => {
   const issues: ValidationIssue[] = [];
-  if (retry.status === 'retrying' && status !== 'failed') {
-    issues.push({ message: 'Only failed capabilities can be retried', path: ['retry'] });
+  if (retry.status === 'retrying' && !['failed', 'unavailable'].includes(status)) {
+    issues.push({ message: 'Only failed or unavailable capabilities can be retried', path: ['retry'] });
   }
-  if (status === 'unavailable' && retry.status !== 'not-retryable') {
-    issues.push({ message: 'Unavailable capabilities cannot be retried', path: ['retry'] });
-  }
-  if (retry.status === 'exhausted' && status !== 'failed') {
-    issues.push({ message: 'Only failed capabilities can exhaust retries', path: ['retry'] });
+  if (retry.status === 'exhausted' && !['failed', 'unavailable'].includes(status)) {
+    issues.push({ message: 'Only failed or unavailable capabilities can exhaust retries', path: ['retry'] });
   }
   return issues;
 };
@@ -172,11 +168,7 @@ const capabilityStateUnionSchema = z.discriminatedUnion('status', [
   z.object({
     status: z.literal('unavailable'),
     outcome: unavailableOutcomeSchema,
-    dependency: dependencyStateSchema,
-    retry: retryStateSchema,
-  }).strict(),
-  z.object({
-    status: z.literal('partial'), outcome: partialOutcomeSchema,
+    dependency: dependencyStateSchema.optional(),
     retry: retryStateSchema,
   }).strict(),
 ]);
@@ -241,7 +233,7 @@ const selectedCapabilityIssues = (
 const dependencyStateIssues = (session: ScanSessionValue): ValidationIssue[] => {
   const issues: ValidationIssue[] = [];
   for (const [capabilityId, state] of Object.entries(session.capabilityStates)) {
-    if (state.status !== 'unavailable' || state.dependency.status !== 'failed') continue;
+    if (state.status !== 'unavailable' || state.dependency?.status !== 'failed') continue;
     const selectedCapability = session.selectedCapabilities.find((capability) => capability.id === capabilityId);
     const dependencyState = session.capabilityStates[state.dependency.dependencyId];
     if (!selectedCapability?.dependencies.includes(state.dependency.dependencyId)
@@ -303,7 +295,7 @@ const pendingSessionIssues = (
     issues.push({ message: 'Idle sessions can only contain idle capability states', path: ['capabilityStates'] });
   }
   if (session.status === 'queued' && capabilityStatuses.some((status) => status !== 'idle' && status !== 'queued')) {
-      issues.push({ message: 'Queued sessions can only contain idle or queued capability states', path: ['capabilityStates'] });
+    issues.push({ message: 'Queued sessions can only contain idle or queued capability states', path: ['capabilityStates'] });
   }
   return issues;
 };
