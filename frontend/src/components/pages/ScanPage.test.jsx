@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   )),
   updateScanSettings: vi.fn(),
   saveScanDefaults: vi.fn(),
+  startScan: vi.fn(),
   scanResults: null,
   sidebar: vi.fn(),
   startInvestigation: vi.fn(),
@@ -22,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   createInvestigationSession: vi.fn(),
   addInvestigationCapability: vi.fn((session) => session),
   runInvestigationSession: vi.fn(),
+  recoverInvestigationSession: vi.fn((session) => session),
   retryInvestigationCapability: vi.fn(),
   loadAnonymousInvestigation: vi.fn(() => null),
   loadAuthenticatedInvestigationId: vi.fn(() => null),
@@ -49,7 +51,7 @@ vi.mock('../../context/ScanContext.jsx', () => ({
     domain: 'example.com',
     handleDomainChange: vi.fn(),
     setActivePage: vi.fn(),
-    startScan: vi.fn(),
+    startScan: mocks.startScan,
     activeDomain: 'example.com'
   }),
   useScanResultsContext: () => mocks.scanResults
@@ -92,9 +94,10 @@ vi.mock('./scan/ScanSidebarNav.jsx', () => ({
 }));
 
 vi.mock('./scan/RecentDomainsCard.jsx', () => ({
-  default: ({ onClearRecentDomains }) => (
+  default: ({ onClearRecentDomains, onRescan }) => (
     <section aria-label="Recent scanned domains">
       Recent domains
+      <button type="button" onClick={() => onRescan('recent.example.com')}>Rescan recent domain</button>
       <button type="button" onClick={onClearRecentDomains}>Clear recent domains</button>
     </section>
   )
@@ -103,7 +106,9 @@ vi.mock('./scan/RecentDomainsCard.jsx', () => ({
 vi.mock('./scan/ScanStatusStack.jsx', () => ({
   default: ({ session, onRetryCapability }) => session?.capabilityStates ? (
     <div>
+      <p data-testid="session-domain">{session.domain?.normalized}</p>
       <p>Identity: observed</p>
+      {session.capabilityStates.wordpress?.outcome?.result?.marker ? <p>{session.capabilityStates.wordpress.outcome.result.marker}</p> : null}
       {session.capabilityStates.wordpress?.status === 'success' ? <p>WordPress API: Complete</p> : null}
        {session.capabilityStates.homepage?.status === 'success' ? <p>Action: review homepage signals</p> : null}
        {session.capabilityStates.wordpress?.status === 'success' ? <p>Exposure: observed</p> : null}
@@ -133,7 +138,18 @@ vi.mock('../../services/investigationSession.js', () => ({
   })),
   getCapabilityRunners: vi.fn(() => ({})),
   runInvestigationSession: mocks.runInvestigationSession,
+  recoverInvestigationSession: mocks.recoverInvestigationSession,
   retryInvestigationCapability: mocks.retryInvestigationCapability
+}));
+
+vi.mock('../../services/scanCapabilities.js', () => ({
+  CAPABILITY_IDS: { WORDPRESS: 'wordpress', HOMEPAGE: 'homepage', SITEMAP: 'sitemap', RECON: 'recon' },
+  SCAN_CAPABILITIES: [
+    { id: 'sitemap', label: 'Sitemap', description: 'Sitemap', required: false, defaultOptions: {}, availability: () => true },
+    { id: 'recon', label: 'Domain recon', description: 'Recon', required: false, defaultOptions: {}, availability: () => false }
+  ],
+  getCapabilityRunners: vi.fn(() => ({})),
+  getCapabilitySelection: vi.fn((id) => ({ id, dependencies: id === 'sitemap' ? ['wordpress'] : [] }))
 }));
 
 vi.mock('../../services/anonymousInvestigations.js', () => ({
@@ -154,12 +170,14 @@ describe('ScanPage', () => {
     mocks.domainForm.mockClear();
     mocks.updateScanSettings.mockClear();
     mocks.saveScanDefaults.mockClear();
+    mocks.startScan.mockClear();
     mocks.startInvestigation.mockReset();
     mocks.fetchInvestigation.mockReset();
     mocks.saveInvestigationSession.mockReset();
     mocks.claimAnonymousInvestigation.mockReset();
     mocks.createInvestigationSession.mockReset();
     mocks.runInvestigationSession.mockReset();
+    mocks.recoverInvestigationSession.mockReset().mockImplementation((session) => session);
     mocks.retryInvestigationCapability.mockReset();
     mocks.loadAnonymousInvestigation.mockReset().mockReturnValue(null);
     mocks.loadAuthenticatedInvestigationId.mockReset().mockReturnValue(null);
@@ -197,6 +215,141 @@ describe('ScanPage', () => {
     expect(screen.getByText(/action/i)).toBeInTheDocument();
   });
 
+  it('sends registry dependencies when authenticated start persists selected capabilities', async () => {
+    const user = userEvent.setup();
+    const initial = {
+      id: 'session-1',
+      investigationId: 'inv-1',
+      status: 'idle',
+      domain: { submitted: 'Example.com', normalized: 'example.com' },
+      selectedCapabilities: [
+        { id: 'wordpress', dependencies: [] },
+        { id: 'sitemap', dependencies: ['wordpress'] }
+      ],
+      capabilityStates: {},
+      overall: { status: 'incomplete' }
+    };
+    mocks.startInvestigation.mockResolvedValue({ investigation: { id: 'inv-1' }, sessionIds: ['session-1'] });
+    mocks.createInvestigationSession.mockReturnValue(initial);
+    mocks.runInvestigationSession.mockResolvedValue(initial);
+
+    render(<QueryClientProvider client={new QueryClient()}><ScanPage isAuthenticated /></QueryClientProvider>);
+    await user.click(screen.getByRole('button', { name: /scan site/i }));
+
+    await waitFor(() => expect(mocks.startInvestigation).toHaveBeenCalledWith(
+      { submitted: 'Example.com', normalized: 'example.com' },
+      initial.selectedCapabilities
+    ));
+  });
+
+  it('rescans recent domain through canonical submit and replaces stale session results', async () => {
+    const user = userEvent.setup();
+    const oldSession = {
+      id: 'old-session',
+      investigationId: 'old-investigation',
+      status: 'completed',
+      domain: { submitted: 'old.example.com', normalized: 'old.example.com' },
+      selectedCapabilities: [{ id: 'wordpress', dependencies: [] }],
+      capabilityStates: {
+        wordpress: { status: 'success', outcome: { status: 'success', result: { marker: 'old evidence' }, error: null } }
+      },
+      capabilities: {},
+      overall: { status: 'complete' }
+    };
+    const nextSession = {
+      id: 'new-session',
+      investigationId: 'new-investigation',
+      status: 'running',
+      domain: { submitted: 'recent.example.com', normalized: 'recent.example.com' },
+      selectedCapabilities: [{ id: 'wordpress', dependencies: [] }],
+      capabilityStates: {
+        wordpress: { status: 'running', outcome: { status: 'running', result: null, error: null } }
+      },
+      overall: { status: 'incomplete' }
+    };
+    mocks.scanResults = createScanResults({ session: oldSession });
+    mocks.startInvestigation.mockResolvedValue({ investigation: { id: 'new-investigation' }, sessionIds: ['new-session'] });
+    mocks.createInvestigationSession.mockReturnValue(nextSession);
+    mocks.runInvestigationSession.mockResolvedValue(nextSession);
+
+    render(<QueryClientProvider client={new QueryClient()}><ScanPage isAuthenticated /></QueryClientProvider>);
+    expect(screen.getByText('old evidence')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /rescan recent domain/i }));
+
+    expect(mocks.startInvestigation).toHaveBeenCalledWith(
+      { submitted: 'recent.example.com', normalized: 'recent.example.com' },
+      expect.anything()
+    );
+    expect(mocks.startScan).not.toHaveBeenCalled();
+    expect(screen.getByTestId('session-domain')).toHaveTextContent('recent.example.com');
+    expect(screen.queryByText('old evidence')).not.toBeInTheDocument();
+  });
+
+  it('clears stale results and shows rescan domain before authenticated start resolves', async () => {
+    const user = userEvent.setup();
+    let resolveStart;
+    const oldSession = {
+      status: 'completed',
+      domain: { submitted: 'old.example.com', normalized: 'old.example.com' },
+      capabilityStates: {
+        wordpress: { status: 'success', outcome: { status: 'success', result: { marker: 'old evidence' } } }
+      },
+      capabilities: {}
+    };
+    const provisionalSession = {
+      id: 'local-session',
+      investigationId: 'local-investigation',
+      status: 'idle',
+      domain: { submitted: 'recent.example.com', normalized: 'recent.example.com' },
+      selectedCapabilities: [],
+      capabilityStates: {},
+      overall: { status: 'incomplete' }
+    };
+    mocks.scanResults = createScanResults({ session: oldSession });
+    mocks.startInvestigation.mockImplementation(() => new Promise((resolve) => { resolveStart = resolve; }));
+    mocks.createInvestigationSession.mockReturnValue(provisionalSession);
+
+    render(<QueryClientProvider client={new QueryClient()}><ScanPage isAuthenticated /></QueryClientProvider>);
+    expect(screen.getByText('old evidence')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /rescan recent domain/i }));
+
+    expect(screen.queryByText('old evidence')).not.toBeInTheDocument();
+    expect(screen.getByTestId('session-domain')).toHaveTextContent('recent.example.com');
+
+    resolveStart({ investigation: { id: 'new-investigation' }, sessionIds: ['new-session'] });
+  });
+
+  it('keeps stale results cleared when authenticated rescan start fails', async () => {
+    const user = userEvent.setup();
+    const oldSession = {
+      status: 'completed',
+      domain: { submitted: 'old.example.com', normalized: 'old.example.com' },
+      capabilityStates: {
+        wordpress: { status: 'success', outcome: { status: 'success', result: { marker: 'old evidence' } } }
+      },
+      capabilities: {}
+    };
+    const provisionalSession = {
+      id: 'local-session',
+      investigationId: 'local-investigation',
+      status: 'idle',
+      domain: { submitted: 'recent.example.com', normalized: 'recent.example.com' },
+      selectedCapabilities: [],
+      capabilityStates: {},
+      overall: { status: 'incomplete' }
+    };
+    mocks.scanResults = createScanResults({ session: oldSession });
+    mocks.startInvestigation.mockRejectedValue(new Error('Start unavailable'));
+    mocks.createInvestigationSession.mockReturnValue(provisionalSession);
+
+    render(<QueryClientProvider client={new QueryClient()}><ScanPage isAuthenticated /></QueryClientProvider>);
+    await user.click(screen.getByRole('button', { name: /rescan recent domain/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Start unavailable');
+    expect(screen.queryByText('old evidence')).not.toBeInTheDocument();
+    expect(screen.getByTestId('session-domain')).toHaveTextContent('recent.example.com');
+  });
+
   it('resumes authenticated investigation from retained identity on mount', async () => {
     const resumed = {
       id: 'session-2', investigationId: 'inv-2', status: 'completed',
@@ -212,6 +365,51 @@ describe('ScanPage', () => {
 
     expect(mocks.fetchInvestigation).toHaveBeenCalledWith('inv-2');
     expect(await screen.findByText(/identity/i)).toBeInTheDocument();
+  });
+
+  it('recovers anonymous active snapshots without starting network work', async () => {
+    const interrupted = {
+      id: 'session-anonymous', investigationId: 'inv-anonymous', status: 'running',
+      selectedCapabilities: [{ id: 'wordpress', dependencies: [] }],
+      capabilityStates: { wordpress: { status: 'running', retry: { status: 'not-retryable' } } },
+      overall: { status: 'incomplete' }
+    };
+    const recovered = { ...interrupted, domain: { submitted: 'Example.com', normalized: 'example.com' }, status: 'failed', capabilityStates: {
+      wordpress: { status: 'failed', outcome: { status: 'failed', result: null, error: { code: 'interrupted', message: 'Interrupted', retryable: true } }, retry: { status: 'not-retryable' } }
+    } };
+    mocks.loadAnonymousInvestigation.mockReturnValue({
+      domain: { submitted: 'Example.com', normalized: 'example.com' },
+      record: { recordType: 'session', session: interrupted, persistedAt: '2026-09-10T12:00:00.000Z' }
+    });
+    mocks.recoverInvestigationSession.mockReturnValue(recovered);
+
+    render(<QueryClientProvider client={new QueryClient()}><ScanPage /></QueryClientProvider>);
+
+    await waitFor(() => expect(mocks.saveAnonymousInvestigation).toHaveBeenCalledWith(expect.objectContaining({ session: recovered })));
+    expect(mocks.runInvestigationSession).not.toHaveBeenCalled();
+  });
+
+  it('recovers authenticated active snapshots and persists terminal state without running capabilities', async () => {
+    const interrupted = {
+      id: 'session-authenticated', investigationId: 'inv-authenticated', status: 'queued',
+      selectedCapabilities: [{ id: 'wordpress', dependencies: [] }],
+      capabilityStates: { wordpress: { status: 'queued', retry: { status: 'not-retryable' } } },
+      overall: { status: 'incomplete' }
+    };
+    const recovered = { ...interrupted, domain: { submitted: 'Example.com', normalized: 'example.com' }, status: 'failed', capabilityStates: {
+      wordpress: { status: 'failed', outcome: { status: 'failed', result: null, error: { code: 'interrupted', message: 'Interrupted', retryable: true } }, retry: { status: 'not-retryable' } }
+    } };
+    mocks.loadAuthenticatedInvestigationId.mockReturnValue('inv-authenticated');
+    mocks.fetchInvestigation.mockResolvedValue({
+      investigation: { id: 'inv-authenticated', domain: { submitted: 'Example.com', normalized: 'example.com' } },
+      latestSession: interrupted
+    });
+    mocks.recoverInvestigationSession.mockReturnValue(recovered);
+
+    render(<QueryClientProvider client={new QueryClient()}><ScanPage isAuthenticated /></QueryClientProvider>);
+
+    await waitFor(() => expect(mocks.saveInvestigationSession).toHaveBeenCalledWith('inv-authenticated', recovered));
+    expect(mocks.runInvestigationSession).not.toHaveBeenCalled();
   });
 
   it('reports authenticated resume failures without claiming anonymous data', async () => {
@@ -472,6 +670,14 @@ describe('ScanPage', () => {
     const user = userEvent.setup();
     let release;
     mocks.startInvestigation.mockImplementation(() => new Promise((resolve) => { release = resolve; }));
+    mocks.createInvestigationSession.mockReturnValue({
+      id: 'local-session',
+      investigationId: 'local-investigation',
+      status: 'idle',
+      selectedCapabilities: [],
+      capabilityStates: {},
+      overall: { status: 'incomplete' }
+    });
     render(<QueryClientProvider client={new QueryClient()}><ScanPage isAuthenticated /></QueryClientProvider>);
     const scanButton = screen.getByRole('button', { name: /scan site/i });
     await user.click(scanButton);

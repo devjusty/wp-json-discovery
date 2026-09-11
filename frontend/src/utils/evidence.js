@@ -2,8 +2,9 @@ export const SUCCESSFUL_EVIDENCE_STATUSES = ['observed', 'corroborated', 'inferr
 
 export function normalizeEvidence(evidence, metadata = {}) {
   const entries = Array.isArray(evidence) ? evidence : evidence ? [evidence] : [];
-  const successful = entries.filter((entry) => SUCCESSFUL_EVIDENCE_STATUSES.includes(entry?.status));
-  const unavailable = entries.filter((entry) => !SUCCESSFUL_EVIDENCE_STATUSES.includes(entry?.status));
+  const normalized = entries.map((entry) => normalizeEntry(entry, metadata));
+  const successful = canonicalizeEvidence(normalized.filter((entry) => SUCCESSFUL_EVIDENCE_STATUSES.includes(entry?.status)));
+  const unavailable = normalized.filter((entry) => !SUCCESSFUL_EVIDENCE_STATUSES.includes(entry?.status));
 
   if (entries.length === 0 && (metadata.evidenceLevel === 'unavailable' || metadata.source || metadata.reason)) {
     unavailable.push({
@@ -59,4 +60,20 @@ function evidenceRank(status) {
 
 function normalizeEvidenceStatus(status) {
   return SUCCESSFUL_EVIDENCE_STATUSES.includes(status) ? status : 'unavailable';
+}
+
+function normalizeEntry(entry, metadata) {
+  if (!isCanonicalReference(entry)) return entry;
+
+  const status = normalizeEvidenceStatus(metadata.evidenceLevel);
+  return {
+    ...entry,
+    status,
+    source: [entry.capabilityId, entry.locator].filter(Boolean).join(':'),
+    ...(status === 'unavailable' && metadata.reason ? { reason: metadata.reason } : {})
+  };
+}
+
+function isCanonicalReference(entry) {
+  return entry?.status === undefined && Boolean(entry?.capabilityId && entry?.locator);
 }

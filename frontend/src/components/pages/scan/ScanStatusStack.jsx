@@ -9,6 +9,17 @@ const CAPABILITY_LABELS = {
   recon: 'Domain recon'
 };
 
+function hasCanonicalIdentityEvidence(identity) {
+  return Array.isArray(identity?.evidence)
+    && identity.evidence.some((reference) => (
+      typeof reference?.id === 'string'
+      && reference.id.length > 0
+      && reference.capabilityId === 'wordpress'
+      && typeof reference.locator === 'string'
+      && reference.locator.length > 0
+    ));
+}
+
 function formatStatus(status) {
   return {
     idle: 'Not run',
@@ -39,10 +50,15 @@ function ScanStatusStack({ session, onRetryCapability, retryingCapabilityId }) {
     const capabilities = Object.entries(session.capabilityStates);
     const hasRunning = ['queued', 'running'].includes(session.status);
     const successful = capabilities.filter(([, capability]) => capability.status === 'success');
+    const wordpressIdentity = session.capabilityStates.wordpress?.outcome?.result?.identity;
+    const hasIdentityEvidence = session.capabilityStates.wordpress?.status === 'success'
+      && Boolean(wordpressIdentity?.value)
+      && ['observed', 'corroborated', 'inferred'].includes(wordpressIdentity.evidenceLevel)
+      && hasCanonicalIdentityEvidence(wordpressIdentity);
     return (
       <>
         {hasRunning ? <Card className="card card--info" role="status" aria-live="polite"><CardContent><p>Scanning {session.domain?.normalized ?? 'site'}…</p></CardContent></Card> : null}
-        {successful.length > 0 ? <Card role="status"><CardContent><p>Identity: observed</p></CardContent></Card> : null}
+        <Card role="status"><CardContent><p>Identity: {hasIdentityEvidence ? 'observed' : 'awaiting evidence'}</p></CardContent></Card>
         {successful.some(([id]) => id === 'wordpress') ? <Card role="status"><CardContent><p>Exposure: observed</p></CardContent></Card> : null}
         {successful.some(([id]) => id === 'homepage') ? <Card role="status"><CardContent><p>Action: review homepage signals</p></CardContent></Card> : null}
         {capabilities.map(([id, capability]) => (
@@ -50,8 +66,8 @@ function ScanStatusStack({ session, onRetryCapability, retryingCapabilityId }) {
             <CardContent>
               <p>{CAPABILITY_LABELS[id] ?? id}: {formatInvestigatorStatus(capability.status)}</p>
               {capability.outcome?.error ? <p>{capability.outcome.error.message}</p> : null}
-              {['failed', 'unavailable'].includes(capability.status) && capability.outcome?.error?.retryable ? (
-                <Button type="button" variant="secondary" size="sm" disabled={retryingCapabilityId === id} onClick={() => onRetryCapability(id)}>
+              {['failed', 'unavailable'].includes(capability.status) && capability.outcome?.error?.retryable === true ? (
+                <Button type="button" variant="secondary" size="sm" aria-label={`Retry ${CAPABILITY_LABELS[id] ?? id}`} disabled={retryingCapabilityId === id} onClick={() => onRetryCapability(id)}>
                   {retryingCapabilityId === id ? `Retrying ${CAPABILITY_LABELS[id] ?? id}…` : `Retry ${CAPABILITY_LABELS[id] ?? id}`}
                 </Button>
               ) : null}

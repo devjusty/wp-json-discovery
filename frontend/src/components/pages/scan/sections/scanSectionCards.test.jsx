@@ -5,6 +5,7 @@ import EmptyScanState from './EmptyScanState.jsx';
 import HomepageSection from './HomepageSection.jsx';
 import OverviewSection from './OverviewSection.jsx';
 import PluginsSection from './PluginsSection.jsx';
+import SitemapSection from './SitemapSection.jsx';
 
 vi.mock('../../../organisms/panels/HomepageSourcePanel.jsx', () => ({
   default: () => <div>Homepage source panel</div>
@@ -39,6 +40,18 @@ vi.mock('../../../organisms/panels/ContentOverviewPanel.jsx', () => ({
 }));
 
 describe('scan section cards', () => {
+  it('only renders legacy sitemap retry for boolean true metadata', () => {
+    render(<SitemapSection
+      domain="example.com"
+      capability={{ status: 'unavailable', error: { message: 'Unavailable', retryable: 'true' } }}
+      onRun={vi.fn()}
+      sitemapFilter="all"
+      setSitemapFilter={vi.fn()}
+    />);
+
+    expect(screen.queryByRole('button', { name: 'Retry sitemap scan' })).not.toBeInTheDocument();
+  });
+
   it('orders overview layers as identity, exposure, then actionable findings', () => {
     render(
       <OverviewSection
@@ -100,6 +113,27 @@ describe('scan section cards', () => {
     );
 
     expect(screen.getByRole('region', { name: 'Identity layer' })).toHaveTextContent('Corroborated');
+  });
+
+  it.each(['observed', 'corroborated', 'inferred'])('labels canonical finding evidence as %s', (evidenceLevel) => {
+    render(
+      <OverviewSection
+        scanResult={{
+          domain: 'example.com', fetchedAt: '', summary: {}, namespaces: [], metrics: {},
+          plugins: { matched: [], unsupportedNamespaces: [] }, core: [], performance: {}, contentOverview: {}, exposure: {},
+          findings: [{
+            id: `finding-${evidenceLevel}`,
+            title: 'Users',
+            evidenceLevel,
+            evidence: [{ id: 'users', capabilityId: 'wordpress', locator: '/wp-json/wp/v2/users' }]
+          }]
+        }}
+      />
+    );
+
+    const actionable = screen.getByRole('region', { name: 'Actionable findings' });
+    expect(actionable).toHaveTextContent(evidenceLevel[0].toUpperCase() + evidenceLevel.slice(1));
+    expect(actionable).toHaveTextContent('wordpress:/wp-json/wp/v2/users');
   });
 
   it.each([

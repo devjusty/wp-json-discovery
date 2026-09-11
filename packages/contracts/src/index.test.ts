@@ -8,6 +8,7 @@ import {
   capabilityOutcomeSchema,
   capabilitySelectionSchema,
   capabilityStateSchema,
+  sessionCapabilityStateSchema,
   capabilityStatusSchema,
   claimInvestigationRequestSchema,
   dependencyStateSchema,
@@ -243,14 +244,25 @@ describe('scan sessions', () => {
     }).success).toBe(true);
   });
 
-  it('accepts retrying unavailable capabilities', () => {
+  it('rejects retryable unavailable capabilities in generic state contract', () => {
     expect(capabilityStateSchema.safeParse({
       status: 'unavailable',
       outcome: {
         status: 'unavailable', result: null,
-        error: { code: 'RUNNER_UNAVAILABLE', message: 'Runner unavailable', retryable: false },
+        error: { code: 'RUNNER_UNAVAILABLE', message: 'Runner unavailable', retryable: true },
       },
       retry: { status: 'retrying', attempt: 1, nextAttemptAt: timestamp },
+    }).success).toBe(false);
+  });
+
+  it('accepts retryable unavailable capabilities in session state contract', () => {
+    expect(sessionCapabilityStateSchema.safeParse({
+      status: 'unavailable',
+      outcome: {
+        status: 'unavailable', result: null,
+        error: { code: 'RUNNER_UNAVAILABLE', message: 'Runner unavailable', retryable: true },
+      },
+      retry: { status: 'not-retryable' },
     }).success).toBe(true);
   });
 

@@ -12,6 +12,7 @@ import {
   startInvestigationRequestSchema,
 } from '@wp-json-discovery/contracts';
 import { AppError, ValidationError } from '../utils/errors.js';
+import { sanitizeDomain } from '../utils/domain.js';
 import { wrapAsync } from '../utils/route.js';
 
 function envelope(req, data) {
@@ -41,13 +42,25 @@ function validate(schema, value) {
   return result.data;
 }
 
+function canonicalizeDomain(input, requireMatchingNormalized = false) {
+  const normalized = sanitizeDomain(input.domain.submitted);
+  if (!normalized) throw new ValidationError('Domain is unsafe or malformed');
+  if (requireMatchingNormalized && input.domain.normalized !== normalized) {
+    throw new ValidationError('Domain normalized identity does not match submitted domain');
+  }
+  return { submitted: input.domain.submitted, normalized };
+}
+
 export default function createInvestigationRoutes() {
   const router = Router();
 
   router.post('/', wrapAsync(async (req, res) => {
     const userId = requireUser(req);
     const input = validate(startInvestigationRequestSchema, req.body);
-    const record = await createInvestigation(userId, input);
+    const record = await createInvestigation(userId, {
+      ...input,
+      domain: canonicalizeDomain(input),
+    });
     res.status(201).json(envelope(req, record));
   }));
 
@@ -71,7 +84,10 @@ export default function createInvestigationRoutes() {
   router.post('/claim', wrapAsync(async (req, res) => {
     const userId = requireUser(req);
     const input = validate(claimInvestigationRequestSchema, req.body);
-    const record = await claimAnonymousInvestigation(userId, input);
+    const record = await claimAnonymousInvestigation(userId, {
+      ...input,
+      domain: canonicalizeDomain(input, true),
+    });
     if (!record) throw new AppError('Anonymous investigation not found', 404);
     res.json(envelope(req, record));
   }));

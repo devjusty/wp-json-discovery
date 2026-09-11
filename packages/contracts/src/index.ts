@@ -85,6 +85,11 @@ const unavailableOutcomeSchema = z.object({
   result: z.null(),
   error: capabilityErrorSchema.extend({ retryable: z.literal(false) }).strict(),
 }).strict();
+const sessionUnavailableOutcomeSchema = z.object({
+  status: z.literal('unavailable'),
+  result: z.null(),
+  error: capabilityErrorSchema,
+}).strict();
 const partialOutcomeSchema = z.object({
   status: z.literal('partial'),
   result: z.unknown(),
@@ -153,7 +158,7 @@ export const dependencyStateSchema = z.discriminatedUnion('status', [
 ]);
 export type DependencyState = z.infer<typeof dependencyStateSchema>;
 
-const capabilityStateUnionSchema = z.discriminatedUnion('status', [
+const createCapabilityStateUnionSchema = (unavailableSchema: z.ZodObject<any>) => z.discriminatedUnion('status', [
   z.object({ status: z.literal('idle'), retry: retryStateSchema }).strict(),
   z.object({ status: z.literal('queued'), retry: retryStateSchema }).strict(),
   z.object({ status: z.literal('running'), retry: retryStateSchema }).strict(),
@@ -167,11 +172,13 @@ const capabilityStateUnionSchema = z.discriminatedUnion('status', [
   }).strict(),
   z.object({
     status: z.literal('unavailable'),
-    outcome: unavailableOutcomeSchema,
+    outcome: unavailableSchema,
     dependency: dependencyStateSchema.optional(),
     retry: retryStateSchema,
   }).strict(),
 ]);
+const capabilityStateUnionSchema = createCapabilityStateUnionSchema(unavailableOutcomeSchema);
+const sessionCapabilityStateUnionSchema = createCapabilityStateUnionSchema(sessionUnavailableOutcomeSchema);
 export const capabilityStateSchema = capabilityStateUnionSchema.superRefine((state, context) => {
   addValidationIssues(
     context,
@@ -180,11 +187,19 @@ export const capabilityStateSchema = capabilityStateUnionSchema.superRefine((sta
 });
 export type CapabilityState = z.infer<typeof capabilityStateSchema>;
 
+export const sessionCapabilityStateSchema = sessionCapabilityStateUnionSchema.superRefine((state, context) => {
+  addValidationIssues(
+    context,
+    retryStateIssues(state.status, state.retry, state.status === 'failed' ? state.outcome.error.retryable : undefined),
+  );
+});
+export type SessionCapabilityState = z.infer<typeof sessionCapabilityStateSchema>;
+
 const scanSessionFields = {
   id: identifierSchema,
   investigationId: identifierSchema,
   selectedCapabilities: z.array(capabilitySelectionSchema),
-  capabilityStates: z.record(identifierSchema, capabilityStateSchema),
+  capabilityStates: z.record(identifierSchema, sessionCapabilityStateSchema),
   overall: z.discriminatedUnion('status', [
     z.object({ status: z.literal('complete') }).strict(),
     z.object({ status: z.literal('incomplete') }).strict(),

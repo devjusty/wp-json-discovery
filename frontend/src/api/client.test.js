@@ -96,7 +96,7 @@ describe('request', () => {
   });
 
   it('uses canonical session URL and validates successful responses', async () => {
-    const record = validInvestigationRecord();
+    const record = validSessionRecord();
     vi.stubGlobal('fetch', jsonResponse({ status: 'success', requestId: 'req-1', data: record }));
     setTokenProvider(async () => 'session-token');
     const session = validSession();
@@ -107,6 +107,17 @@ describe('request', () => {
     expect(url).toBe('http://localhost:4100/api/investigations/inv-1/sessions/session-1');
     expect(JSON.parse(init.body)).toEqual({ session });
     expect(init.headers.get('authorization')).toBe('Bearer session-token');
+  });
+
+  it('rejects malformed session-save payloads', async () => {
+    vi.stubGlobal('fetch', jsonResponse({
+      status: 'success',
+      requestId: 'req-1',
+      data: { recordType: 'session', session: { nope: true }, persistedAt: 'invalid' }
+    }));
+
+    await expect(saveInvestigationSession('inv-1', validSession()))
+      .rejects.toThrow('Invalid investigation response');
   });
 
   it('fetches investigation records through canonical URL', async () => {
@@ -178,5 +189,13 @@ function validInvestigationRecord() {
     createdAt: '2026-09-10T12:00:00.000Z',
     updatedAt: '2026-09-10T12:00:00.000Z',
     sessionIds: ['session-1']
+  };
+}
+
+function validSessionRecord() {
+  return {
+    recordType: 'session',
+    session: validSession(),
+    persistedAt: '2026-09-10T12:00:00.000Z'
   };
 }

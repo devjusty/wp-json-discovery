@@ -3,8 +3,10 @@ import { scanSessionSchema } from '@wp-json-discovery/contracts';
 
 import {
   createInvestigationSession,
+  addInvestigationCapability,
   getContextualCapabilityIds,
   getInvestigatorSelection,
+  recoverInvestigationSession,
   retryInvestigationCapability,
   runInvestigationSession
 } from './investigationSession.js';
@@ -57,6 +59,23 @@ describe('investigation session', () => {
     });
   });
 
+  it('forwards canonical domain identity to capability runners', async () => {
+    const wordpress = vi.fn().mockResolvedValue({});
+    const runSession = createInvestigationSession({
+      investigationId: 'inv-identity',
+      domain: { submitted: 'https://Example.com/', normalized: 'example.com' },
+      selection: { capabilityIds: ['wordpress'] }
+    });
+
+    await runInvestigationSession(runSession, { wordpress });
+
+    expect(wordpress).toHaveBeenCalledWith({
+      domain: 'example.com',
+      domainIdentity: { submitted: 'https://Example.com/', normalized: 'example.com' },
+      options: {}
+    });
+  });
+
   it('keeps successful evidence while another capability fails', async () => {
     const result = await runInvestigationSession(session, {
       wordpress: async () => ({ exposure: { status: 'observed' } }),
@@ -75,8 +94,87 @@ describe('investigation session', () => {
     expectValidSession(result);
     expect(result.capabilityStates.homepage).toMatchObject({
       status: 'unavailable',
-      outcome: { status: 'unavailable', error: { code: 'runner_unavailable', retryable: false } }
+      outcome: { status: 'unavailable', error: { code: 'runner_unavailable', retryable: true } }
     });
+  });
+
+  it('recovers interrupted capabilities without discarding successful evidence', () => {
+    const interrupted = createInvestigationSession({
+      investigationId: 'inv-interrupted',
+      domain: sessionDomain(),
+      selection: { capabilityIds: ['wordpress', 'homepage'] }
+    });
+    interrupted.status = 'running';
+    interrupted.startedAt = '2026-09-10T12:00:00.000Z';
+    interrupted.capabilityStates.wordpress = {
+      status: 'success',
+      outcome: { status: 'success', result: { exposure: { status: 'observed' } }, error: null },
+      retry: { status: 'not-retryable' }
+    };
+    interrupted.capabilityStates.homepage = {
+      status: 'running',
+      retry: { status: 'not-retryable' }
+    };
+
+    const recovered = recoverInvestigationSession(interrupted);
+
+    expectValidSession(recovered);
+    expect(recovered).not.toBe(interrupted);
+    expect(recovered.status).toBe('failed');
+    expect(recovered.overall).toEqual({ status: 'incomplete' });
+    expect(recovered.capabilityStates.wordpress).toEqual(interrupted.capabilityStates.wordpress);
+    expect(recovered.capabilityStates.homepage).toMatchObject({
+      status: 'failed',
+      outcome: {
+        status: 'failed',
+        result: null,
+        error: { code: 'interrupted', retryable: true }
+      }
+    });
+  });
+
+  it('recovers queued snapshots with valid terminal timestamps', () => {
+    const queued = createInvestigationSession({
+      investigationId: 'inv-queued-interrupted',
+      domain: sessionDomain(),
+      selection: { capabilityIds: ['wordpress'] }
+    });
+    queued.status = 'queued';
+    queued.capabilityStates.wordpress = { status: 'queued', retry: { status: 'not-retryable' } };
+
+    const recovered = recoverInvestigationSession(queued);
+
+    expectValidSession(recovered);
+    expect(recovered.status).toBe('failed');
+    expect(recovered.startedAt).toEqual(expect.any(String));
+    expect(recovered.completedAt).toEqual(expect.any(String));
+  });
+
+  it('finalizes active snapshots even when no capability is active', () => {
+    const stale = createInvestigationSession({
+      investigationId: 'inv-stale-active',
+      domain: sessionDomain(),
+      selection: { capabilityIds: ['wordpress'] }
+    });
+    stale.status = 'running';
+    stale.startedAt = '2026-09-10T12:00:00.000Z';
+    stale.capabilityStates.wordpress = {
+      status: 'success',
+      outcome: { status: 'success', result: { exposure: { status: 'observed' } }, error: null },
+      retry: { status: 'not-retryable' }
+    };
+
+    const recovered = recoverInvestigationSession(stale);
+
+    expectValidSession(recovered);
+    expect(recovered.status).toBe('completed');
+    expect(recovered.overall).toEqual({ status: 'complete' });
+  });
+
+  it('leaves terminal sessions unchanged during recovery', () => {
+    const terminal = createTerminalSession();
+
+    expect(recoverInvestigationSession(terminal)).toEqual(terminal);
   });
 
   it('propagates failed dependencies without running dependents', async () => {
@@ -222,10 +320,88 @@ describe('investigation session', () => {
     });
     expect(getContextualCapabilityIds(selectedSitemap)).toEqual([]);
   });
+
+  it('adds contextual sitemap with registry dependency', () => {
+    const contextual = addInvestigationCapability(session, 'sitemap', { sitemapUrl: '/sitemap.xml' });
+
+    expect(contextual.selectedCapabilities).toContainEqual({ id: 'sitemap', dependencies: ['wordpress'] });
+  });
+
+  it('allows sitemap retry after its failed WordPress dependency is recovered', async () => {
+    const dependentSession = addInvestigationCapability(
+      createInvestigationSession({
+        investigationId: 'inv-retry-dependency',
+        domain: sessionDomain(),
+        selection: { capabilityIds: ['wordpress'] }
+      }),
+      'sitemap'
+    );
+    const failed = await runInvestigationSession(dependentSession, {
+      wordpress: vi.fn().mockRejectedValue(new Error('blocked')),
+      sitemap: vi.fn()
+    });
+
+    expect(failed.selectedCapabilities).toContainEqual({ id: 'sitemap', dependencies: ['wordpress'] });
+    expect(failed.capabilityStates.sitemap.outcome.error.retryable).toBe(false);
+    const recovered = await retryInvestigationCapability(failed, 'wordpress', {
+      wordpress: vi.fn().mockResolvedValue({ identity: { value: 'WordPress', evidenceLevel: 'observed' } })
+    });
+    const retried = await retryInvestigationCapability(recovered, 'sitemap', {
+      sitemap: vi.fn().mockResolvedValue({ pages: [] })
+    });
+
+    expect(retried.capabilityStates.sitemap.status).toBe('success');
+  });
+
+  it('repairs persisted sitemap dependency metadata before retry', async () => {
+    const persisted = addInvestigationCapability(
+      createInvestigationSession({
+        investigationId: 'inv-persisted-dependency',
+        domain: sessionDomain(),
+        selection: { capabilityIds: ['wordpress'] }
+      }),
+      'sitemap'
+    );
+    persisted.selectedCapabilities.find(({ id }) => id === 'sitemap').dependencies = [];
+    persisted.capabilityStates.wordpress = {
+      status: 'success',
+      outcome: { status: 'success', result: {}, error: null },
+      retry: { status: 'not-retryable' }
+    };
+    persisted.capabilityStates.sitemap = {
+      status: 'failed',
+      outcome: { status: 'failed', result: null, error: { code: 'blocked', message: 'Blocked', retryable: true } },
+      retry: { status: 'not-retryable' }
+    };
+
+    const retried = await retryInvestigationCapability(persisted, 'sitemap', {
+      sitemap: vi.fn().mockResolvedValue({ pages: [] })
+    });
+
+    expect(retried.selectedCapabilities).toContainEqual({ id: 'sitemap', dependencies: ['wordpress'] });
+  });
 });
 
 function sessionDomain() {
   return { submitted: 'Example.com', normalized: 'https://example.com' };
+}
+
+function createTerminalSession() {
+  const terminal = createInvestigationSession({
+    investigationId: 'inv-terminal',
+    domain: sessionDomain(),
+    selection: { capabilityIds: ['wordpress'] }
+  });
+  terminal.status = 'completed';
+  terminal.startedAt = '2026-09-10T12:00:00.000Z';
+  terminal.completedAt = '2026-09-10T12:01:00.000Z';
+  terminal.capabilityStates.wordpress = {
+    status: 'success',
+    outcome: { status: 'success', result: { ok: true }, error: null },
+    retry: { status: 'not-retryable' }
+  };
+  terminal.overall = { status: 'complete' };
+  return terminal;
 }
 
 function expectValidSession(value) {

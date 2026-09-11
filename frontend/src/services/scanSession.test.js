@@ -53,6 +53,24 @@ describe('scan session', () => {
     expect(changes.some((next) => next.capabilities.homepage.status === 'running')).toBe(true);
   });
 
+  it('passes execution-only domain identity to runners without changing session shape', async () => {
+    const wordpress = vi.fn().mockResolvedValue({ namespaces: ['wp/v2'] });
+    const domainIdentity = {
+      submitted: 'https://Example.com/path',
+      normalized: 'example.com'
+    };
+    const session = createScanSession('example.com', { capabilityIds: ['wordpress'] }, {}, domainIdentity);
+
+    await executeScanSession(session, { wordpress });
+
+    expect(wordpress).toHaveBeenCalledWith({
+      domain: 'example.com',
+      domainIdentity,
+      options: {}
+    });
+    expect(Object.keys(session)).not.toContain('domainIdentity');
+  });
+
   it('records synchronous runner throws as failed capabilities', async () => {
     const session = createScanSession('example.com', { capabilityIds: ['homepage'] });
 

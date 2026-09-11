@@ -40,7 +40,7 @@ function SitemapSection({
             <CardHeader><h2>Sitemap scan</h2></CardHeader>
             <CardContent>
               <p>{capability.error?.message ?? 'Sitemap scan is unavailable.'}</p>
-              {capability.error?.retryable ? <Button type="button" variant="secondary" size="sm" onClick={onRetry}>Retry sitemap scan</Button> : null}
+              {capability.error?.retryable === true ? <Button type="button" variant="secondary" size="sm" onClick={onRetry}>Retry sitemap scan</Button> : null}
             </CardContent>
           </Card>
         ) : !isIdle ? (
@@ -63,7 +63,7 @@ function SitemapSection({
         {capability?.status === 'failed' ? (
           <p role="alert">
             {capability.error?.message ?? 'Sitemap scan failed.'}
-            {capability.error?.retryable ? <Button type="button" variant="secondary" size="sm" onClick={onRetry}>Retry sitemap scan</Button> : null}
+            {capability.error?.retryable === true ? <Button type="button" variant="secondary" size="sm" onClick={onRetry}>Retry sitemap scan</Button> : null}
           </p>
         ) : null}
         <SitemapPagesTable

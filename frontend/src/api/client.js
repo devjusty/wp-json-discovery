@@ -1,6 +1,7 @@
 import {
   apiEnvelopeSchema,
-  investigationRecordSchema
+  investigationRecordSchema,
+  sessionRecordSchema
 } from '@wp-json-discovery/contracts';
 
 let globalGetAccessToken = null;
@@ -304,7 +305,8 @@ export async function fetchInvestigation(investigationId) {
 export async function saveInvestigationSession(investigationId, session) {
   return requestInvestigation(
     `/api/investigations/${encodeURIComponent(investigationId)}/sessions/${encodeURIComponent(session.id)}`,
-    { method: 'POST', body: JSON.stringify({ session }) }
+    { method: 'POST', body: JSON.stringify({ session }) },
+    sessionRecordSchema
   );
 }
 
@@ -315,7 +317,7 @@ export async function claimAnonymousInvestigation(domain, anonymousRecord) {
   });
 }
 
-async function requestInvestigation(path, options) {
+async function requestInvestigation(path, options, dataSchema = investigationRecordSchema) {
   const result = await request(path, options);
   const envelope = apiEnvelopeSchema.safeParse(result.data);
 
@@ -327,7 +329,7 @@ async function requestInvestigation(path, options) {
   }
   if (envelope.data.status !== 'success') throw new Error('Investigation request incomplete');
 
-  const record = investigationRecordSchema.safeParse(envelope.data.data);
+  const record = dataSchema.safeParse(envelope.data.data);
   if (!record.success) throw new Error('Invalid investigation response');
   return record.data;
 }

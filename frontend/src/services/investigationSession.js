@@ -1,4 +1,5 @@
 import {
+  getCapabilitySelection,
   getCapabilityDependencies,
   normalizeSelection
 } from './scanCapabilities.js';
@@ -13,7 +14,13 @@ const DEPENDENCY_ERROR = {
 const RUNNER_UNAVAILABLE = {
   code: 'runner_unavailable',
   message: 'Capability runner unavailable.',
-  retryable: false
+  retryable: true
+};
+
+const INTERRUPTED_ERROR = {
+  code: 'interrupted',
+  message: 'Capability was interrupted before it completed.',
+  retryable: true
 };
 
 export function createInvestigationSession({ investigationId, domain, selection }) {
@@ -115,6 +122,28 @@ export async function retryInvestigationCapability(session, capabilityId, runner
   return finalize(current);
 }
 
+export function recoverInvestigationSession(session) {
+  const activeSession = ['queued', 'running'].includes(session.status);
+  const interruptedIds = Object.entries(session.capabilityStates)
+    .filter(([, state]) => activeSession
+      ? !['success', 'failed', 'unavailable'].includes(state.status)
+      : ['queued', 'running'].includes(state.status))
+    .map(([id]) => id);
+  if (!activeSession && interruptedIds.length === 0) return session;
+
+  let recovered = cloneSession(session);
+  recovered.startedAt ??= new Date().toISOString();
+  for (const id of interruptedIds) {
+    recovered = updateCapability(recovered, id, {
+      status: 'failed',
+      outcome: { status: 'failed', result: null, error: { ...INTERRUPTED_ERROR } },
+      retry: { status: 'not-retryable' }
+    });
+  }
+
+  return finalize(recovered);
+}
+
 export function getInvestigatorSelection() {
   return normalizeSelection({ capabilityIds: ['wordpress', 'homepage'] });
 }
@@ -126,7 +155,9 @@ export function getContextualCapabilityIds(session) {
 export function addInvestigationCapability(session, capabilityId, options = {}) {
   if (session.selectedCapabilities.some(({ id }) => id === capabilityId)) return cloneSession(session);
   const next = cloneSession(session);
-  next.selectedCapabilities = [...next.selectedCapabilities, { id: capabilityId, dependencies: [] }];
+  const capabilitySelection = getCapabilitySelection(capabilityId);
+  if (!capabilitySelection) return cloneSession(session);
+  next.selectedCapabilities = [...next.selectedCapabilities, capabilitySelection];
   next.capabilityStates = {
     ...next.capabilityStates,
     [capabilityId]: createCapabilityState()
@@ -148,7 +179,11 @@ function createCapabilityState() {
 
 function runCapability(session, id, runners) {
   if (typeof runners?.[id] !== 'function') throw Object.assign(new Error(RUNNER_UNAVAILABLE.message), RUNNER_UNAVAILABLE);
-  return runners[id]({ domain: session.domain.normalized, options: session.selection.options[id] });
+  return runners[id]({
+    domain: session.domain.normalized,
+    domainIdentity: session.domain,
+    options: session.selection.options[id]
+  });
 }
 
 function successState(result) {
@@ -163,12 +198,13 @@ function errorState(error) {
 }
 
 function unavailableState(error, dependencyId) {
+  const normalizedError = { ...error, retryable: dependencyId ? false : error.retryable === true };
   const state = {
     status: 'unavailable',
-    outcome: { status: 'unavailable', result: null, error: { ...error, retryable: false } },
+    outcome: { status: 'unavailable', result: null, error: normalizedError },
     retry: { status: 'not-retryable' }
   };
-  if (dependencyId) state.dependency = { status: 'failed', dependencyId, error: { ...error, retryable: false } };
+  if (dependencyId) state.dependency = { status: 'failed', dependencyId, error: normalizedError };
   return state;
 }
 
@@ -178,7 +214,7 @@ function updateCapability(session, id, state) {
     capabilityStates: { ...session.capabilityStates, [id]: state }
   };
   Object.defineProperty(next, 'domain', { value: cloneDomain(session.domain), enumerable: false });
-  Object.defineProperty(next, 'selection', { value: cloneSelection(session.selection), enumerable: false });
+  Object.defineProperty(next, 'selection', { value: cloneSelection(session.selection), enumerable: false, configurable: true });
   if (state.status === 'queued' && session.status === 'idle') {
     next.status = 'queued';
     next.startedAt = null;
@@ -205,7 +241,7 @@ function finalize(session) {
     overall: { status: complete ? 'complete' : 'incomplete' }
   };
   Object.defineProperty(next, 'domain', { value: cloneDomain(session.domain), enumerable: false });
-  Object.defineProperty(next, 'selection', { value: cloneSelection(session.selection), enumerable: false });
+  Object.defineProperty(next, 'selection', { value: cloneSelection(session.selection), enumerable: false, configurable: true });
   return next;
 }
 
@@ -238,7 +274,10 @@ function getFailedDependency(session, id) {
 function cloneSession(session) {
   const next = {
     ...session,
-    selectedCapabilities: session.selectedCapabilities.map((capability) => ({ ...capability, dependencies: [...capability.dependencies] })),
+    selectedCapabilities: session.selectedCapabilities.map((capability) => getCapabilitySelection(capability.id) ?? ({
+      ...capability,
+      dependencies: [...(capability.dependencies ?? [])]
+    })),
     capabilityStates: Object.fromEntries(Object.entries(session.capabilityStates).map(([id, state]) => {
       const clonedState = {
         status: state.status,
@@ -254,7 +293,7 @@ function cloneSession(session) {
     }))
   };
   Object.defineProperty(next, 'domain', { value: cloneDomain(session.domain), enumerable: false });
-  Object.defineProperty(next, 'selection', { value: cloneSelection(session.selection), enumerable: false });
+  Object.defineProperty(next, 'selection', { value: cloneSelection(session.selection), enumerable: false, configurable: true });
   return next;
 }
 

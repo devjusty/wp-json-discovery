@@ -215,13 +215,23 @@ describe('scan capabilities', () => {
 
   it('runs selected capabilities through existing scan services', async () => {
     setScanCapabilityContext({ isAdmin: true });
-    scanDomain.mockResolvedValue('wordpress result');
+    scanDomain.mockResolvedValue({
+      domain: 'example.com',
+      summary: { name: 'Example site' },
+      exposure: { restApiAvailable: true },
+      performance: { wpJson: { ok: true } }
+    });
     runHomepageScan.mockResolvedValue('homepage result');
     runSitemapScan.mockResolvedValue('sitemap result');
     runReconScan.mockResolvedValue('recon result');
     const runners = getCapabilityRunners(['wordpress', 'homepage', 'sitemap', 'recon']);
 
-    await expect(runners.wordpress({ domain: 'example.com', options: {} })).resolves.toBe('wordpress result');
+    await expect(runners.wordpress({ domain: 'example.com', options: {} })).resolves.toMatchObject({
+      domain: 'example.com',
+      identity: { value: 'Example site', evidenceLevel: 'observed' },
+      findings: [],
+      exposure: { records: [expect.objectContaining({ id: 'wordpress-rest' })] }
+    });
     await expect(runners.homepage({ domain: 'example.com', options: {} })).resolves.toBe('homepage result');
     await expect(runners.sitemap({
       domain: 'example.com',

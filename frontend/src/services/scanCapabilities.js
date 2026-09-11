@@ -1,5 +1,6 @@
 import { runHomepageScan, runReconScan, runSitemapScan } from '../api/client.js';
 import { scanDomain } from './scan.js';
+import { toWordpressCapabilityResult } from './wordpressCapabilityResult.js';
 import { onWordpressSettled } from './wordpressCapabilityOutcome.js';
 
 export const CAPABILITY_IDS = Object.freeze({
@@ -38,7 +39,10 @@ export const SCAN_CAPABILITIES = Object.freeze([
     normalizeOptions() {
       return { ...this.defaultOptions };
     },
-    runner: ({ domain }) => scanDomain(domain),
+    runner: async ({ domain, domainIdentity }) => toWordpressCapabilityResult(
+      await scanDomain(domain),
+      domainIdentity ?? { submitted: domain, normalized: domain }
+    ),
     onSettled: onWordpressSettled
   },
   {
@@ -96,6 +100,11 @@ export const SCAN_CAPABILITIES = Object.freeze([
 
 export function getCapabilityById(id) {
   return SCAN_CAPABILITIES.find((capability) => capability.id === id) ?? null;
+}
+
+export function getCapabilitySelection(id) {
+  const capability = getCapabilityById(id);
+  return capability ? { id: capability.id, dependencies: [...capability.dependencies] } : null;
 }
 
 export function getRecommendedCapabilityIds() {

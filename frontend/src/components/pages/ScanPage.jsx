@@ -27,10 +27,14 @@ import {
   createInvestigationSession,
   addInvestigationCapability,
   getInvestigatorSelection,
+  recoverInvestigationSession,
   retryInvestigationCapability,
   runInvestigationSession
 } from '../../services/investigationSession.js';
-import { getCapabilityRunners } from '../../services/scanCapabilities.js';
+import {
+  getCapabilityRunners,
+  getCapabilitySelection
+} from '../../services/scanCapabilities.js';
 import {
   createClaimPayload,
   loadAnonymousInvestigation,
@@ -46,7 +50,6 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
     domain,
     handleDomainChange: onDomainChange,
     setActivePage,
-    startScan,
     activeDomain
   } = useScanShellContext();
   const {
@@ -74,41 +77,6 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
   const persistenceQueueRef = useRef(Promise.resolve());
   const persistenceRevisionRef = useRef(0);
 
-  useEffect(() => {
-    const snapshot = loadAnonymousInvestigation();
-    if (snapshot) {
-      setAnonymousSnapshot(snapshot);
-      if (!isAuthenticated) {
-        setInvestigatorSession(hydrateSession(snapshot.record.session, snapshot.domain, scanSettings.options));
-      }
-    }
-    // Snapshot selection options are restored from persisted scan settings when
-    // engine-private selection metadata was not serialized.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    if (!isAuthenticated) return undefined;
-    const investigationId = loadAuthenticatedInvestigationId();
-    if (!investigationId) return undefined;
-    let cancelled = false;
-    setIsResumingInvestigation(true);
-    setResumeError('');
-    fetchInvestigation(investigationId)
-      .then((record) => {
-        if (cancelled) return;
-        if (!record.latestSession) throw new Error('Saved investigation has no resumable session');
-        setInvestigatorSession(hydrateSession(record.latestSession, record.investigation.domain));
-      })
-      .catch((error) => {
-        if (!cancelled) setResumeError(`Saved investigation could not be resumed: ${error.message}`);
-      })
-      .finally(() => {
-        if (!cancelled) setIsResumingInvestigation(false);
-      });
-    return () => { cancelled = true; };
-  }, [isAuthenticated]);
-
   const persistInvestigatorSession = useCallback(async (nextSession, identity) => {
     const snapshot = {
       domain: identity,
@@ -135,6 +103,45 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
     }
   }, [isAuthenticated]);
 
+  useEffect(() => {
+    const snapshot = loadAnonymousInvestigation();
+    if (snapshot) {
+      setAnonymousSnapshot(snapshot);
+      if (!isAuthenticated) {
+        const hydrated = hydrateSession(snapshot.record.session, snapshot.domain, scanSettings.options, true);
+        setInvestigatorSession(hydrated);
+        if (hydrated !== snapshot.record.session) void persistInvestigatorSession(hydrated, snapshot.domain);
+      }
+    }
+    // Snapshot selection options are restored from persisted scan settings when
+    // engine-private selection metadata was not serialized.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, persistInvestigatorSession]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+    const investigationId = loadAuthenticatedInvestigationId();
+    if (!investigationId) return undefined;
+    let cancelled = false;
+    setIsResumingInvestigation(true);
+    setResumeError('');
+    fetchInvestigation(investigationId)
+      .then((record) => {
+        if (cancelled) return;
+        if (!record.latestSession) throw new Error('Saved investigation has no resumable session');
+        const hydrated = hydrateSession(record.latestSession, record.investigation.domain, {}, true);
+        setInvestigatorSession(hydrated);
+        if (hydrated !== record.latestSession) void persistInvestigatorSession(hydrated, record.investigation.domain);
+      })
+      .catch((error) => {
+        if (!cancelled) setResumeError(`Saved investigation could not be resumed: ${error.message}`);
+      })
+      .finally(() => {
+        if (!cancelled) setIsResumingInvestigation(false);
+      });
+    return () => { cancelled = true; };
+  }, [isAuthenticated, persistInvestigatorSession]);
+
   const handleInvestigatorSubmit = useCallback(async (normalizedValue, submittedValue = normalizedValue) => {
     if (startInFlightRef.current) return;
     startInFlightRef.current = true;
@@ -145,15 +152,17 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
     try {
       let investigationId = globalThis.crypto?.randomUUID?.() ?? `anonymous-${Date.now()}`;
       let sessionId = `session-${Date.now()}`;
-      if (isAuthenticated) {
-        const record = await startInvestigation(identity, selection.capabilityIds.map((id) => ({ id, dependencies: [] })));
-        investigationId = record.investigation.id;
-        sessionId = record.sessionIds[0];
-      }
       const nextSession = createInvestigationSession({ investigationId, domain: identity, selection });
       nextSession.id = sessionId;
-      const hydratedNextSession = hydrateSession(nextSession, identity, selection.options);
+      let hydratedNextSession = hydrateSession(nextSession, identity, selection.options);
       setInvestigatorSession(hydratedNextSession);
+      if (isAuthenticated) {
+        const record = await startInvestigation(identity, hydratedNextSession.selectedCapabilities);
+        investigationId = record.investigation.id;
+        sessionId = record.sessionIds[0];
+        hydratedNextSession = hydrateSession({ ...hydratedNextSession, investigationId, id: sessionId }, identity, selection.options);
+        setInvestigatorSession(hydratedNextSession);
+      }
       const token = { active: true };
       const onChange = (changedSession) => {
         const hydrated = hydrateSession(changedSession, identity, selection.options);
@@ -173,6 +182,10 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
       setIsStartingInvestigation(false);
     }
   }, [isAuthenticated, persistInvestigatorSession]);
+
+  const handleRecentDomainRescan = useCallback((value) => {
+    return handleInvestigatorSubmit(value, value);
+  }, [handleInvestigatorSubmit]);
 
   const handleRunInvestigatorCapability = useCallback(async (id, options = {}) => {
     if (!investigatorSession || retryingCapabilityId) return;
@@ -230,13 +243,15 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
       if (record?.investigation) {
         saveAuthenticatedInvestigationId(record.investigation.id);
         if (record.latestSession) {
-          setInvestigatorSession(hydrateSession(record.latestSession, record.investigation.domain));
+          const hydrated = hydrateSession(record.latestSession, record.investigation.domain, {}, true);
+          setInvestigatorSession(hydrated);
+          if (hydrated !== record.latestSession) void persistInvestigatorSession(hydrated, record.investigation.domain);
         }
       }
     } catch (error) {
       setClaimError(error.message ?? 'Import failed. Your local investigation remains available.');
     }
-  }, [anonymousSnapshot]);
+  }, [anonymousSnapshot, persistInvestigatorSession]);
 
   const visibleSection = !isAdmin && (activeSection === 'unsupported' || activeSection === 'recon')
     ? 'overview'
@@ -374,7 +389,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
           isExpanded={recentDomainsExpanded}
           onToggleExpanded={handleToggleRecentDomainsExpanded}
           onOpenHistory={isAdmin ? handleOpenHistory : null}
-          onRescan={startScan}
+          onRescan={handleRecentDomainRescan}
           onSaved={handleRecentDomainSaved}
           onClearRecentDomains={handleClearRecentDomains}
         />
@@ -405,10 +420,15 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
   );
 }
 
-function hydrateSession(session, domain, fallbackOptions = {}) {
+function hydrateSession(session, domain, fallbackOptions = {}, recover = false) {
   if (!session) return null;
   const hydrated = { ...session };
-  const selectedCapabilities = session.selectedCapabilities ?? [];
+  const selectedCapabilities = (session.selectedCapabilities ?? []).map((capability) => {
+    const registered = getCapabilitySelection(capability.id);
+    return registered
+      ? { ...capability, dependencies: registered.dependencies }
+      : { ...capability, dependencies: [...(capability.dependencies ?? [])] };
+  });
   Object.defineProperty(hydrated, 'domain', { value: domain, enumerable: false, configurable: true });
   const options = session.selection?.options ?? fallbackOptions;
   Object.defineProperty(hydrated, 'selection', {
@@ -422,7 +442,7 @@ function hydrateSession(session, domain, fallbackOptions = {}) {
     enumerable: false,
     configurable: true
   });
-  return hydrated;
+  return recover ? recoverInvestigationSession(hydrated) : hydrated;
 }
 
 function bridgeInvestigatorSession(session) {

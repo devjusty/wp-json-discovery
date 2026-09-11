@@ -8,16 +8,21 @@ const DEPENDENCY_ERROR = {
   retryable: false
 };
 
-export function createScanSession(domain, selection, dependencies = {}) {
+export function createScanSession(domain, selection, dependencies = {}, domainIdentity = null) {
   const normalizedSelection = normalizeSelection(selection);
 
-  return {
+  const session = {
     domain,
     selection: cloneSelection(normalizedSelection),
     dependencies: cloneDependencies(dependencies, normalizedSelection.capabilityIds),
     overallStatus: 'idle',
     capabilities: Object.fromEntries(normalizedSelection.capabilityIds.map((id) => [id, createCapabilityState()]))
   };
+  Object.defineProperty(session, 'domainIdentity', {
+    value: domainIdentity,
+    enumerable: false
+  });
+  return session;
 }
 
 export function normalizeScanError(error) {
@@ -162,7 +167,12 @@ function cloneAcceptedLegacySession(session) {
     error.cause = validation.success ? null : validation.error;
     throw error;
   }
-  return cloneSession(validation.data);
+  const accepted = cloneSession(validation.data);
+  Object.defineProperty(accepted, 'domainIdentity', {
+    value: session.domainIdentity,
+    enumerable: false
+  });
+  return accepted;
 }
 
 function isLegacySessionSnapshot(value) {
@@ -297,7 +307,7 @@ function cloneDependencies(dependencies, capabilityIds) {
 }
 
 function cloneSession(session) {
-  return {
+  const next = {
     ...session,
     selection: cloneSelection(session.selection),
     dependencies: cloneDependencies(session.dependencies, session.selection.capabilityIds),
@@ -306,6 +316,11 @@ function cloneSession(session) {
       error: state.error ? { ...state.error } : null
     }]))
   };
+  Object.defineProperty(next, 'domainIdentity', {
+    value: session.domainIdentity,
+    enumerable: false
+  });
+  return next;
 }
 
 function getDependencies(session, id) {
@@ -341,6 +356,9 @@ function runCapability(session, id, runners) {
   }
   return runners[id]({
     domain: session.domain,
+    ...(id === 'wordpress' && session.domainIdentity
+      ? { domainIdentity: session.domainIdentity }
+      : {}),
     options: session.selection.options[id]
   });
 }
@@ -354,10 +372,15 @@ function updateCapability(session, id, state) {
     }
   };
 
-  return {
+  const updated = {
     ...next,
     overallStatus: getOverallStatus(next)
   };
+  Object.defineProperty(updated, 'domainIdentity', {
+    value: session.domainIdentity,
+    enumerable: false
+  });
+  return updated;
 }
 
 function getOverallStatus(session) {

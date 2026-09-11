@@ -54,6 +54,38 @@ describe('investigation routes', () => {
     expect(await queryOne('select count(1) as count from investigations')).toEqual(before);
   });
 
+  it.each([
+    'http://localhost',
+    '127.0.0.1',
+    'bad_label.example.com',
+  ])('rejects unsafe start domain %j before persistence', async (submitted) => {
+    const before = await queryOne('select count(1) as count from investigations');
+    const response = await request(buildApp({ sub: 'route-owner' }))
+      .post('/api/investigations')
+      .send({
+        domain: { submitted, normalized: 'https://forged.example.com' },
+        selectedCapabilities: [],
+      });
+
+    expect(response.status).toBe(400);
+    expect(await queryOne('select count(1) as count from investigations')).toEqual(before);
+  });
+
+  it('persists server-derived normalized identity for valid starts', async () => {
+    const response = await request(buildApp({ sub: 'route-owner' }))
+      .post('/api/investigations')
+      .send({
+        domain: { submitted: 'EXAMPLE.COM', normalized: 'https://forged.example.com' },
+        selectedCapabilities: [],
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.data.investigation.domain).toEqual({
+      submitted: 'EXAMPLE.COM',
+      normalized: 'example.com',
+    });
+  });
+
   it('requires authentication for canonical investigation reads', async () => {
     const response = await request(buildApp()).get('/api/investigations/inv-1');
 
@@ -89,6 +121,23 @@ describe('investigation routes', () => {
     expect(update.status).toBe(200);
     expect(read.status).toBe(200);
     expect(read.body.data.sessionIds).toContain(session.id);
+  });
+
+  it('persists authoritative dependency metadata from authenticated starts', async () => {
+    const response = await request(buildApp({ sub: 'route-owner' }))
+      .post('/api/investigations')
+      .send({
+        domain: { submitted: 'dependency-route.example', normalized: 'https://dependency-route.example' },
+        selectedCapabilities: [
+          { id: 'wordpress', dependencies: [] },
+          { id: 'sitemap', dependencies: ['wordpress'] }
+        ]
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.data.latestSession.selectedCapabilities).toContainEqual({
+      id: 'sitemap', dependencies: ['wordpress']
+    });
   });
 
   it('persists repeated authenticated snapshots and returns latest state in order', async () => {
@@ -150,7 +199,7 @@ describe('investigation routes', () => {
     const response = await request(buildApp({ sub: 'route-owner' }))
       .post('/api/investigations/claim')
       .send({
-        domain: { submitted: 'claimed.example', normalized: 'https://claimed.example' },
+        domain: { submitted: 'claimed.example', normalized: 'claimed.example' },
         anonymousRecord: {
           recordType: 'session',
           session: {
@@ -175,7 +224,7 @@ describe('investigation routes', () => {
     const replay = await request(buildApp({ sub: 'route-other' }))
       .post('/api/investigations/claim')
       .send({
-        domain: { submitted: 'claimed.example', normalized: 'https://claimed.example' },
+        domain: { submitted: 'claimed.example', normalized: 'claimed.example' },
         anonymousRecord: {
           recordType: 'session',
           session: {
@@ -196,6 +245,62 @@ describe('investigation routes', () => {
 
     expect(replay.status).toBe(404);
     expect(ownerRead.body.data.sessionIds).toEqual(['browser-session']);
+  });
+
+  it.each([
+    'http://localhost',
+    '10.0.0.1',
+    'bad_label.example.com',
+  ])('rejects unsafe claim domain %j before persistence', async (submitted) => {
+    const before = await queryOne('select count(1) as count from investigations');
+    const response = await request(buildApp({ sub: 'route-owner' }))
+      .post('/api/investigations/claim')
+      .send({
+        domain: { submitted, normalized: 'https://forged.example.com' },
+        anonymousRecord: {
+          recordType: 'session',
+          session: {
+            id: `unsafe-${submitted}`,
+            investigationId: 'browser-investigation',
+            status: 'completed',
+            startedAt: '2026-09-10T12:00:00.000Z',
+            completedAt: '2026-09-10T12:00:00.000Z',
+            selectedCapabilities: [],
+            capabilityStates: {},
+            overall: { status: 'complete' },
+          },
+          persistedAt: '2026-09-10T12:00:00.000Z',
+        },
+      });
+
+    expect(response.status).toBe(400);
+    expect(await queryOne('select count(1) as count from investigations')).toEqual(before);
+  });
+
+  it('rejects forged normalized identity on claim before persistence', async () => {
+    const before = await queryOne('select count(1) as count from investigations');
+    const response = await request(buildApp({ sub: 'route-owner' }))
+      .post('/api/investigations/claim')
+      .send({
+        domain: { submitted: 'claimed-forged.example.com', normalized: 'forged.example.com' },
+        anonymousRecord: {
+          recordType: 'session',
+          session: {
+            id: 'forged-claim-session',
+            investigationId: 'browser-investigation',
+            status: 'completed',
+            startedAt: '2026-09-10T12:00:00.000Z',
+            completedAt: '2026-09-10T12:00:00.000Z',
+            selectedCapabilities: [],
+            capabilityStates: {},
+            overall: { status: 'complete' },
+          },
+          persistedAt: '2026-09-10T12:00:00.000Z',
+        },
+      });
+
+    expect(response.status).toBe(400);
+    expect(await queryOne('select count(1) as count from investigations')).toEqual(before);
   });
 
   it('returns 404 for missing or foreign investigations', async () => {
