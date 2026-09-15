@@ -58,7 +58,7 @@ Remember: A story name might not reflect the property name correctly, so always 
 
 ## Coding Style & Naming Conventions
 
-- Server code remains JavaScript. New frontend files use TypeScript (`.ts`/`.tsx`); migrate touched frontend JavaScript files when needed for the feature. Use ES modules and 2-space indentation. Prefer single quotes and trailing commas when objects span multiple lines.
+- Frontend and server code are being incrementally migrated to TypeScript. New files use TypeScript (`.ts`/`.tsx`); migrate touched JavaScript files when needed for the feature. Use ES modules and 2-space indentation. Prefer single quotes and trailing commas when objects span multiple lines.
 - Components use PascalCase, hooks start with `use`, config constants are SHOUT_CASE (`SUPPORTED_PLUGINS`). Keep atom-level primitives free of domain logic; push orchestration into services.
 - Apply ESLint fixes (`--fix`) when practical and retain descriptive log messages via `server/src/logger.js`.
 

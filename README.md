@@ -23,7 +23,7 @@ WP JSON Discovery is a Vite-powered React application backed by a lightweight Ex
 
 ```text
 root/
-├── server/               # Express proxy + persistence
+├── server/               # Express proxy + persistence (incrementally migrating to TypeScript)
 │   ├── src/index.js      # REST proxy, unsupported plugin API, logging
 │   ├── src/logger.js     # JSONL logger utility
 │   ├── src/db/           # libSQL/Turso client, migrations, maintenance scripts
