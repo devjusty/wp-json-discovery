@@ -20,15 +20,26 @@ updates:
     labels:
       - dependencies
     groups:
-      # First matching group wins. Keep Storybook together, then batch
-      # remaining minor/patch updates. Major bumps stay as individual PRs.
-      storybook:
+      # First matching group wins. Keep test tooling on one compatible
+      # version train, including major updates that may otherwise split
+      # Vitest and its browser/coverage packages across separate PRs.
+      testing-toolchain:
+        dependency-type: development
         patterns:
+          - 'vitest'
+          - '@vitest/*'
+          - 'playwright'
+          - '@playwright/*'
+          - '@testing-library/*'
+          - 'jsdom'
+          - 'msw'
+          - 'msw-storybook-addon'
+          - '@storybook/addon-vitest'
+          - '@storybook/test'
           - 'storybook'
           - '@storybook/*'
           - '@chromatic-com/storybook'
           - eslint-plugin-storybook
-          - msw-storybook-addon
       production-minor-patch:
         dependency-type: production
         update-types:
