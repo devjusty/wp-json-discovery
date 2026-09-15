@@ -9,6 +9,9 @@ allowBuilds:
   msw: true
   unrs-resolver: true
 
+minimumReleaseAgeExclude:
+  - msw-storybook-addon@3.0.3
+
 onlyBuiltDependencies:
   - browser-tabs-lock
   - esbuild
