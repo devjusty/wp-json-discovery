@@ -58,14 +58,14 @@ Remember: A story name might not reflect the property name correctly, so always 
 
 ## Coding Style & Naming Conventions
 
-- JavaScript only (no TypeScript); use ES modules and 2-space indentation. Prefer single quotes and trailing commas when objects span multiple lines.
+- Server code remains JavaScript. New frontend files use TypeScript (`.ts`/`.tsx`); migrate touched frontend JavaScript files when needed for the feature. Use ES modules and 2-space indentation. Prefer single quotes and trailing commas when objects span multiple lines.
 - Components use PascalCase, hooks start with `use`, config constants are SHOUT_CASE (`SUPPORTED_PLUGINS`). Keep atom-level primitives free of domain logic; push orchestration into services.
 - Apply ESLint fixes (`--fix`) when practical and retain descriptive log messages via `server/src/logger.js`.
 
 ## Testing Guidelines
 
 - Automated suites are being introduced; target `vitest` + `@testing-library/react` under `frontend/src/__tests__/` and lightweight HTTP mocks (MSW/nock) for `server/`.
-- Name test files `*.test.js`; group by feature to mirror atomic layers (e.g., `components/organisms/ResultsTable/ResultsTable.test.js`).
+- Name test files `*.test.js` or `*.test.tsx`; group by feature to mirror atomic layers (e.g., `components/organisms/ResultsTable/ResultsTable.test.tsx`).
 - Until the harness lands, document manual scan cases (auth-gated sites, HTML responses, plugin-heavy domains) in PR notes and attach failing logs from `server/data/activity.log`.
 - Future coverage priorities:
   - Automate API/scan-service contract tests and add CI hooks.
@@ -92,4 +92,3 @@ Issues live in GitHub Issues for `devjusty/wp-json-discovery` (via `gh`). See `d
 ### Domain docs
 
 Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
-

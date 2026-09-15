@@ -28,7 +28,7 @@ root/
 │   ├── src/logger.js     # JSONL logger utility
 │   ├── src/db/           # libSQL/Turso client, migrations, maintenance scripts
 │   └── data/             # Persisted unsupported plugin seeds + logs
-└── frontend/             # Vite + React client
+└── frontend/             # Vite + React client (incrementally migrating to TypeScript)
     ├── src/
     │   ├── api/          # Client wrappers for proxy + persistence endpoints
     │   ├── components/   # Atomic design layers (atoms, molecules, organisms, templates, pages)
@@ -76,7 +76,7 @@ Document edge cases (auth-only routes, HTML responses, rate limits) in PR notes 
 Users can optionally log in with Auth0 to access user-owned features:
 
 - **Anonymous** – Scan any domain, browse results. Rate-limited to 10 requests/min per IP.
-- **Standard user** – Log in via Auth0 to save scans ("My Scans"), add notes, and view personal history. Rate limit: 60 requests/min.
+- **Standard user** – Log in via Auth0 to persist investigations, resume saved sessions, add notes, and view personal history. Rate limit: 60 requests/min.
 - **Admin** – Manage plugin/theme registries, view system logs, run maintenance. Rate limit: 120 requests/min. Access via Auth0 admin role or legacy `x-wpjd-admin-key` header.
 
 Set `AUTH0_DOMAIN`, `AUTH0_AUDIENCE`, and `VITE_AUTH0_DOMAIN`/`VITE_AUTH0_CLIENT_ID`/`VITE_AUTH0_AUDIENCE` in the respective `.env` files.
@@ -108,7 +108,7 @@ The project integrates with several CLIs for setup and operations:
 - **Plugin coverage**: 25+ plugins supported (WooCommerce, Jetpack, Contact Form 7, Ninja Forms, WP Recipe Maker, Wordfence, CleanTalk, WP Engine MU suite, Elementor, WPForms, Rank Math, SEOPress, LearnDash, MemberPress, etc.).
 - **Unsupported namespaces**: Actively tracked; recent scans surfaced Rank Math sub-routes, LiteSpeed cache, Divi, Modern Events Calendar, and WooCommerce telemetry routes for future support.
 - **Logging**: Structured `activity.log` capturing scan lifecycle, proxy timings, persistence, homepage assets, and errors. Auto-repair for malformed JSON store implemented.
-- **UI**: Atomic design refactor completed; major components reorganized by layer for maintainability.
+- **UI**: Atomic design refactor completed; scanner shows a persistent four-capability progress summary and resumes saved investigation sessions.
 
 ---
 
@@ -164,7 +164,7 @@ Planned coverage:
 4. **End-to-end regression tests** (Playwright) to validate domain submission, tab navigation, and CSV export.
 5. **Performance checks** capturing proxy latency and render times for large payloads. Add coverage for the homepage asset aggregation and Admin asset view.
 
-When adding tests, co-locate them under `frontend/src/__tests__/` or alongside the feature directory (e.g., `components/organisms/ResultsTable/ResultsTable.test.js`).
+When adding tests, co-locate them under `frontend/src/__tests__/` or alongside the feature directory (e.g., `components/organisms/ResultsTable/ResultsTable.test.tsx`).
 
 ## Operations & Troubleshooting
 

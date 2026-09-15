@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -30,7 +30,8 @@ const mocks = vi.hoisted(() => ({
   saveAuthenticatedInvestigationId: vi.fn(),
   saveAnonymousInvestigation: vi.fn(),
   removeAnonymousInvestigation: vi.fn(),
-  setInvestigatorDomain: vi.fn()
+  setInvestigatorDomain: vi.fn(),
+  activeDomain: ''
 }));
 
 vi.mock('../templates/AppLayout.jsx', () => ({
@@ -53,7 +54,7 @@ vi.mock('../../context/ScanContext', () => ({
     handleDomainChange: vi.fn(),
     setActivePage: vi.fn(),
     startScan: mocks.startScan,
-    activeDomain: 'example.com',
+    activeDomain: mocks.activeDomain,
     setInvestigatorDomain: mocks.setInvestigatorDomain
   }),
   useScanResultsContext: () => mocks.scanResults
@@ -187,6 +188,7 @@ describe('ScanPage', () => {
     mocks.saveAnonymousInvestigation.mockReset();
     mocks.removeAnonymousInvestigation.mockReset();
     mocks.setInvestigatorDomain.mockReset();
+    mocks.activeDomain = '';
     mocks.scanResults = createScanResults();
   });
 
@@ -368,6 +370,21 @@ describe('ScanPage', () => {
 
     expect(mocks.fetchInvestigation).toHaveBeenCalledWith('inv-2');
     expect(await screen.findByText(/identity/i)).toBeInTheDocument();
+  });
+
+  it('does not restore a retained investigation over an active legacy rescan', async () => {
+    mocks.activeDomain = 'new.example.com';
+    mocks.loadAuthenticatedInvestigationId.mockReturnValue('inv-previous');
+    mocks.fetchInvestigation.mockResolvedValue({
+      investigation: { id: 'inv-previous', domain: { submitted: 'Previous.com', normalized: 'previous.com' } },
+      latestSession: { id: 'session-previous', investigationId: 'inv-previous', status: 'completed', selectedCapabilities: [], capabilityStates: {}, overall: { status: 'complete' } }
+    });
+
+    render(<QueryClientProvider client={new QueryClient()}><ScanPage isAuthenticated /></QueryClientProvider>);
+
+    await act(async () => {});
+    expect(mocks.fetchInvestigation).not.toHaveBeenCalled();
+    expect(mocks.setInvestigatorDomain).not.toHaveBeenCalled();
   });
 
   it('recovers anonymous active snapshots without starting network work', async () => {

@@ -122,6 +122,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
 
   useEffect(() => {
     if (!isAuthenticated) return undefined;
+    if (activeDomain) return undefined;
     const investigationId = loadAuthenticatedInvestigationId();
     if (!investigationId) return undefined;
     let cancelled = false;
@@ -144,7 +145,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
         if (!cancelled) setIsResumingInvestigation(false);
       });
     return () => { cancelled = true; };
-  }, [isAuthenticated, persistInvestigatorSession]);
+  }, [activeDomain, isAuthenticated, persistInvestigatorSession]);
 
   const handleInvestigatorSubmit = useCallback(async (normalizedValue, submittedValue = normalizedValue) => {
     if (startInFlightRef.current) return;
