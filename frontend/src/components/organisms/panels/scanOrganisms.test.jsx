@@ -23,6 +23,32 @@ describe('scan organism panels', () => {
     expect(screen.getByText('Core REST')).toHaveAttribute('data-slot', 'badge');
   });
 
+  it('keeps namespace badge variants for core, plugin, and unknown namespaces', () => {
+    render(
+      <ScanSummary
+        domain="example.com"
+        fetchedAt="2026-07-01T10:00:00.000Z"
+        summary={{ home: 'https://example.com' }}
+        namespaces={['wp/v2', 'akismet/v1', 'acme/v1']}
+        metrics={{ durationMs: 125, namespacesCount: 3 }}
+        plugins={{
+          matched: [
+            {
+              plugin: { label: 'Akismet Anti-Spam' },
+              namespaces: ['akismet/v1']
+            }
+          ],
+          unsupportedNamespaces: []
+        }}
+        coreDatasets={[]}
+      />
+    );
+
+    expect(screen.getByText('Core REST')).toHaveClass('namespace-pill__badge--core');
+    expect(screen.getByText('Akismet Anti-Spam')).toHaveClass('namespace-pill__badge--plugin');
+    expect(screen.getByText('Unclassified')).toHaveClass('namespace-pill__badge--unknown');
+  });
+
   it('labels the homepage source fallback as a region', () => {
     render(<HomepageSourcePanel source={null} />);
 

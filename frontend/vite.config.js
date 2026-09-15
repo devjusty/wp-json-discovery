@@ -17,6 +17,18 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+          if (id.includes('/@tanstack/')) return 'query-vendor';
+          if (id.includes('/@auth0/')) return 'auth-vendor';
+          if (id.includes('/@hugeicons/')) return 'icons-vendor';
+        }
+      }
+    }
+  },
   test: {
     projects: [{
       extends: true,

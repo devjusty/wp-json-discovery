@@ -29,7 +29,7 @@ function AppLayout({ title, subtitle, headerActions, sidebar, children, onNaviga
             className="app__header-brand"
             type={onNavigate ? 'button' : undefined}
             onClick={onNavigate ? () => onNavigate('scan') : undefined}
-            aria-label={onNavigate ? 'Back to main dashboard' : undefined}
+            aria-label={onNavigate ? `Back to main dashboard: ${title}` : undefined}
           >
             <HugeiconsIcon icon={Telescope01Icon} />
             <h1>{title}</h1>

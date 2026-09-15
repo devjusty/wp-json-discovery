@@ -966,7 +966,7 @@ th.sortable .table__sort:hover {
 .namespace-pill__badge {
   border-radius: 999px;
   padding: 0.15rem 0.45rem;
-  font-size: 0.75rem;
+  font-size: var(--font-size-caption);
   border: 1px solid transparent;
 }
 
@@ -978,7 +978,7 @@ th.sortable .table__sort:hover {
 
 .namespace-pill__badge--plugin {
   background: var(--color-info-bg);
-  color: var(--color-primary-strong);
+  color: var(--color-primary);
   border-color: var(--color-info-border);
 }
 

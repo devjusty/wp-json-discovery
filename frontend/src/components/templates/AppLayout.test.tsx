@@ -4,6 +4,20 @@ import { describe, expect, it, vi } from 'vitest';
 import AppLayout from './AppLayout';
 
 describe('AppLayout', () => {
+  it('includes visible brand title in navigation button accessible name', () => {
+    render(
+      <AppLayout title="WP JSON Discovery" onNavigate={vi.fn()}>
+        <p>Main content</p>
+      </AppLayout>
+    );
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Back to main dashboard: WP JSON Discovery'
+      })
+    ).toBeInTheDocument();
+  });
+
   it('opens sidebar navigation in a shadcn sheet', async () => {
     const user = userEvent.setup();
 
