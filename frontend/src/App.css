@@ -65,7 +65,7 @@ body {
 .app__header-brand:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 4px;
-  border-radius: 8px;
+  border-radius: 0px;
 }
 
 .app__header h1 {
@@ -137,7 +137,7 @@ body {
 .app__nav-link:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 0px;
 }
 
 .app__context {
@@ -776,7 +776,7 @@ th.sortable .table__sort:hover {
 }
 
 .table__pagination .button {
-  border-radius: 8px;
+  border-radius: 0px;
   border: 1px solid var(--color-border-strong);
   background: var(--color-surface);
   padding: 0.35rem 0.65rem;
@@ -808,7 +808,7 @@ th.sortable .table__sort:hover {
 .table__page-jump input {
   width: 3.5rem;
   padding: 0.25rem 0.4rem;
-  border-radius: 6px;
+  border-radius: 0px;
   border: 1px solid var(--color-border-soft);
   font-size: inherit;
 }
@@ -867,7 +867,7 @@ th.sortable .table__sort:hover {
   min-width: 180px;
   background: var(--color-surface-muted);
   border: 1px solid var(--color-border);
-  border-radius: 10px;
+  border-radius: 0px;
   padding: 0.75rem 0.9rem;
 }
 
@@ -1022,7 +1022,7 @@ th.sortable .table__sort:hover {
   background: var(--color-ink);
   color: var(--color-border);
   padding: 0.2rem 0.4rem;
-  border-radius: 6px;
+  border-radius: 0px;
   font-size: 0.75rem;
 }
 
@@ -1567,7 +1567,7 @@ th.sortable .table__sort:hover {
   background: var(--color-ink);
   color: var(--color-border);
   padding: 0.5rem;
-  border-radius: 8px;
+  border-radius: 0px;
   white-space: pre-wrap;
   word-break: break-all;
   display: block;
@@ -1604,7 +1604,7 @@ th.sortable .table__sort:hover {
 .admin-table__details {
   grid-column: 1 / -1;
   background: var(--color-surface-muted);
-  border-radius: 10px;
+  border-radius: 0px;
   padding: 0.6rem 0.75rem;
   margin-top: 0.35rem;
   border: 1px solid var(--color-border);
@@ -1631,7 +1631,7 @@ th.sortable .table__sort:hover {
 .admin-grid__item {
   background: var(--color-surface-strong);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: 0px;
   padding: 1rem;
   box-shadow: var(--inset-highlight-soft);
 }
@@ -1690,7 +1690,7 @@ th.sortable .table__sort:hover {
   gap: 0.75rem;
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: 0px;
   padding: 1rem;
   box-shadow: var(--shadow-elev-1);
 }
@@ -1873,7 +1873,7 @@ th.sortable .table__sort:hover {
 
 .registry-inline-editor {
   border: 1px solid var(--color-border);
-  border-radius: 10px;
+  border-radius: 0px;
   background: var(--color-surface-tint);
   padding: 0.8rem;
   box-shadow: var(--inset-highlight-strong);
@@ -1900,7 +1900,7 @@ th.sortable .table__sort:hover {
   background: var(--color-ink);
   color: var(--color-border);
   padding: 0.4rem 0.5rem;
-  border-radius: 8px;
+  border-radius: 0px;
   font-size: 0.85rem;
   white-space: nowrap;
   opacity: 0;
