@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import HistoryPage from './HistoryPage.jsx';
+import HistoryPage from './HistoryPage';
 import {
   fetchDomainScanHistory,
   fetchScanHistory
@@ -70,7 +70,7 @@ describe('HistoryPage', () => {
     const onRescan = vi.fn();
     const onUseDomain = vi.fn();
 
-    fetchScanHistory.mockResolvedValueOnce(buildHistoryResponse({
+    vi.mocked(fetchScanHistory).mockResolvedValueOnce(buildHistoryResponse({
       items: [
         {
           domain: 'example.com',
@@ -83,7 +83,7 @@ describe('HistoryPage', () => {
       ],
       total: 1
     }));
-    fetchDomainScanHistory.mockResolvedValueOnce({ runs: [] });
+    vi.mocked(fetchDomainScanHistory).mockResolvedValueOnce({ runs: [] });
 
     renderPage({ onRescan, onUseDomain });
 
@@ -110,7 +110,7 @@ describe('HistoryPage', () => {
   });
 
   it('toggles include-failed filter and requests failed scans', async () => {
-    fetchScanHistory
+    vi.mocked(fetchScanHistory)
       .mockResolvedValueOnce(buildHistoryResponse({
         items: [
           {
@@ -164,7 +164,7 @@ describe('HistoryPage', () => {
   });
 
   it('supports pagination and loads domain runs panel', async () => {
-    fetchScanHistory
+    vi.mocked(fetchScanHistory)
       .mockResolvedValueOnce(buildHistoryResponse({
         items: [
           {
@@ -192,7 +192,7 @@ describe('HistoryPage', () => {
         total: 25
       }));
 
-    fetchDomainScanHistory.mockResolvedValueOnce({
+    vi.mocked(fetchDomainScanHistory).mockResolvedValueOnce({
       runs: [
         {
           id: 10,
@@ -230,7 +230,7 @@ describe('HistoryPage', () => {
   });
 
   it('resets page and selected domain together when filters change', async () => {
-    fetchScanHistory
+    vi.mocked(fetchScanHistory)
       .mockResolvedValueOnce(buildHistoryResponse({
         items: [{ domain: 'page-one.com', lastStatus: 'success' }],
         total: 25
@@ -243,7 +243,7 @@ describe('HistoryPage', () => {
         items: [{ domain: 'filtered.com', lastStatus: 'success' }],
         total: 1
       }));
-    fetchDomainScanHistory.mockResolvedValue({ runs: [] });
+    vi.mocked(fetchDomainScanHistory).mockResolvedValue({ runs: [] });
 
     renderPage();
     await screen.findByText('page-one.com');

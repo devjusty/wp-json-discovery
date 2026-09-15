@@ -24,7 +24,7 @@ WP JSON Discovery is a Vite-powered React application backed by a lightweight Ex
 ```text
 root/
 ├── server/               # Express proxy + persistence (incrementally migrating to TypeScript)
-│   ├── src/index.js      # REST proxy, unsupported plugin API, logging
+│   ├── src/index.ts      # REST proxy, unsupported plugin API, logging
 │   ├── src/logger.js     # JSONL logger utility
 │   ├── src/db/           # libSQL/Turso client, migrations, maintenance scripts
 │   └── data/             # Persisted unsupported plugin seeds + logs
@@ -171,7 +171,7 @@ When adding tests, co-locate them under `frontend/src/__tests__/` or alongside t
 - **Verify services** – `curl http://localhost:4100/api/health` confirms the Express proxy, while Vite serves the UI on `5173`.
 - **Reset persisted data** – Remove `activity.log` entries cautiously; never delete the file without confirming no scans are running.
 - **Common issues**
-  - `ECONNRESET` / `ETIMEDOUT`: Increase proxy timeout in `server/src/index.js`.
+  - `ECONNRESET` / `ETIMEDOUT`: Increase proxy timeout in `server/src/index.ts`.
   - HTML responses from `/wp-json/`: The scan service downgrades the namespace and logs a warning; check `activity.log` for the rendered HTML snippet ID.
   - Non-empty unsupported list after a run: Re-check the plugin registry and run a Context7 lookup to confirm the namespace belongs to a known plugin.
 - **Context7 tips**

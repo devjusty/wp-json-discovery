@@ -10,22 +10,22 @@ import { setTokenProvider, setAuthUserProvider, fetchUserProfile } from './api/c
 import { setScanCapabilityContext } from './services/scanCapabilities.js';
 
 const loadScanPage = () => import('./components/pages/ScanPage');
-const loadAdminPage = () => import('./components/pages/AdminPage.jsx');
-const loadHistoryPage = () => import('./components/pages/HistoryPage.jsx');
-const loadMyScansPage = () => import('./components/pages/MyScansPage.jsx');
+const loadAdminPage = () => import('./components/pages/AdminPage');
+const loadHistoryPage = () => import('./components/pages/HistoryPage');
+const loadInvestigationsPage = () => import('./components/pages/InvestigationsPage');
 
 const ScanPage = lazy(loadScanPage);
 const AdminPage = lazy(loadAdminPage);
 const HistoryPage = lazy(loadHistoryPage);
-const MyScansPage = lazy(loadMyScansPage);
+const InvestigationsPage = lazy(loadInvestigationsPage);
 
 const prefetchPage = (page) => {
   if (page === 'scan') {
     void loadScanPage();
     return;
   }
-  if (page === 'my-scans') {
-    void loadMyScansPage();
+  if (page === 'investigations') {
+    void loadInvestigationsPage();
     return;
   }
   if (page === 'history') {
@@ -80,14 +80,14 @@ function AppContent() {
               <Button
                 type="button"
                 className=""
-                variant={activePage === 'my-scans' ? 'secondary' : 'ghost'}
+                variant={activePage === 'investigations' ? 'secondary' : 'ghost'}
                 size="sm"
-                onClick={() => setActivePage('my-scans')}
-                onMouseEnter={() => prefetchPage('my-scans')}
-                onFocus={() => prefetchPage('my-scans')}
-                aria-current={activePage === 'my-scans' ? 'page' : undefined}
+                onClick={() => setActivePage('investigations')}
+                onMouseEnter={() => prefetchPage('investigations')}
+                onFocus={() => prefetchPage('investigations')}
+                aria-current={activePage === 'investigations' ? 'page' : undefined}
               >
-                My scans
+                Investigations
               </Button>
             )}
             {isAdmin && (
@@ -200,23 +200,14 @@ function AppContent() {
     );
   }
 
-  if (activePage === 'my-scans') {
+  if (activePage === 'investigations') {
     return (
-      <Suspense fallback={<PageLoadingState label="Loading your scans..." />}>
-        <MyScansPage
+      <Suspense fallback={<PageLoadingState label="Loading investigations..." />}>
+        <InvestigationsPage
           headerActions={headerActions}
           onNavigate={setActivePage}
-          onUseDomain={(domain) => {
-            if (!domain) return;
-            setDomain(domain);
-            setActivePage('scan');
-          }}
-          onRescan={(domain) => {
-            if (!domain) return;
-            setDomain(domain);
-            setActivePage('scan');
-            startScan(domain);
-          }}
+          isAuthenticated={isAuthenticated}
+          onResumeLocal={() => setActivePage('scan')}
         />
       </Suspense>
     );

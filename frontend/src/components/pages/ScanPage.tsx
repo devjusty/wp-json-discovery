@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import AppLayout from '../templates/AppLayout.jsx';
+import AppLayout from '../templates/AppLayout';
 import DomainForm from '../molecules/forms/DomainForm';
 import {
   clearUserRecentRuns,
@@ -18,7 +18,7 @@ import {
   useScanResultsContext,
   useScanShellContext
 } from '../../context/ScanContext';
-import ScanSidebarNav from './scan/ScanSidebarNav.jsx';
+import ScanSidebarNav from './scan/ScanSidebarNav';
 import ScanSectionContent from './scan/ScanSectionContent.jsx';
 import RecentDomainsCard from './scan/RecentDomainsCard.jsx';
 import ScanStatusStack from './scan/ScanStatusStack';

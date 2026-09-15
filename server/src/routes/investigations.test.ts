@@ -3,7 +3,7 @@ process.env.NODE_ENV = 'test';
 import express from 'express';
 import request from 'supertest';
 import { beforeAll, describe, expect, it } from '@jest/globals';
-import createInvestigationRoutes from './investigations.js';
+import createInvestigationRoutes from './investigations.ts';
 import { errorHandler } from '../middleware/errorHandler.js';
 import { execute, queryOne } from '../db/client.js';
 
@@ -11,7 +11,9 @@ function buildApp(user = null) {
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
-    req.user = user;
+    /** @type {typeof req & { user?: typeof user }} */
+    const authenticatedRequest = req;
+    authenticatedRequest.user = user;
     next();
   });
   app.use('/api/investigations', createInvestigationRoutes());
@@ -90,6 +92,54 @@ describe('investigation routes', () => {
     const response = await request(buildApp()).get('/api/investigations/inv-1');
 
     expect(response.status).toBe(401);
+  });
+
+  it('requires authentication for investigation lists', async () => {
+    const response = await request(buildApp()).get('/api/investigations');
+
+    expect(response.status).toBe(401);
+  });
+
+  it('returns authenticated investigation summaries in the existing envelope', async () => {
+    const app = buildApp({ sub: 'route-owner' });
+    const start = await request(app).post('/api/investigations').send({
+      domain: { submitted: 'list-route.example', normalized: 'list-route.example' },
+      selectedCapabilities: [],
+    });
+
+    const response = await request(app).get('/api/investigations');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(expect.objectContaining({ status: 'success', requestId: expect.any(String) }));
+    expect(response.body.data.investigations).toContainEqual(expect.objectContaining({
+      id: start.body.data.investigation.id,
+      domain: { submitted: 'list-route.example', normalized: 'list-route.example' },
+      selectedCapabilityCount: 0,
+      completedCapabilityCount: 0,
+      findingsCount: 0,
+    }));
+    expect(response.body.data.investigations[0]).not.toHaveProperty('ownerId');
+    expect(response.body.data.investigations[0]).not.toHaveProperty('latestSession');
+    expect(response.body.data.investigations[0]).not.toHaveProperty('sessionIds');
+  });
+
+  it('does not include another owner\'s investigation in collection responses', async () => {
+    const otherOwnerApp = buildApp({ sub: 'route-other' });
+    const currentOwnerApp = buildApp({ sub: 'route-owner' });
+    const foreign = await request(otherOwnerApp).post('/api/investigations').send({
+      domain: { submitted: 'foreign-collection.example', normalized: 'https://foreign-collection.example' },
+      selectedCapabilities: [],
+    });
+
+    const response = await request(currentOwnerApp).get('/api/investigations');
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.investigations).not.toContainEqual(expect.objectContaining({
+      id: foreign.body.data.investigation.id,
+    }));
+    expect(response.body.data.investigations).not.toContainEqual(expect.objectContaining({
+      domain: { submitted: 'foreign-collection.example', normalized: 'foreign-collection.example' },
+    }));
   });
 
   it('starts, updates, and reads an authenticated investigation', async () => {

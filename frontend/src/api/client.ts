@@ -1,17 +1,38 @@
 import {
   apiEnvelopeSchema,
+  investigationListSchema,
   investigationRecordSchema,
   sessionRecordSchema
 } from '@wp-json-discovery/contracts';
+import type {
+  DomainIdentity,
+  InvestigationList,
+  InvestigationRecord,
+  SessionRecord,
+  StartInvestigationRequest
+} from '@wp-json-discovery/contracts';
 
-let globalGetAccessToken = null;
-let globalAuthUser = null;
+type TokenProvider = () => Promise<string | null | undefined> | string | null | undefined;
+type AuthUser = { email?: string; name?: string } | null | undefined;
+type AuthUserProvider = () => Promise<AuthUser> | AuthUser;
+type RequestResult = {
+  ok: boolean;
+  status: number;
+  // API payloads are validated by endpoint-specific callers where schemas exist.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: any;
+  contentType: string;
+  headers: Record<string, string>;
+};
 
-export function setTokenProvider(fn) {
+let globalGetAccessToken: TokenProvider | null = null;
+let globalAuthUser: AuthUserProvider | null = null;
+
+export function setTokenProvider(fn: TokenProvider | null) {
   globalGetAccessToken = fn;
 }
 
-export function setAuthUserProvider(fn) {
+export function setAuthUserProvider(fn: AuthUserProvider | null) {
   globalAuthUser = fn;
 }
 
@@ -27,7 +48,7 @@ const ADMIN_API_KEY =
     ? import.meta.env.VITE_ADMIN_API_KEY
     : '';
 
-function shouldAttachAdminKey(path) {
+function shouldAttachAdminKey(path: string) {
   return path === '/api/logs'
     || path.startsWith('/api/logs/')
     || path.startsWith('/api/admin/')
@@ -35,7 +56,7 @@ function shouldAttachAdminKey(path) {
     || path.startsWith('/api/recon-scan/');
 }
 
-async function readResponseBody(response, contentType) {
+async function readResponseBody(response: Response, contentType: string): Promise<unknown> {
   if (contentType.includes('application/json')) {
     try {
       return await response.json();
@@ -47,7 +68,7 @@ async function readResponseBody(response, contentType) {
   return response.text();
 }
 
-export async function request(path, options = {}) {
+export async function request(path: string, options: RequestInit = {}): Promise<RequestResult> {
   const url = `${API_BASE_URL}${path}`;
 
   try {
@@ -118,7 +139,7 @@ export async function request(path, options = {}) {
   }
 }
 
-export async function proxyRequest({ domain, endpoint }) {
+export async function proxyRequest({ domain, endpoint }: { domain: string; endpoint: string }) {
   const searchParams = new URLSearchParams({
     domain,
     endpoint
@@ -137,7 +158,7 @@ export async function fetchUnsupportedPlugins() {
   return result.data;
 }
 
-export async function upsertUnsupportedPlugin(payload) {
+export async function upsertUnsupportedPlugin(payload: { namespace: string; [key: string]: unknown }) {
   const result = await request('/api/unsupported-plugins', {
     method: 'POST',
     body: JSON.stringify(payload)
@@ -152,7 +173,7 @@ export async function upsertUnsupportedPlugin(payload) {
   return result.data;
 }
 
-export async function runHomepageScan(payload) {
+export async function runHomepageScan(payload: unknown) {
   const result = await request('/api/homepage-scan', {
     method: 'POST',
     body: JSON.stringify(payload)
@@ -160,8 +181,8 @@ export async function runHomepageScan(payload) {
 
   if (!result.ok) {
     const message =
-      typeof result.data?.error === 'string'
-        ? result.data.error
+      typeof (result.data as { error?: unknown })?.error === 'string'
+        ? (result.data as { error: string }).error
         : 'Homepage scan failed';
     throw new Error(message);
   }
@@ -169,7 +190,7 @@ export async function runHomepageScan(payload) {
   return result.data;
 }
 
-export async function runSitemapScan(payload) {
+export async function runSitemapScan(payload: unknown) {
   const result = await request('/api/sitemap-scan', {
     method: 'POST',
     body: JSON.stringify(payload)
@@ -182,7 +203,7 @@ export async function runSitemapScan(payload) {
   return result.data;
 }
 
-export async function runReconScan(payload) {
+export async function runReconScan(payload: unknown) {
   const result = await request('/api/recon-scan', {
     method: 'POST',
     body: JSON.stringify(payload)
@@ -190,8 +211,8 @@ export async function runReconScan(payload) {
 
   if (!result.ok) {
     const message =
-      typeof result.data?.error === 'string'
-        ? result.data.error
+      typeof (result.data as { error?: unknown })?.error === 'string'
+        ? (result.data as { error: string }).error
         : 'Domain recon scan failed';
     throw new Error(message);
   }
@@ -199,7 +220,13 @@ export async function runReconScan(payload) {
   return result.data;
 }
 
-export async function fetchScanHistory(options = {}) {
+export async function fetchScanHistory(options: {
+  includeFailed?: boolean;
+  q?: string;
+  sort?: string;
+  limit?: number;
+  offset?: number;
+} = {}) {
   const {
     includeFailed = false,
     q = '',
@@ -225,7 +252,7 @@ export async function fetchScanHistory(options = {}) {
   return result.data;
 }
 
-export async function fetchDomainScanHistory(domain, options = {}) {
+export async function fetchDomainScanHistory(domain: string, options: { includeFailed?: boolean; limit?: number } = {}) {
   const { includeFailed = false, limit = 25 } = options;
   const params = new URLSearchParams({
     includeFailed: includeFailed ? 'true' : 'false',
@@ -291,33 +318,53 @@ export async function clearUserSavedScans() {
   return result.data;
 }
 
-export async function startInvestigation(domain, selectedCapabilities) {
+export async function startInvestigation(
+  domain: DomainIdentity,
+  selectedCapabilities: StartInvestigationRequest['selectedCapabilities']
+): Promise<InvestigationRecord> {
   return requestInvestigation('/api/investigations', {
     method: 'POST',
     body: JSON.stringify({ domain, selectedCapabilities })
   });
 }
 
-export async function fetchInvestigation(investigationId) {
+export async function fetchInvestigation(investigationId: string): Promise<InvestigationRecord> {
   return requestInvestigation(`/api/investigations/${encodeURIComponent(investigationId)}`);
 }
 
-export async function saveInvestigationSession(investigationId, session) {
+/** @returns {Promise<import('@wp-json-discovery/contracts').InvestigationList>} */
+export async function fetchInvestigations(): Promise<InvestigationList> {
+  // Collection endpoint uses same envelope parser with different payload schema.
+  return requestInvestigation('/api/investigations', undefined, investigationListSchema);
+}
+
+export async function saveInvestigationSession(
+  investigationId: string,
+  session: unknown
+): Promise<SessionRecord> {
   return requestInvestigation(
-    `/api/investigations/${encodeURIComponent(investigationId)}/sessions/${encodeURIComponent(session.id)}`,
+    `/api/investigations/${encodeURIComponent(investigationId)}/sessions/${encodeURIComponent((session as { id: string }).id)}`,
     { method: 'POST', body: JSON.stringify({ session }) },
     sessionRecordSchema
   );
 }
 
-export async function claimAnonymousInvestigation(domain, anonymousRecord) {
+export async function claimAnonymousInvestigation(
+  domain: DomainIdentity,
+  anonymousRecord: unknown
+): Promise<InvestigationRecord> {
   return requestInvestigation('/api/investigations/claim', {
     method: 'POST',
     body: JSON.stringify({ domain, anonymousRecord })
   });
 }
 
-async function requestInvestigation(path, options, dataSchema = investigationRecordSchema) {
+async function requestInvestigation<T>(
+  path: string,
+  options?: RequestInit,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dataSchema: { safeParse: (data: unknown) => any } = investigationRecordSchema
+): Promise<T> {
   const result = await request(path, options);
   const envelope = apiEnvelopeSchema.safeParse(result.data);
 
@@ -331,5 +378,5 @@ async function requestInvestigation(path, options, dataSchema = investigationRec
 
   const record = dataSchema.safeParse(envelope.data.data);
   if (!record.success) throw new Error('Invalid investigation response');
-  return record.data;
+  return record.data as T;
 }

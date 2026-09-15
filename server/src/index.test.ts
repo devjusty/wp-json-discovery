@@ -1,6 +1,7 @@
 process.env.NODE_ENV = 'test';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from '@jest/globals';
 import request from 'supertest';
-import app from './index.js';
+import app from './index.ts';
 import { execute, getDb, queryAll } from './db/client.js';
 
 describe('API routes', () => {
@@ -493,9 +494,11 @@ describe('API routes', () => {
     await getDb();
     await execute('delete from activity_logs');
 
-    const oldTimestamp = '2026-05-01T00:00:00.000Z';
-    await execute('insert into activity_logs (timestamp, type, payload_json) values (?, ?, ?)', [oldTimestamp, 'proxy.response', '{"url":"https://example.com"}']);
-    await execute('insert into activity_logs (timestamp, type, payload_json) values (?, ?, ?)', [oldTimestamp, 'metrics.heartbeat', '{"ok":true}']);
+    const now = Date.now();
+    const proxyTimestamp = new Date(now - 8 * 24 * 60 * 60 * 1000).toISOString();
+    const heartbeatTimestamp = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
+    await execute('insert into activity_logs (timestamp, type, payload_json) values (?, ?, ?)', [proxyTimestamp, 'proxy.response', '{"url":"https://example.com"}']);
+    await execute('insert into activity_logs (timestamp, type, payload_json) values (?, ?, ?)', [heartbeatTimestamp, 'metrics.heartbeat', '{"ok":true}']);
 
     const res = await request(app)
       .post('/api/admin/activity/prune')

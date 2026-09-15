@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --watch src/index.js",
+    "dev": "node --watch src/index.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "prestart": "pnpm --filter @wp-json-discovery/contracts run build",
-    "start": "node src/index.js",
+    "start": "node src/index.ts",
     "pretest": "pnpm --filter @wp-json-discovery/contracts run build",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "pretypecheck": "pnpm --filter @wp-json-discovery/contracts run build",
@@ -40,6 +40,7 @@
     "globals": "^17.7.0",
     "jest": "^30.4.2",
     "supertest": "^7.2.2",
-    "typescript": "^7.0.2"
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.70.0"
   }
 }

@@ -1,12 +1,21 @@
-import { useState } from 'react';
-import PropTypes from 'prop-types';
+import { useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import LoginButton from '../atoms/LoginButton.jsx';
-import UserMenu from '../molecules/UserMenu.jsx';
+import UserMenu from '../molecules/UserMenu';
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Telescope01Icon } from "@hugeicons/core-free-icons";
-function AppLayout({ title, subtitle, headerActions, sidebar, children, onNavigate }) {
+
+type AppLayoutProps = {
+  title: string;
+  subtitle?: string;
+  headerActions?: ReactNode;
+  sidebar?: ReactNode;
+  children?: ReactNode;
+  onNavigate?: (page: string) => void;
+};
+
+function AppLayout({ title, subtitle, headerActions, sidebar, children, onNavigate }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const bodyClass = sidebar ? 'app__body' : 'app__body app__body--single';
   const mainClass = sidebar ? 'app__main' : 'app__main app__main--full-width';
@@ -30,7 +39,7 @@ function AppLayout({ title, subtitle, headerActions, sidebar, children, onNaviga
         </div>
         <div className="app__header-right">
           {sidebar ? (
-            <Button type="button" variant="ghost" size="sm" onClick={() => setSidebarOpen(true)}>
+            <Button className="" type="button" variant="ghost" size="sm" onClick={() => setSidebarOpen(true)}>
               Open navigation
             </Button>
           ) : null}
@@ -47,10 +56,10 @@ function AppLayout({ title, subtitle, headerActions, sidebar, children, onNaviga
       </div>
       {sidebar ? (
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-          <SheetContent side="left">
-            <SheetHeader>
-              <SheetTitle>Navigation</SheetTitle>
-              <SheetDescription>Browse primary sections.</SheetDescription>
+          <SheetContent className="" side="left">
+            <SheetHeader className="">
+              <SheetTitle className="">Navigation</SheetTitle>
+              <SheetDescription className="">Browse primary sections.</SheetDescription>
             </SheetHeader>
             <div className="p-4">{sidebar}</div>
           </SheetContent>
@@ -59,14 +68,5 @@ function AppLayout({ title, subtitle, headerActions, sidebar, children, onNaviga
     </div>
   );
 }
-
-AppLayout.propTypes = {
-  title: PropTypes.string.isRequired,
-  subtitle: PropTypes.string,
-  headerActions: PropTypes.node,
-  sidebar: PropTypes.node,
-  children: PropTypes.node,
-  onNavigate: PropTypes.func
-};
 
 export default AppLayout;

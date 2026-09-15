@@ -9,7 +9,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 
-function UserMenu({ onNavigate }) {
+type UserMenuProps = {
+  onNavigate?: (page: string) => void;
+};
+
+function UserMenu({ onNavigate }: UserMenuProps) {
   const { user, logout, isAuthenticated } = useAuth0();
   const [open, setOpen] = useState(false);
   if (!isAuthenticated || !user) {
@@ -35,11 +39,11 @@ function UserMenu({ onNavigate }) {
         <span>{displayName}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-40">
-        <DropdownMenuItem onClick={() => onNavigate?.('my-scans')}>
-          My Scans
+        <DropdownMenuItem className="" inset={false} onClick={() => onNavigate?.('investigations')}>
+          Investigations
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
+        <DropdownMenuSeparator className="" />
+        <DropdownMenuItem className="" inset={false}
           onClick={() => {
             logout({ logoutParams: { returnTo: window.location.origin } });
           }}

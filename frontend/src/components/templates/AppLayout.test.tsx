@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import AppLayout from './AppLayout.jsx';
+import AppLayout from './AppLayout';
 
 describe('AppLayout', () => {
   it('opens sidebar navigation in a shadcn sheet', async () => {

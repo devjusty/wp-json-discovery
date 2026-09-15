@@ -1,6 +1,7 @@
 export default {
   testEnvironment: 'node',
   transform: {},
-  moduleFileExtensions: ['js', 'mjs'],
-  testMatch: ['**/*.test.js'],
+  extensionsToTreatAsEsm: ['.ts'],
+  moduleFileExtensions: ['ts', 'js', 'mjs'],
+  testMatch: ['**/*.test.ts', '**/*.test.js'],
 };

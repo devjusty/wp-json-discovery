@@ -17,8 +17,8 @@ import { Button } from '@/components/ui/button.jsx';
 import { Separator } from '@/components/ui/separator.jsx';
 import { getSectionCapabilityId } from '../../../services/scanCapabilities.js';
 
-const loadAdminPage = () => import('../AdminPage.jsx');
-const loadHistoryPage = () => import('../HistoryPage.jsx');
+const loadAdminPage = () => import('../AdminPage');
+const loadHistoryPage = () => import('../HistoryPage');
 
 const SCAN_SECTIONS = [
   { id: "overview", label: "Overview", requiresScan: true },
@@ -85,7 +85,7 @@ function ScanSidebarNav({
             );
           })}
           <li>
-            <Separator />
+            <Separator className="" />
           </li>
           {onOpenHistory && (
             <li>

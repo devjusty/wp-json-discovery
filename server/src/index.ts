@@ -30,7 +30,7 @@ import { wrapAsync } from './utils/route.js';
 import createUserScanRoutes from './routes/userScans.js';
 import createUserNotesRoutes from './routes/userNotes.js';
 import createUserMeRoute from './routes/userMe.js';
-import createInvestigationRoutes from './routes/investigations.js';
+import createInvestigationRoutes from './routes/investigations.ts';
 import { getDb, queryAll, queryOne } from './db/client.js';
 import {
   assertPluginRegistryReady,
@@ -396,7 +396,7 @@ app.post('/api/unsupported-plugins', (req, res, next) => {
       mode,
       domainsTracked
     });
-  } catch (_error) {
+  } catch {
     const saveError = new AppError('Failed to save unsupported plugin', 500);
     throw saveError;
   }
@@ -412,8 +412,9 @@ app.post('/api/logs', wrapAsync(async (req, res) => {
   try {
     const normalizedType = type.trim();
     const normalizedPayload = normalizeClientLogPayload(normalizedType, payload);
-    if (req.user?.sub) {
-      normalizedPayload.userId = req.user.sub;
+    const user = req.user;
+    if (user?.sub) {
+      Object.assign(normalizedPayload, { userId: user.sub });
     }
 
     await recordLog(normalizedType, normalizedPayload);
@@ -894,8 +895,8 @@ app.post('/api/admin/db/maintenance', wrapAsync(async (_req, res) => {
   const db = await getDb();
 
   let integrity = { ok: false, status: null, error: null };
-  let vacuumRan = false;
-  let walCheckpoint = {
+  const vacuumRan = false;
+  const walCheckpoint = {
     skipped: true,
     reason: 'not_applicable_for_turso'
   };

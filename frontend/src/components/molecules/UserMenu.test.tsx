@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import UserMenu from './UserMenu.jsx';
+import UserMenu from './UserMenu';
 
 const logout = vi.fn();
 
@@ -26,9 +26,9 @@ describe('UserMenu', () => {
     await user.click(screen.getByRole('button', { name: /justin example/i }));
 
     expect(screen.getByRole('menu')).toHaveAttribute('data-slot', 'dropdown-menu-content');
-    await user.click(screen.getByRole('menuitem', { name: 'My Scans' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Investigations' }));
 
-    expect(onNavigate).toHaveBeenCalledWith('my-scans');
+    expect(onNavigate).toHaveBeenCalledWith('investigations');
   });
 
   it('logs out from the dropdown menu', async () => {

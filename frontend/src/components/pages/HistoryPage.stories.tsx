@@ -3,7 +3,7 @@ import { Auth0Provider } from '@auth0/auth0-react';
 import { fn, expect, userEvent, within } from 'storybook/test';
 import { http, HttpResponse } from 'msw';
 
-import HistoryPage from './HistoryPage.jsx';
+import HistoryPage from './HistoryPage';
 
 function withProviders(Story) {
   const StoryComponent = Story;
