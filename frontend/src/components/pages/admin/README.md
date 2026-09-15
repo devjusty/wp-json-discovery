@@ -4,7 +4,7 @@ This folder is organized to keep the admin page maintainable as sections and edi
 
 ## Files at a glance
 
-- `AdminPage.jsx`
+- `AdminPage.tsx`
   - Top-level page orchestration.
   - Owns high-level UI state (active section, filters, expanded rows).
   - Wires query hooks, derived data hooks, and section state builder.

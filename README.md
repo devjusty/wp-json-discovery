@@ -24,7 +24,7 @@ WP JSON Discovery is a Vite-powered React application backed by a lightweight Ex
 ```text
 root/
 ├── server/               # Express proxy + persistence (incrementally migrating to TypeScript)
-│   ├── src/index.ts      # REST proxy, unsupported plugin API, logging
+│   ├── src/index.ts      # REST proxy, investigations, unsupported plugin API, logging
 │   ├── src/logger.js     # JSONL logger utility
 │   ├── src/db/           # libSQL/Turso client, migrations, maintenance scripts
 │   └── data/             # Persisted unsupported plugin seeds + logs
@@ -33,7 +33,7 @@ root/
     │   ├── api/          # Client wrappers for proxy + persistence endpoints
     │   ├── components/   # Atomic design layers (atoms, molecules, organisms, templates, pages)
     │   ├── config/       # Core collections + plugin namespace registry
-    │   ├── services/     # Scan orchestration, logging, formatting helpers
+     │   ├── services/     # Scan orchestration, investigation sessions, logging
     │   └── utils/        # CSV export, formatting helpers
     └── public/           # Static assets
 ```
@@ -49,7 +49,7 @@ root/
 ### Admin architecture notes
 
 - Admin responsibilities are documented in `frontend/src/components/pages/admin/README.md`.
-- Use this guide before changing `frontend/src/components/pages/AdminPage.jsx` or adding new admin sections.
+- Use this guide before changing `frontend/src/components/pages/AdminPage.tsx` or adding new admin sections.
 
 ---
 
@@ -108,7 +108,8 @@ The project integrates with several CLIs for setup and operations:
 - **Plugin coverage**: 25+ plugins supported (WooCommerce, Jetpack, Contact Form 7, Ninja Forms, WP Recipe Maker, Wordfence, CleanTalk, WP Engine MU suite, Elementor, WPForms, Rank Math, SEOPress, LearnDash, MemberPress, etc.).
 - **Unsupported namespaces**: Actively tracked; recent scans surfaced Rank Math sub-routes, LiteSpeed cache, Divi, Modern Events Calendar, and WooCommerce telemetry routes for future support.
 - **Logging**: Structured `activity.log` capturing scan lifecycle, proxy timings, persistence, homepage assets, and errors. Auto-repair for malformed JSON store implemented.
-- **UI**: Atomic design refactor completed; scanner shows a persistent four-capability progress summary and resumes saved investigation sessions.
+- **UI**: Atomic design refactor completed; scanner shows a persistent four-capability progress summary, and Investigations resumes local or owned persisted sessions.
+- **Redesign status**: R0, R1 implementation, and R2 implementation are merged. R1 validation remains open pending authorized walkthroughs and currently blocked browser/server test environments; see `docs/research/2026-09-10-r1-validation-log.md`.
 
 ---
 
@@ -152,7 +153,7 @@ Whenever you add new namespaces, run `pnpm --filter frontend run lint` and `pnpm
 
 Current validation:
 
-- `pnpm --filter frontend run lint` – ESLint React rules (passes as of 2025-10-21).
+- `pnpm --filter frontend run lint` – ESLint React rules.
 - `pnpm --filter frontend run build` – production bundle verification.
 - Manual scans against anonymous, auth-gated, and plugin-heavy WordPress domains, with log review.
 

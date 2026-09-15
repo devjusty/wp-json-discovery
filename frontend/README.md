@@ -49,8 +49,8 @@ Follow the atomic boundaries: keep domain logic inside services/config, and rend
 The frontend integrates with Auth0 via `@auth0/auth0-react`. When `VITE_AUTH0_DOMAIN` and `VITE_AUTH0_CLIENT_ID` are configured:
 
 - **Login button** appears in the header for unauthenticated users.
-- **User menu** (avatar + name) appears for authenticated users, with a dropdown to access "My Scans" and "Log out".
-- **Save to My Scans** button appears on ScanPage after a scan completes for authenticated users.
+- **User menu** (avatar + name) appears for authenticated users, with a dropdown to access "Investigations" and "Log out".
+- Authenticated investigations persist canonical scan sessions and appear in the Investigations list for resume.
 - **Note editor** appears on HistoryPage cards when logged in.
 
 The Auth0 Bearer token is automatically attached to `/api/user/*`, `/api/admin/*`, and `/api/logs/*` requests by the API client. Anonymous users can still scan and browse results.

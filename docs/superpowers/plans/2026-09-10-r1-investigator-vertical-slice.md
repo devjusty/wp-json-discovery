@@ -1,5 +1,7 @@
 # R1 Investigator Vertical Slice Implementation Plan
 
+> **Status (2026-09-15):** Implementation merged through the R1 scan-progress and R2 investigation-list work. R1 validation gate remains open; see `docs/research/2026-09-10-r1-validation-log.md` for blocked automated checks and pending live walkthroughs.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build and validate the first investigator workflow: submit a domain, start one canonical scan session, see identity/exposure/actionable findings progressively, retry individual capabilities, and preserve anonymous or authenticated continuity.

@@ -1,5 +1,7 @@
 # R2 Investigation List Implementation Plan
 
+> **Status (2026-09-15):** Implemented and merged in PR #37. Browser smoke validation and broader R1 gate evidence remain separate open work; see `docs/research/2026-09-10-r1-validation-log.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace legacy My Scans with an investigation list that resumes local or owned persisted investigations directly in scanner workspace.

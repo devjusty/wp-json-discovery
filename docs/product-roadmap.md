@@ -60,7 +60,26 @@ Human validation and research remain an explicit open gate before committing to 
 - Batch scanning and queued multi-domain workflows.
 - Full change comparison after stable evidence identifiers exist.
 
-## Current status (March 2026)
+## Current status (September 2026)
+
+The redesign implementation has reached the end of R2. R1's product gate is
+still open: automated evidence is partial and the four authorized live
+walkthroughs have not been recorded. Treat R1/R2 implementation as shipped,
+but do not claim the redesign validation gate has passed.
+
+- **R0**: Capability inventory, contracts, TypeScript boundaries, and runtime
+  validation seams complete.
+- **R1 implementation**: Core scan-to-understanding loop, progressive
+  capability summary, partial failure/retry behavior, evidence labels,
+  anonymous continuity, authenticated persistence, and restored domain header
+  complete.
+- **R2 implementation**: Investigator shell migration and Investigations list
+  with local/persisted resume selection complete. PR #37 merged to `main`.
+- **Validation debt**: Four live walkthroughs remain pending; browser tests
+  need a local Chromium install and aligned Vitest packages; server Jest ESM
+  execution remains blocked. See the [R1 validation log](research/2026-09-10-r1-validation-log.md).
+
+### Legacy platform status
 - Completed:
   - Turso-first persistence migration (unsupported plugins, activity logs, scan history, plugin/theme registries).
   - Scan + History + Admin UI overhaul with dark-default theme and modular sections.
@@ -170,12 +189,10 @@ Human validation and research remain an explicit open gate before committing to 
 - Dependencies: confidence model + evidence storage.
 
 ## Recommended execution sequence
-1. R0 Capability inventory and contracts.
-2. R1 Core scan-to-understanding loop.
-3. R2 Investigator workspace migration.
-4. R3 Admin workspace migration.
-5. Resume validated P0/P1 platform work, including retention guardrails and security-header analysis.
-6. Reconsider deferred options based on adoption and measured workflow friction.
+1. Close R1 validation gate with four authorized walkthroughs and resolve or record each issue.
+2. R3 Admin workspace migration.
+3. Resume validated P0/P1 platform work, including retention guardrails and the dedicated security-header panel.
+4. Reconsider deferred options based on adoption and measured workflow friction.
 
 ## Success metrics
 - Scanner completion rate for initiated runs (target: >98%).

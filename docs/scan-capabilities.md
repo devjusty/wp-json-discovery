@@ -8,6 +8,7 @@ This file summarizes what is currently shipped and what still needs work.
 - Content footprint counts from core collections (`posts`, `pages`, `categories`, `tags`, `media`) using lightweight requests.
 - Exposure probes for common risks (`users`, `settings`, `xmlrpc.php`, uploads indexability, sitemap, robots).
 - Endpoint performance snapshot for home, `/wp-json/`, `xmlrpc.php`, `sitemap.xml`, and `robots.txt`.
+- Canonical investigator sessions with independently observable capability states, partial recovery, retry, and authenticated persistence.
 
 ## Homepage source scan
 
@@ -32,6 +33,13 @@ This file summarizes what is currently shipped and what still needs work.
 - Domains tracked based on scan history (successful and failed attempts).
 - Heartbeat metrics and activity log inspection.
 
+## Investigator workspace
+
+- Direct domain scan with a four-capability progressive summary.
+- Intent-oriented identity, exposure, and actionable finding layers with explicit evidence labels.
+- Browser-local anonymous continuity and authenticated investigation persistence.
+- Investigations list with newest-first owned summaries and local or persisted Resume actions.
+
 ## Logging and retention
 
 - `proxy.response` logs are sampled/gated to reduce noise.
@@ -42,6 +50,7 @@ This file summarizes what is currently shipped and what still needs work.
 ## Known gaps
 
 - Homepage security-header analysis panel (CSP/HSTS/XFO/XCTO/etc.).
+- R1 validation gate: four authorized live walkthroughs and browser/server environment proof remain outstanding.
 - Further error taxonomy refinement (reduce `unknown` category share).
 - Per-event-class retention policies.
 - Asset export workflow (CSV/JSON) for bulk registry updates.

@@ -1,5 +1,7 @@
 # R1 Scan Progress Summary Implementation Plan
 
+> **Status (2026-09-15):** Implemented and merged. Remaining verification is tracked in `docs/research/2026-09-10-r1-validation-log.md`; do not treat this plan note as evidence that the R1 gate passed.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace verbose initial scan status cards with a persistent accessible four-segment summary, restore the current domain in the header, and reduce mobile domain-form height.
