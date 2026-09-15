@@ -2350,7 +2350,7 @@ th.sortable .table__sort:hover {
   --chart-3: oklch(0.546 0.245 262.881);
   --chart-4: oklch(0.488 0.243 264.376);
   --chart-5: oklch(0.424 0.199 265.638);
-  --radius: 10px;
+  --radius: 0px;
   --sidebar: var(--color-sidebar-bg);
   --sidebar-foreground: var(--color-sidebar-text);
   --sidebar-primary: var(--color-primary);
