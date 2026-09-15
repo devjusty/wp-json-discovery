@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import AppLayout from '../templates/AppLayout.jsx';
-import DomainForm from '../molecules/forms/DomainForm.jsx';
+import DomainForm from '../molecules/forms/DomainForm';
 import {
   clearUserRecentRuns,
   fetchUnsupportedPlugins,
@@ -17,11 +17,11 @@ import {
 import {
   useScanResultsContext,
   useScanShellContext
-} from '../../context/ScanContext.jsx';
+} from '../../context/ScanContext';
 import ScanSidebarNav from './scan/ScanSidebarNav.jsx';
 import ScanSectionContent from './scan/ScanSectionContent.jsx';
 import RecentDomainsCard from './scan/RecentDomainsCard.jsx';
-import ScanStatusStack from './scan/ScanStatusStack.jsx';
+import ScanStatusStack from './scan/ScanStatusStack';
 import { mergeRecentScans } from '../../utils/scanFeed.js';
 import {
   createInvestigationSession,
@@ -50,7 +50,8 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
     domain,
     handleDomainChange: onDomainChange,
     setActivePage,
-    activeDomain
+    activeDomain,
+    setInvestigatorDomain
   } = useScanShellContext();
   const {
     session,
@@ -110,12 +111,13 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
       if (!isAuthenticated) {
         const hydrated = hydrateSession(snapshot.record.session, snapshot.domain, scanSettings.options, true);
         setInvestigatorSession(hydrated);
+        onDomainChange(snapshot.domain.submitted);
+        setInvestigatorDomain(snapshot.domain.normalized);
         if (hydrated !== snapshot.record.session) void persistInvestigatorSession(hydrated, snapshot.domain);
       }
     }
     // Snapshot selection options are restored from persisted scan settings when
     // engine-private selection metadata was not serialized.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, persistInvestigatorSession]);
 
   useEffect(() => {
@@ -131,6 +133,8 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
         if (!record.latestSession) throw new Error('Saved investigation has no resumable session');
         const hydrated = hydrateSession(record.latestSession, record.investigation.domain, {}, true);
         setInvestigatorSession(hydrated);
+        onDomainChange(record.investigation.domain.submitted);
+        setInvestigatorDomain(record.investigation.domain.normalized);
         if (hydrated !== record.latestSession) void persistInvestigatorSession(hydrated, record.investigation.domain);
       })
       .catch((error) => {
@@ -148,9 +152,11 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
     setIsStartingInvestigation(true);
     setInvestigatorError('');
     const identity = { submitted: submittedValue, normalized: normalizeDomain(normalizedValue) };
+    onDomainChange(identity.submitted);
+    setInvestigatorDomain(identity.normalized);
     const selection = getInvestigatorSelection();
     try {
-      let investigationId = globalThis.crypto?.randomUUID?.() ?? `anonymous-${Date.now()}`;
+       let investigationId: string = globalThis.crypto?.randomUUID?.() ?? `anonymous-${Date.now()}`;
       let sessionId = `session-${Date.now()}`;
       const nextSession = createInvestigationSession({ investigationId, domain: identity, selection });
       nextSession.id = sessionId;
@@ -245,6 +251,8 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
         if (record.latestSession) {
           const hydrated = hydrateSession(record.latestSession, record.investigation.domain, {}, true);
           setInvestigatorSession(hydrated);
+          onDomainChange(record.investigation.domain.submitted);
+          setInvestigatorDomain(record.investigation.domain.normalized);
           if (hydrated !== record.latestSession) void persistInvestigatorSession(hydrated, record.investigation.domain);
         }
       }
@@ -454,7 +462,7 @@ function bridgeInvestigatorSession(session) {
     domain: session.domain.normalized,
     selection,
     overallStatus: session.status === 'completed' ? 'complete' : session.status === 'failed' ? 'incomplete' : session.status,
-    capabilities: Object.fromEntries(Object.entries(session.capabilityStates).map(([id, state]) => [id, {
+    capabilities: Object.fromEntries(Object.entries(session.capabilityStates as Record<string, { status: string; outcome?: { result?: unknown; error?: { message?: string; code?: string; retryable?: boolean } | null } }>).map(([id, state]) => [id, {
       status: state.status,
       result: state.outcome?.result ?? null,
       error: state.outcome?.error ?? null

@@ -4,7 +4,7 @@ import {
   ScanProvider,
   useScanResultsContext,
   useScanShellContext
-} from './ScanContext.jsx';
+} from './ScanContext';
 
 const mocks = vi.hoisted(() => ({
   loadScanPreferences: vi.fn(),
@@ -120,6 +120,28 @@ describe('ScanProvider', () => {
       },
       { submitted: 'example.com', normalized: 'example.com' }
     );
+  });
+
+  it('exposes investigator domain through unified current scan state', () => {
+    const { result } = renderHook(useScanContext, { wrapper });
+
+    expect(result.current.shell.currentScanDomain).toBe('');
+    act(() => {
+      result.current.shell.setInvestigatorDomain('investigated.example');
+    });
+
+    expect(result.current.shell.currentScanDomain).toBe('investigated.example');
+  });
+
+  it('prefers active investigator domain over stale legacy scan domain', () => {
+    mocks.useScan.mockReturnValue(createCoordinator({ activeDomain: 'old.example' }));
+    const { result } = renderHook(useScanContext, { wrapper });
+
+    act(() => {
+      result.current.shell.setInvestigatorDomain('new.example');
+    });
+
+    expect(result.current.shell.currentScanDomain).toBe('new.example');
   });
 
   it('exposes session capabilities without privileged Capability projections', () => {

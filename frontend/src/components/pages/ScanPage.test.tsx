@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import ScanPage from './ScanPage.jsx';
+import ScanPage from './ScanPage';
 import { clearUserRecentRuns } from '../../api/client.js';
 
 const mocks = vi.hoisted(() => ({
@@ -29,7 +29,8 @@ const mocks = vi.hoisted(() => ({
   loadAuthenticatedInvestigationId: vi.fn(() => null),
   saveAuthenticatedInvestigationId: vi.fn(),
   saveAnonymousInvestigation: vi.fn(),
-  removeAnonymousInvestigation: vi.fn()
+  removeAnonymousInvestigation: vi.fn(),
+  setInvestigatorDomain: vi.fn()
 }));
 
 vi.mock('../templates/AppLayout.jsx', () => ({
@@ -42,17 +43,18 @@ vi.mock('../templates/AppLayout.jsx', () => ({
   )
 }));
 
-vi.mock('../molecules/forms/DomainForm.jsx', () => ({
+vi.mock('../molecules/forms/DomainForm', () => ({
   default: mocks.domainForm
 }));
 
-vi.mock('../../context/ScanContext.jsx', () => ({
+vi.mock('../../context/ScanContext', () => ({
   useScanShellContext: () => ({
     domain: 'example.com',
     handleDomainChange: vi.fn(),
     setActivePage: vi.fn(),
     startScan: mocks.startScan,
-    activeDomain: 'example.com'
+    activeDomain: 'example.com',
+    setInvestigatorDomain: mocks.setInvestigatorDomain
   }),
   useScanResultsContext: () => mocks.scanResults
 }));
@@ -103,7 +105,7 @@ vi.mock('./scan/RecentDomainsCard.jsx', () => ({
   )
 }));
 
-vi.mock('./scan/ScanStatusStack.jsx', () => ({
+vi.mock('./scan/ScanStatusStack', () => ({
   default: ({ session, onRetryCapability }) => session?.capabilityStates ? (
     <div>
       <p data-testid="session-domain">{session.domain?.normalized}</p>
@@ -184,6 +186,7 @@ describe('ScanPage', () => {
     mocks.saveAuthenticatedInvestigationId.mockReset();
     mocks.saveAnonymousInvestigation.mockReset();
     mocks.removeAnonymousInvestigation.mockReset();
+    mocks.setInvestigatorDomain.mockReset();
     mocks.scanResults = createScanResults();
   });
 
@@ -386,6 +389,7 @@ describe('ScanPage', () => {
     render(<QueryClientProvider client={new QueryClient()}><ScanPage /></QueryClientProvider>);
 
     await waitFor(() => expect(mocks.saveAnonymousInvestigation).toHaveBeenCalledWith(expect.objectContaining({ session: recovered })));
+    expect(mocks.setInvestigatorDomain).toHaveBeenCalledWith('example.com');
     expect(mocks.runInvestigationSession).not.toHaveBeenCalled();
   });
 
@@ -620,6 +624,7 @@ describe('ScanPage', () => {
     await user.click(screen.getByRole('button', { name: /import this investigation/i }));
 
     expect(await screen.findByText('WordPress API: Complete')).toBeInTheDocument();
+    expect(mocks.setInvestigatorDomain).toHaveBeenCalledWith('example.com');
     expect(mocks.saveAuthenticatedInvestigationId).toHaveBeenCalledWith('claimed-investigation');
     expect(mocks.removeAnonymousInvestigation).toHaveBeenCalledOnce();
   });

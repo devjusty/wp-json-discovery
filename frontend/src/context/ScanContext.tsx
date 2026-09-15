@@ -1,16 +1,63 @@
 import { createContext, useContext, useState, useMemo, useCallback } from 'react';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { useScan } from '../hooks/useScan.js';
 import { normalizeSelection } from '../services/scanCapabilities.js';
 import { loadScanPreferences, saveScanPreferences } from '../services/scanPreferences.js';
 import { normalizeDomain } from '../utils/format.js';
 
-const ScanShellContext = createContext(undefined);
-const ScanResultsContext = createContext(undefined);
+type ScanSettings = {
+  capabilityIds: string[];
+  options: Record<string, Record<string, unknown>>;
+};
 
-export function ScanProvider({ children }) {
+type ScanCapabilityState = {
+  status: string;
+  result?: { domain?: string; [key: string]: unknown } | null;
+  error?: { code?: string; message?: string; retryable?: boolean } | null;
+};
+
+type ScanSession = {
+  domain: string;
+  overallStatus: string;
+  capabilities: Record<string, ScanCapabilityState>;
+  selection?: ScanSettings;
+};
+
+type ScanShellContextValue = {
+  activePage: string;
+  setActivePage: Dispatch<SetStateAction<string>>;
+  domain: string;
+  setDomain: Dispatch<SetStateAction<string>>;
+  startScan: (value: string) => unknown;
+  activeDomain: string;
+  investigatorDomain: string;
+  setInvestigatorDomain: Dispatch<SetStateAction<string>>;
+  currentScanDomain: string;
+  handleDomainChange: (value: string) => void;
+};
+
+type ScanResultsContextValue = {
+  session: ScanSession | null;
+  scanSettings: ScanSettings;
+  updateScanSettings: (next: ScanSettings | ((current: ScanSettings) => ScanSettings)) => void;
+  resetScanSettings: () => void;
+  saveScanDefaults: () => void;
+  startScan: (value: string) => unknown;
+  runCapability: (id: string, options?: Record<string, unknown>) => unknown;
+  retryCapability: (id: string) => unknown;
+  isScanning: boolean;
+};
+
+const ScanShellContext = createContext<ScanShellContextValue | undefined>(undefined);
+const ScanResultsContext = createContext<ScanResultsContextValue | undefined>(undefined);
+
+type ScanProviderProps = { children: ReactNode };
+
+export function ScanProvider({ children }: ScanProviderProps) {
   const [activePage, setActivePage] = useState('scan');
   const [domain, setDomain] = useState('');
-  const [scanSettings, setScanSettings] = useState(() => normalizeSelection(loadScanPreferences()));
+  const [investigatorDomain, setInvestigatorDomain] = useState('');
+  const [scanSettings, setScanSettings] = useState<ScanSettings>(() => normalizeSelection(loadScanPreferences()) as ScanSettings);
 
   const {
     session,
@@ -25,7 +72,7 @@ export function ScanProvider({ children }) {
     setDomain(value);
   }, []);
 
-  const updateScanSettings = useCallback((next) => {
+  const updateScanSettings = useCallback((next: ScanSettings | ((current: ScanSettings) => ScanSettings)) => {
     setScanSettings((current) => normalizeSelection(
       typeof next === 'function' ? next(cloneScanSettings(current)) : next
     ));
@@ -42,6 +89,7 @@ export function ScanProvider({ children }) {
   const handleStartScan = useCallback((value) => {
     const domainIdentity = { submitted: value, normalized: normalizeDomain(value) };
     setDomain(value);
+    setInvestigatorDomain('');
     return startScan(domainIdentity.normalized, normalizeSelection(scanSettings), domainIdentity);
   }, [scanSettings, startScan]);
 
@@ -53,12 +101,16 @@ export function ScanProvider({ children }) {
       setDomain,
       startScan: handleStartScan,
       activeDomain: scanActiveDomain,
+      investigatorDomain,
+      setInvestigatorDomain,
+       currentScanDomain: investigatorDomain || scanActiveDomain,
       handleDomainChange
     }),
     [
       activePage,
       domain,
       scanActiveDomain,
+      investigatorDomain,
       handleStartScan,
       handleDomainChange
     ]
@@ -100,12 +152,11 @@ function cloneScanSettings(settings) {
   return {
     capabilityIds: [...settings.capabilityIds],
     options: Object.fromEntries(
-      Object.entries(settings.options).map(([id, options]) => [id, { ...options }])
+      Object.entries(settings.options).map(([id, options]) => [id, { ...(options as Record<string, unknown>) }])
     )
   };
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export function useScanShellContext() {
   const context = useContext(ScanShellContext);
   if (context === undefined) {
@@ -114,7 +165,6 @@ export function useScanShellContext() {
   return context;
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export function useScanResultsContext() {
   const context = useContext(ScanResultsContext);
   if (context === undefined) {

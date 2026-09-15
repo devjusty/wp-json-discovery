@@ -4,12 +4,12 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import './App.css';
-import { ScanProvider, useScanShellContext } from './context/ScanContext.jsx';
+import { ScanProvider, useScanShellContext } from './context/ScanContext';
 import { useActivityLog } from './hooks/useActivityLog.js';
 import { setTokenProvider, setAuthUserProvider, fetchUserProfile } from './api/client.js';
 import { setScanCapabilityContext } from './services/scanCapabilities.js';
 
-const loadScanPage = () => import('./components/pages/ScanPage.jsx');
+const loadScanPage = () => import('./components/pages/ScanPage');
 const loadAdminPage = () => import('./components/pages/AdminPage.jsx');
 const loadHistoryPage = () => import('./components/pages/HistoryPage.jsx');
 const loadMyScansPage = () => import('./components/pages/MyScansPage.jsx');
@@ -43,12 +43,10 @@ function AppContent() {
     setActivePage,
     setDomain,
     startScan,
-    activeDomain
+    currentScanDomain
   } = useScanShellContext();
   const { isRotatingLogs, rotateLogs } = useActivityLog();
   const { isAuthenticated } = useAuth0();
-  const currentScanDomain = activeDomain || '';
-
   const { data: userProfile } = useQuery({
     queryKey: ['userProfile'],
     queryFn: fetchUserProfile,
@@ -68,6 +66,7 @@ function AppContent() {
           <nav className="app__nav" aria-label="Primary">
             <Button
               type="button"
+              className=""
               variant={activePage === 'scan' ? 'secondary' : 'ghost'}
               size="sm"
               onClick={() => setActivePage('scan')}
@@ -80,6 +79,7 @@ function AppContent() {
             {isAuthenticated && (
               <Button
                 type="button"
+                className=""
                 variant={activePage === 'my-scans' ? 'secondary' : 'ghost'}
                 size="sm"
                 onClick={() => setActivePage('my-scans')}
@@ -93,6 +93,7 @@ function AppContent() {
             {isAdmin && (
               <Button
                 type="button"
+                className=""
                 variant={activePage === 'history' ? 'secondary' : 'ghost'}
                 size="sm"
                 onClick={() => setActivePage('history')}
@@ -106,6 +107,7 @@ function AppContent() {
             {isAdmin && (
               <Button
                 type="button"
+                className=""
                 variant={activePage === 'admin' ? 'secondary' : 'ghost'}
                 size="sm"
                 onClick={() => setActivePage('admin')}
@@ -139,7 +141,7 @@ function AppContent() {
         <div className="app__page-loading" role="status">
           <p>You do not have admin access on this account.</p>
           <div style={{ marginTop: '1rem' }}>
-            <Button type="button" size="sm" onClick={() => setActivePage('scan')}>
+            <Button type="button" className="" size="sm" onClick={() => setActivePage('scan')}>
               Back to main view
             </Button>
           </div>
@@ -170,7 +172,7 @@ function AppContent() {
         <div className="app__page-loading" role="status">
           <p>Full scan history is available for admin users only.</p>
           <div style={{ marginTop: '1rem' }}>
-            <Button type="button" size="sm" onClick={() => setActivePage('scan')}>
+            <Button type="button" className="" size="sm" onClick={() => setActivePage('scan')}>
               Back to main view
             </Button>
           </div>

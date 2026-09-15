@@ -1,4 +1,4 @@
-import ScanStatusStack from './ScanStatusStack.jsx';
+import ScanStatusStack from './ScanStatusStack';
 
 export default {
   component: ScanStatusStack,
