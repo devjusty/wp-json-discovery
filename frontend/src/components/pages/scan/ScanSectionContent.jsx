@@ -98,6 +98,7 @@ function SwitchBody({
           }))}
           onRun={(options) => onRunCapability(CAPABILITY_IDS.SITEMAP, options)}
           onRetry={() => onRetryCapability(CAPABILITY_IDS.SITEMAP)}
+          baselineAvailable={Boolean(scanResult)}
           sitemapProbe={scanResult?.performance?.sitemap}
           sitemapExposure={scanResult?.exposure?.sitemapXml}
           sitemapFilter={sitemapFilter}

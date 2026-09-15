@@ -127,13 +127,18 @@ export function useScan() {
     return completed;
   };
 
-  const startScan = (domain, selection) => {
+  const startScan = (domain, selection, domainIdentity) => {
     if (activeTokenRef.current) {
       activeTokenRef.current.active = false;
     }
     const token = { active: true };
     activeTokenRef.current = token;
-    const nextSession = createScanSession(domain, selection, getCapabilityDependencies());
+    const nextSession = createScanSession(
+      domain,
+      selection,
+      getCapabilityDependencies(),
+      domainIdentity ?? { submitted: domain, normalized: domain }
+    );
     publishSession(nextSession, token, nextSession.selection.capabilityIds, true);
     logEvent('scan.started', { domain, triggeredAt: new Date().toISOString() });
     return execute(nextSession, nextSession.selection.capabilityIds, token);
@@ -155,7 +160,12 @@ export function useScan() {
         [id]: { ...current.selection.options[id], ...options }
       }
     });
-    const nextSession = createScanSession(current.domain, selection, getCapabilityDependencies());
+    const nextSession = createScanSession(
+      current.domain,
+      selection,
+      getCapabilityDependencies(),
+      current.domainIdentity
+    );
     nextSession.capabilities = {
       ...nextSession.capabilities,
       ...current.capabilities,
@@ -227,7 +237,7 @@ export function mergeSession(current, next, updatedCapabilityIds) {
     return [id, capability];
   }));
 
-  return {
+  const merged = {
     ...next,
     selection: {
       capabilityIds,
@@ -236,6 +246,11 @@ export function mergeSession(current, next, updatedCapabilityIds) {
     capabilities,
     overallStatus: getOverallStatus(capabilities)
   };
+  Object.defineProperty(merged, 'domainIdentity', {
+    value: next.domainIdentity ?? current.domainIdentity,
+    enumerable: false
+  });
+  return merged;
 }
 
 function isTerminal(status) {

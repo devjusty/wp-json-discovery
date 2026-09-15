@@ -27,6 +27,78 @@ describe('ScanStatusStack', () => {
     expect(screen.getByText('other: Not run')).toBeInTheDocument();
   });
 
+  it.each([
+    {
+      name: 'homepage-only success',
+      capabilityStates: {
+        homepage: { status: 'success', outcome: { status: 'success', result: {}, error: null } }
+      }
+    },
+    {
+      name: 'wordpress success without identity',
+      capabilityStates: {
+        wordpress: { status: 'success', outcome: { status: 'success', result: {}, error: null } }
+      }
+    },
+    {
+      name: 'non-WordPress result',
+      capabilityStates: {
+        wordpress: { status: 'failed', outcome: { status: 'failed', result: null, error: { message: 'Not WordPress' } } },
+        homepage: { status: 'success', outcome: { status: 'success', result: {}, error: null } }
+      }
+    }
+  ])('keeps identity neutral for $name', ({ capabilityStates }) => {
+    render(<ScanStatusStack session={{ domain: { normalized: 'example.com' }, status: 'completed', capabilityStates }} />);
+
+    expect(screen.getByText('Identity: awaiting evidence')).toBeInTheDocument();
+    expect(screen.queryByText('Identity: observed')).not.toBeInTheDocument();
+  });
+
+  it('shows observed identity only from canonical WordPress identity evidence', () => {
+    render(<ScanStatusStack session={{
+      domain: { normalized: 'example.com' },
+      status: 'completed',
+      capabilityStates: {
+        wordpress: {
+          status: 'success',
+          outcome: {
+            status: 'success',
+            result: {
+              identity: {
+                value: 'WordPress',
+                evidence: [{ id: 'wordpress-identity', capabilityId: 'wordpress', locator: '/wp-json/' }],
+                evidenceLevel: 'observed'
+              }
+            },
+            error: null
+          }
+        }
+      }
+    }} />);
+
+    expect(screen.getByText('Identity: observed')).toBeInTheDocument();
+  });
+
+  it('keeps identity neutral when recognized identity metadata has no evidence references', () => {
+    render(<ScanStatusStack session={{
+      domain: { normalized: 'example.com' },
+      status: 'completed',
+      capabilityStates: {
+        wordpress: {
+          status: 'success',
+          outcome: {
+            status: 'success',
+            result: { identity: { value: 'WordPress', evidenceLevel: 'observed', evidence: [] } },
+            error: null
+          }
+        }
+      }
+    }} />);
+
+    expect(screen.getByText('Identity: awaiting evidence')).toBeInTheDocument();
+    expect(screen.queryByText('Identity: observed')).not.toBeInTheDocument();
+  });
+
   it('renders auth hints when scan requires auth', () => {
     render(
       <ScanStatusStack
@@ -71,5 +143,78 @@ describe('ScanStatusStack', () => {
     expect(screen.getByText('Homepage request failed')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Retry Homepage' }));
     expect(retryCapability).toHaveBeenCalledWith('homepage');
+  });
+
+  it('uses stable investigator labels and retries runner-unavailable capabilities', () => {
+    render(
+      <ScanStatusStack
+        session={{
+          domain: { normalized: 'example.com' },
+          status: 'completed',
+          capabilityStates: {
+            wordpress: { status: 'success', outcome: { status: 'success', result: {}, error: null }, retry: { status: 'not-retryable' } },
+            homepage: { status: 'unavailable', outcome: { status: 'unavailable', result: null, error: { code: 'runner_unavailable', message: 'No homepage runner', retryable: true } }, retry: { status: 'not-retryable' } }
+          }
+        }}
+        retryingCapabilityId="homepage"
+      />
+    );
+
+    expect(screen.getByText('WordPress API: Complete')).toBeInTheDocument();
+    expect(screen.getByText('Homepage: Unavailable')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry homepage/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry homepage/i })).toBeDisabled();
+  });
+
+  it('does not infer retryability from unavailable status', () => {
+    render(
+      <ScanStatusStack
+        session={{
+          domain: { normalized: 'example.com' },
+          status: 'completed',
+          capabilityStates: {
+            sitemap: { status: 'unavailable', outcome: { status: 'unavailable', result: null, error: { code: 'dependency_unavailable', message: 'Dependency unavailable', retryable: false } }, retry: { status: 'not-retryable' } }
+          }
+        }}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: /retry sitemap/i })).not.toBeInTheDocument();
+  });
+
+  it('requires retryable metadata to be the canonical boolean true', () => {
+    render(
+      <ScanStatusStack
+        session={{
+          domain: { normalized: 'example.com' },
+          status: 'completed',
+          capabilityStates: {
+            homepage: { status: 'failed', outcome: { status: 'failed', result: null, error: { code: 'malformed', message: 'Malformed retry metadata', retryable: 'true' } }, retry: { status: 'not-retryable' } }
+          }
+        }}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: /retry homepage/i })).not.toBeInTheDocument();
+  });
+
+  it('retries retryable unavailable investigator capabilities', async () => {
+    const retryCapability = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ScanStatusStack
+        session={{
+          domain: { normalized: 'example.com' },
+          status: 'completed',
+          capabilityStates: {
+            sitemap: { status: 'unavailable', outcome: { status: 'unavailable', result: null, error: { code: 'temporary', message: 'Try again', retryable: true } }, retry: { status: 'retryable' } }
+          }
+        }}
+        onRetryCapability={retryCapability}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Retry Sitemap' }));
+    expect(retryCapability).toHaveBeenCalledWith('sitemap');
   });
 });

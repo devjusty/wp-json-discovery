@@ -8,7 +8,9 @@ import {
   capabilityOutcomeSchema,
   capabilitySelectionSchema,
   capabilityStateSchema,
+  sessionCapabilityStateSchema,
   capabilityStatusSchema,
+  claimInvestigationRequestSchema,
   dependencyStateSchema,
   domainIdentitySchema,
   evidenceReferenceSchema,
@@ -27,6 +29,13 @@ import {
 const timestamp = '2026-09-09T12:00:00.000Z';
 
 describe('domain identity', () => {
+  it('keeps submitted and normalized domain identity distinct', () => {
+    expect(domainIdentitySchema.parse({
+      submitted: ' HTTPS://Example.com/ ',
+      normalized: 'https://example.com',
+    })).toEqual({ submitted: ' HTTPS://Example.com/ ', normalized: 'https://example.com' });
+  });
+
   it('accepts submitted and normalized values', () => {
     expect(
       domainIdentitySchema.safeParse({
@@ -48,6 +57,14 @@ describe('domain identity', () => {
 });
 
 describe('capability outcomes', () => {
+  it('accepts partial evidence with an explicit structured error', () => {
+    expect(capabilityOutcomeSchema.safeParse({
+      status: 'partial',
+      result: { finding: 'x' },
+      error: { code: 'blocked', message: 'Blocked', retryable: false },
+    }).success).toBe(true);
+  });
+
   it('accepts success, failed, unavailable, and partial outcomes', () => {
     expect(
       capabilityOutcomeSchema.safeParse({ status: 'success', result: { links: 3 }, error: null })
@@ -179,6 +196,43 @@ describe('scan sessions', () => {
     ).toBe(true);
   });
 
+  it('rejects a complete session with any non-success capability', () => {
+    expect(scanSessionSchema.safeParse({
+      id: 'session-invalid-complete',
+      investigationId: 'investigation-1',
+      status: 'completed',
+      startedAt: timestamp,
+      completedAt: timestamp,
+      selectedCapabilities,
+      capabilityStates: {
+        html: {
+          status: 'failed',
+          outcome: {
+            status: 'failed',
+            result: null,
+            error: { code: 'FAILED', message: 'HTML failed', retryable: false },
+          },
+          retry: { status: 'not-retryable' },
+        },
+        'wp-json': {
+          status: 'unavailable',
+          outcome: {
+            status: 'unavailable',
+            result: null,
+            error: { code: 'DEPENDENCY_FAILED', message: 'HTML failed', retryable: false },
+          },
+          dependency: {
+            status: 'failed',
+            dependencyId: 'html',
+            error: { code: 'FAILED', message: 'Dependency failed', retryable: false },
+          },
+          retry: { status: 'not-retryable' },
+        },
+      },
+      overall: { status: 'complete' },
+    }).success).toBe(false);
+  });
+
   it('accepts provider-unavailable capabilities without dependency state', () => {
     expect(capabilityStateSchema.safeParse({
       status: 'unavailable',
@@ -190,14 +244,25 @@ describe('scan sessions', () => {
     }).success).toBe(true);
   });
 
-  it('accepts retrying unavailable capabilities', () => {
+  it('rejects retryable unavailable capabilities in generic state contract', () => {
     expect(capabilityStateSchema.safeParse({
       status: 'unavailable',
       outcome: {
         status: 'unavailable', result: null,
-        error: { code: 'RUNNER_UNAVAILABLE', message: 'Runner unavailable', retryable: false },
+        error: { code: 'RUNNER_UNAVAILABLE', message: 'Runner unavailable', retryable: true },
       },
       retry: { status: 'retrying', attempt: 1, nextAttemptAt: timestamp },
+    }).success).toBe(false);
+  });
+
+  it('accepts retryable unavailable capabilities in session state contract', () => {
+    expect(sessionCapabilityStateSchema.safeParse({
+      status: 'unavailable',
+      outcome: {
+        status: 'unavailable', result: null,
+        error: { code: 'RUNNER_UNAVAILABLE', message: 'Runner unavailable', retryable: true },
+      },
+      retry: { status: 'not-retryable' },
     }).success).toBe(true);
   });
 
@@ -544,5 +609,45 @@ describe('persisted records', () => {
 
   it('rejects malformed persisted records', () => {
     expect(persistedRecordSchema.safeParse({ recordType: 'session', session: {} }).success).toBe(false);
+  });
+
+  it('accepts a claim request containing only an anonymous persisted record', () => {
+    expect(claimInvestigationRequestSchema.safeParse({
+      domain: { submitted: 'example.com', normalized: 'https://example.com' },
+      anonymousRecord: {
+        recordType: 'session',
+        session,
+        persistedAt: timestamp,
+      },
+    }).success).toBe(true);
+  });
+
+  it('rejects a claim request with a target user identity in its body', () => {
+    expect(claimInvestigationRequestSchema.safeParse({
+      domain: { submitted: 'example.com', normalized: 'https://example.com' },
+      anonymousRecord: {
+        recordType: 'session',
+        session,
+        persistedAt: timestamp,
+      },
+      ownerId: 'user-from-request',
+    }).success).toBe(false);
+  });
+
+  it('rejects a claim request with an owner-bearing investigation record', () => {
+    expect(claimInvestigationRequestSchema.safeParse({
+      domain: { submitted: 'example.com', normalized: 'https://example.com' },
+      anonymousRecord: {
+        recordType: 'investigation',
+        investigation: {
+          id: 'investigation-attacker',
+          ownerId: 'attacker-controlled-owner',
+          domain: { submitted: 'example.com', normalized: 'https://example.com' },
+        },
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        sessionIds: ['session-1'],
+      },
+    }).success).toBe(false);
   });
 });

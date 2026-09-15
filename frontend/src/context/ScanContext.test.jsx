@@ -112,10 +112,14 @@ describe('ScanProvider', () => {
       result.current.shell.startScan('example.com');
     });
 
-    expect(coordinator.startScan).toHaveBeenCalledWith('example.com', {
-      capabilityIds: ['homepage', 'wordpress'],
-      options: { homepage: {}, wordpress: {} }
-    });
+    expect(coordinator.startScan).toHaveBeenCalledWith(
+      'example.com',
+      {
+        capabilityIds: ['homepage', 'wordpress'],
+        options: { homepage: {}, wordpress: {} }
+      },
+      { submitted: 'example.com', normalized: 'example.com' }
+    );
   });
 
   it('exposes session capabilities without privileged Capability projections', () => {

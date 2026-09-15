@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useMemo, useCallback } from 'react
 import { useScan } from '../hooks/useScan.js';
 import { normalizeSelection } from '../services/scanCapabilities.js';
 import { loadScanPreferences, saveScanPreferences } from '../services/scanPreferences.js';
+import { normalizeDomain } from '../utils/format.js';
 
 const ScanShellContext = createContext(undefined);
 const ScanResultsContext = createContext(undefined);
@@ -39,8 +40,9 @@ export function ScanProvider({ children }) {
   }, []);
 
   const handleStartScan = useCallback((value) => {
+    const domainIdentity = { submitted: value, normalized: normalizeDomain(value) };
     setDomain(value);
-    return startScan(value, normalizeSelection(scanSettings));
+    return startScan(domainIdentity.normalized, normalizeSelection(scanSettings), domainIdentity);
   }, [scanSettings, startScan]);
 
   const shellValue = useMemo(

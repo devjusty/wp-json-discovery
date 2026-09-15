@@ -2,6 +2,7 @@ import { createClient } from '@libsql/client';
 
 let clientInstance = null;
 let migrationsPromise = null;
+let localTransactionQueue = Promise.resolve();
 
 const MIGRATIONS = [
   {
@@ -152,6 +153,59 @@ const MIGRATIONS = [
       `alter table scan_runs add column user_id text;`,
       `create index if not exists idx_scan_runs_user_id on scan_runs(user_id);`
     ]
+  },
+  {
+    version: 7,
+    statements: [
+      `
+      create table if not exists investigations (
+        id text primary key,
+        owner_id text references users(id) on delete cascade,
+        submitted_domain text not null,
+        normalized_domain text not null,
+        created_at text not null,
+        updated_at text not null
+      );
+      `,
+      `
+      create table if not exists investigation_sessions (
+        id text primary key,
+        investigation_id text not null references investigations(id) on delete cascade,
+        sequence integer not null,
+        snapshot_json text not null,
+        persisted_at text not null,
+        unique(investigation_id, sequence)
+      );
+      `,
+      `create index if not exists idx_investigations_owner on investigations(owner_id);`,
+      `create index if not exists idx_investigation_sessions_investigation on investigation_sessions(investigation_id, sequence);`
+    ]
+  },
+  {
+    version: 8,
+    statements: [
+      `alter table investigation_sessions add column session_id text;`,
+      `update investigation_sessions set session_id = id where session_id is null;`,
+      `create index if not exists idx_investigation_sessions_logical_session on investigation_sessions(investigation_id, session_id, sequence);`
+    ]
+  },
+  {
+    version: 9,
+    statements: [
+      // Deployment invariant: base 4dcb405 has no anonymous investigation
+      // claim producer. Claim replay protection starts at this migration;
+      // existing session rows are ordinary authenticated history and must
+      // not be backfilled into this table.
+      `
+      create table if not exists investigation_claims (
+        session_id text primary key,
+        investigation_id text not null unique references investigations(id) on delete cascade,
+        owner_id text not null references users(id) on delete cascade,
+        claimed_at text not null
+      );
+      `,
+      `create index if not exists idx_investigation_claims_owner on investigation_claims(owner_id);`
+    ]
   }
 ];
 
@@ -227,6 +281,7 @@ async function applyMigrations(client) {
 
 export async function getDb() {
   if (clientInstance) {
+    await migrationsPromise;
     return clientInstance;
   }
 
@@ -269,4 +324,40 @@ export async function execute(sql, args = []) {
         ? null
         : Number(result.lastInsertRowid)
   };
+}
+
+export async function executeBatch(statements) {
+  const db = await getDb();
+  return db.batch(statements, 'write');
+}
+
+export async function executeTransaction(work) {
+  const db = await getDb();
+  if (db.protocol === 'file') {
+    const run = localTransactionQueue.then(async () => {
+      await db.execute('begin immediate');
+      try {
+        const result = await work(db);
+        await db.execute('commit');
+        return result;
+      } catch (error) {
+        await db.execute('rollback');
+        throw error;
+      }
+    });
+    localTransactionQueue = run.catch(() => {});
+    return run;
+  }
+
+  const transaction = await db.transaction('write');
+  try {
+    const result = await work(transaction);
+    await transaction.commit();
+    return result;
+  } catch (error) {
+    await transaction.rollback();
+    throw error;
+  } finally {
+    transaction.close();
+  }
 }

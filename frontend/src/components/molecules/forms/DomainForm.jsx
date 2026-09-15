@@ -48,7 +48,7 @@ function DomainForm({
       return;
     }
 
-    onSubmit(normalized);
+    onSubmit(normalized, value);
   };
 
   const isValidDomain = Boolean(normalizeDomain(value));
