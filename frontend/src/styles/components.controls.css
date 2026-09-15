@@ -5,7 +5,9 @@
   font-size: var(--font-size-base);
   background: var(--color-surface-tint);
   color: var(--color-ink);
-  transition: border 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .text-input--md {
@@ -37,7 +39,10 @@
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
-  transition: background 0.2s ease, border 0.2s ease, color 0.2s ease;
+  transition:
+    background 0.2s ease,
+    border 0.2s ease,
+    color 0.2s ease;
 }
 
 .button--sm {

@@ -133,7 +133,9 @@
 }
 
 .recent-domains-card {
-  transition: border-color 0.2s ease, background 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
 }
 
 .recent-domains-card__status {
@@ -147,7 +149,9 @@
 .recent-domains-card__body {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 250ms ease-out, opacity 250ms ease-out;
+  transition:
+    grid-template-rows 250ms ease-out,
+    opacity 250ms ease-out;
   opacity: 0;
 }
 

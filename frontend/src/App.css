@@ -344,7 +344,9 @@ body {
 [data-slot="collapsible-content"] {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 200ms ease-out, opacity 200ms ease-out;
+  transition:
+    grid-template-rows 200ms ease-out,
+    opacity 200ms ease-out;
   opacity: 0;
 }
 
@@ -1813,8 +1815,12 @@ th.sortable .table__sort:hover {
 }
 
 @keyframes registry-modal-backdrop {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes registry-modal-panel {
@@ -1829,8 +1835,12 @@ th.sortable .table__sort:hover {
 }
 
 @keyframes registry-modal-panel-reduced {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2003,12 +2013,21 @@ th.sortable .table__sort:hover {
 }
 
 @keyframes sitemap-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(0.8); }
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.8);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sitemap-scan__progress-dot { animation: none; }
+  .sitemap-scan__progress-dot {
+    animation: none;
+  }
 }
 
 .sitemap-scan__progress-text {
