@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import AdminPage from './AdminPage.jsx';
+import AdminPage from './AdminPage';
 import {
   fetchDbSnapshot,
   fetchPlugins,
@@ -176,12 +176,12 @@ function buildSnapshot() {
 describe('AdminPage integration', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    fetchDbSnapshot.mockResolvedValue(buildSnapshot());
-    fetchPlugins.mockResolvedValue({ plugins: [] });
-    fetchThemes.mockResolvedValue({ themes: [] });
-    fetchScanHistory.mockResolvedValue({ items: [] });
-    createPlugin.mockResolvedValue({ plugin: { id: 'convertkit' }, plugins: [] });
-    updatePlugin.mockResolvedValue({
+    vi.mocked(fetchDbSnapshot).mockResolvedValue(buildSnapshot());
+    vi.mocked(fetchPlugins).mockResolvedValue({ plugins: [] });
+    vi.mocked(fetchThemes).mockResolvedValue({ themes: [] });
+    vi.mocked(fetchScanHistory).mockResolvedValue({ items: [] });
+    vi.mocked(createPlugin).mockResolvedValue({ plugin: { id: 'convertkit' }, plugins: [] });
+    vi.mocked(updatePlugin).mockResolvedValue({
       plugin: {
         id: 'convertkit',
         label: 'ConvertKit Updated',
@@ -248,7 +248,7 @@ describe('AdminPage integration', () => {
       expect(createPlugin).toHaveBeenCalled();
     });
 
-    expect(createPlugin.mock.calls[0][0]).toEqual(expect.objectContaining({
+    expect(vi.mocked(createPlugin).mock.calls[0][0]).toEqual(expect.objectContaining({
       id: 'convertkit',
       label: 'Convertkit',
       namespaces: [],
@@ -256,7 +256,7 @@ describe('AdminPage integration', () => {
     }));
 
     await waitFor(() => {
-      expect(fetchDbSnapshot.mock.calls.length).toBeGreaterThan(1);
+      expect(vi.mocked(fetchDbSnapshot).mock.calls.length).toBeGreaterThan(1);
     });
   });
 
@@ -300,7 +300,7 @@ describe('AdminPage integration', () => {
   });
 
   it('opens edit mode when asset-only slug already exists', async () => {
-    fetchPlugins.mockResolvedValue({
+    vi.mocked(fetchPlugins).mockResolvedValue({
       plugins: [{
         id: 'convertkit',
         label: 'ConvertKit',
@@ -323,7 +323,7 @@ describe('AdminPage integration', () => {
   });
 
   it('closes inline plugin editor after save succeeds', async () => {
-    fetchPlugins.mockResolvedValue({
+    vi.mocked(fetchPlugins).mockResolvedValue({
       plugins: [{
         id: 'convertkit',
         label: 'ConvertKit',

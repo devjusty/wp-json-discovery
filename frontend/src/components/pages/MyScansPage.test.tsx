@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import MyScansPage from './MyScansPage.jsx';
+import MyScansPage from './MyScansPage';
 
 vi.mock('@auth0/auth0-react', () => ({
   useAuth0: () => ({ isAuthenticated: true, isLoading: false })

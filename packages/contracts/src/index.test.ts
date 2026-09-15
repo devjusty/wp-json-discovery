@@ -16,7 +16,9 @@ import {
   evidenceReferenceSchema,
   findingSchema,
   investigationIdentitySchema,
+  investigationListSchema,
   investigationRecordSchema,
+  investigationSummarySchema,
   persistedRecordSchema,
   parseDomainIdentity,
   retryStateSchema,
@@ -649,5 +651,34 @@ describe('persisted records', () => {
         sessionIds: ['session-1'],
       },
     }).success).toBe(false);
+  });
+});
+
+describe('public investigation summaries and lists', () => {
+  const summary = {
+    id: 'investigation-1',
+    domain: { submitted: 'example.com', normalized: 'https://example.com' },
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    latestSessionId: 'session-1',
+    selectedCapabilityCount: 2,
+    completedCapabilityCount: 1,
+    findingsCount: 3,
+  };
+
+  it('accepts valid public investigation data', () => {
+    expect(investigationSummarySchema.parse(summary)).toEqual(summary);
+    expect(investigationListSchema.parse({ investigations: [summary] })).toEqual({ investigations: [summary] });
+  });
+
+  it('rejects owner identity from public investigation data', () => {
+    expect(investigationSummarySchema.safeParse({ ...summary, ownerId: 'user-1' }).success).toBe(false);
+  });
+
+  it('rejects invalid timestamps and counts', () => {
+    expect(investigationSummarySchema.safeParse({ ...summary, updatedAt: '2026-09-09T11:00:00.000Z' }).success).toBe(false);
+    expect(investigationSummarySchema.safeParse({ ...summary, selectedCapabilityCount: -1 }).success).toBe(false);
+    expect(investigationSummarySchema.safeParse({ ...summary, findingsCount: 1.5 }).success).toBe(false);
+    expect(investigationSummarySchema.safeParse({ ...summary, completedCapabilityCount: 3 }).success).toBe(false);
   });
 });

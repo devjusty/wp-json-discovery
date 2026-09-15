@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   claimInvestigationRequestSchema,
+  investigationListSchema,
   investigationRecordSchema,
   scanSessionSchema,
   sessionRecordSchema,
@@ -24,8 +25,45 @@ function investigationRecord(row, sessionIds, latestSession) {
     updatedAt: row.updated_at,
     sessionIds,
   };
-  if (latestSession) record.latestSession = latestSession;
+  if (latestSession) {
+    // @ts-expect-error -- optional schema field is added only when a latest session exists
+    record.latestSession = latestSession;
+  }
   return parse(investigationRecordSchema, record);
+}
+
+function investigationSummary(row) {
+  const summary = {
+    id: row.id,
+    domain: { submitted: row.submitted_domain, normalized: row.normalized_domain },
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    selectedCapabilityCount: 0,
+    completedCapabilityCount: 0,
+    findingsCount: 0,
+  };
+
+  if (row.snapshot_json) {
+    const session = parse(scanSessionSchema, JSON.parse(row.snapshot_json));
+    // @ts-expect-error -- scanSessionSchema validates session.id as a string
+    summary.latestSessionId = session.id;
+    summary.selectedCapabilityCount = session.selectedCapabilities.length;
+    const capabilityStates = Object.values(session.capabilityStates);
+    for (const state of capabilityStates) {
+      // @ts-expect-error -- scanSessionSchema validates capability state records
+      if (state.status !== 'success') continue;
+      summary.completedCapabilityCount += 1;
+      // @ts-expect-error -- scanSessionSchema validates capability state records
+      if (state.outcome.result && typeof state.outcome.result === 'object'
+        // @ts-expect-error -- scanSessionSchema validates capability result records
+        && Array.isArray(state.outcome.result.findings)) {
+        // @ts-expect-error -- scanSessionSchema validates capability result records
+        summary.findingsCount += state.outcome.result.findings.length;
+      }
+    }
+  }
+
+  return summary;
 }
 
 async function readInvestigation(id, ownerId) {
@@ -123,6 +161,28 @@ export async function saveInvestigationSession(ownerId, investigationId, snapsho
 
 export async function getInvestigationForUser(userId, investigationId) {
   return readInvestigation(investigationId, userId);
+}
+
+export async function listInvestigationsForUser(ownerId) {
+  const rows = await queryAll(
+    `select i.id, i.submitted_domain, i.normalized_domain, i.created_at, i.updated_at,
+            s.session_id, s.id as session_row_id, s.snapshot_json
+     from investigations i
+     left join investigation_sessions s
+       on s.investigation_id = i.id
+      and s.sequence = (
+        select max(latest.sequence)
+        from investigation_sessions latest
+        where latest.investigation_id = i.id
+      )
+     where i.owner_id = ?
+     order by i.updated_at desc, i.id desc`,
+    [ownerId]
+  );
+
+  return parse(investigationListSchema, {
+    investigations: rows.map(investigationSummary),
+  });
 }
 
 export async function claimAnonymousInvestigation(userId, anonymousRecord) {

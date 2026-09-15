@@ -415,6 +415,30 @@ export const investigationRecordSchema = z.object({
 });
 export type InvestigationRecord = z.infer<typeof investigationRecordSchema>;
 
+export const investigationSummarySchema = z.object({
+  id: identifierSchema,
+  domain: domainIdentitySchema,
+  createdAt: timestampSchema,
+  updatedAt: timestampSchema,
+  latestSessionId: identifierSchema.optional(),
+  selectedCapabilityCount: z.number().int().min(0),
+  completedCapabilityCount: z.number().int().min(0),
+  findingsCount: z.number().int().min(0),
+}).strict().superRefine((summary, context) => {
+  if (Date.parse(summary.updatedAt) < Date.parse(summary.createdAt)) {
+    context.addIssue({ code: 'custom', message: 'updatedAt must be on or after createdAt', path: ['updatedAt'] });
+  }
+  if (summary.completedCapabilityCount > summary.selectedCapabilityCount) {
+    context.addIssue({ code: 'custom', message: 'Completed capabilities cannot exceed selected capabilities', path: ['completedCapabilityCount'] });
+  }
+});
+export type InvestigationSummary = z.infer<typeof investigationSummarySchema>;
+
+export const investigationListSchema = z.object({
+  investigations: z.array(investigationSummarySchema),
+}).strict();
+export type InvestigationList = z.infer<typeof investigationListSchema>;
+
 export const sessionRecordSchema = z.object({
   recordType: z.literal('session'),
   session: scanSessionSchema,

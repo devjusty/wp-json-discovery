@@ -4,8 +4,9 @@ import {
   claimAnonymousInvestigation,
   createInvestigation,
   getInvestigationForUser,
+  listInvestigationsForUser,
   saveInvestigationSession,
-} from '../db/investigations.js';
+} from '../db/investigations.ts';
 import {
   claimInvestigationRequestSchema,
   scanSessionSchema,
@@ -62,6 +63,11 @@ export default function createInvestigationRoutes() {
       domain: canonicalizeDomain(input),
     });
     res.status(201).json(envelope(req, record));
+  }));
+
+  router.get('/', wrapAsync(async (req, res) => {
+    const records = await listInvestigationsForUser(requireUser(req));
+    res.json(envelope(req, records));
   }));
 
   router.get('/:id', wrapAsync(async (req, res) => {

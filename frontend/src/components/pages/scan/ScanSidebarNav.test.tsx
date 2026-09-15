@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import ScanSidebarNav from './ScanSidebarNav.jsx';
+import ScanSidebarNav from './ScanSidebarNav';
 
 describe('ScanSidebarNav', () => {
   it('disables scan sections before a session exists', async () => {
@@ -13,6 +13,7 @@ describe('ScanSidebarNav', () => {
       <ScanSidebarNav
         activeSection="overview"
         hasSession={false}
+        session={undefined}
         onSectionChange={onSectionChange}
         onOpenHistory={onOpenHistory}
         onOpenAdmin={onOpenAdmin}
@@ -40,11 +41,14 @@ describe('ScanSidebarNav', () => {
 
   it('shows admin-only recon navigation for admins', () => {
     render(
-      <ScanSidebarNav
-        activeSection="overview"
-        hasSession
-        onSectionChange={vi.fn()}
-        isAdmin
+        <ScanSidebarNav
+          activeSection="overview"
+          hasSession
+          session={undefined}
+          onSectionChange={vi.fn()}
+          onOpenHistory={undefined}
+          onOpenAdmin={undefined}
+          isAdmin
       />
     );
 
@@ -56,10 +60,11 @@ describe('ScanSidebarNav', () => {
     const onSectionChange = vi.fn();
 
     render(
-      <ScanSidebarNav
-        activeSection="overview"
-        hasSession
-        onSectionChange={onSectionChange}
+        <ScanSidebarNav
+          activeSection="overview"
+          hasSession
+          session={undefined}
+          onSectionChange={onSectionChange}
         onOpenHistory={vi.fn()}
         onOpenAdmin={vi.fn()}
         isAdmin
@@ -79,6 +84,8 @@ describe('ScanSidebarNav', () => {
         hasSession
         session={{ domain: 'example.com', capabilities: { sitemap: { status: 'unavailable' } } }}
         onSectionChange={vi.fn()}
+        onOpenHistory={undefined}
+        onOpenAdmin={undefined}
       />
     );
 

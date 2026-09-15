@@ -5,8 +5,9 @@ import {
   claimAnonymousInvestigation,
   createInvestigation,
   getInvestigationForUser,
+  listInvestigationsForUser,
   saveInvestigationSession,
-} from './investigations.js';
+} from './investigations.ts';
 import { execute, queryAll, queryOne } from './client.js';
 
 const timestamp = '2026-09-10T12:00:00.000Z';
@@ -31,7 +32,7 @@ describe('investigation repository', () => {
 
   beforeAll(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
-    for (const id of ['user-mapping', 'owner-a', 'snapshot-owner', 'claimed-user', 'other-user']) {
+    for (const id of ['user-mapping', 'owner-a', 'snapshot-owner', 'claimed-user', 'other-user', 'list-owner', 'list-other', 'no-session-owner']) {
       await execute(
         `insert or ignore into users (id, email, display_name, role, created_at) values (?, ?, '', 'standard', ?)`,
         [id, `${id}@example.test`, timestamp]
@@ -201,6 +202,118 @@ describe('investigation repository', () => {
     expect(loaded.sessionIds).toHaveLength(3);
     expect(loaded.latestSession.id).toBe(JSON.parse(rows[0].snapshot_json).id);
     expect(await getInvestigationForUser('other-user', record.investigation.id)).toBeNull();
+  });
+
+  it('lists only owned investigations in activity order with latest-session summaries', async () => {
+    const older = await createInvestigation('list-owner', {
+      domain: { submitted: 'older-list.example', normalized: 'https://older-list.example' },
+      selectedCapabilities: [{ id: 'homepage', dependencies: [] }],
+    });
+    const newer = await createInvestigation('list-owner', {
+      domain: { submitted: 'newer-list.example', normalized: 'https://newer-list.example' },
+      selectedCapabilities: [{ id: 'homepage', dependencies: [] }],
+    });
+    await createInvestigation('list-other', {
+      domain: { submitted: 'foreign-list.example', normalized: 'https://foreign-list.example' },
+      selectedCapabilities: [],
+    });
+    const latest = {
+      id: 'latest-list-session',
+      investigationId: newer.investigation.id,
+      status: 'completed',
+      startedAt: timestamp,
+      completedAt: timestamp,
+      selectedCapabilities: [
+        { id: 'homepage', dependencies: [] },
+        { id: 'sitemap', dependencies: [] },
+        { id: 'robots', dependencies: [] },
+      ],
+      capabilityStates: {
+        homepage: { status: 'success', outcome: { status: 'success', result: { findings: [{ id: 'one' }, { id: 'two' }] }, error: null }, retry: { status: 'not-retryable' } },
+        sitemap: { status: 'success', outcome: { status: 'success', result: { findings: [] }, error: null }, retry: { status: 'not-retryable' } },
+        robots: { status: 'failed', outcome: { status: 'failed', result: null, error: { code: 'blocked', message: 'Blocked', retryable: true } }, retry: { status: 'not-retryable' } },
+      },
+      overall: { status: 'incomplete' },
+    };
+    await saveInvestigationSession('list-owner', newer.investigation.id, latest);
+    await execute('update investigations set updated_at = ? where id = ?', ['2027-09-10T12:01:00.000Z', older.investigation.id]);
+    await execute('update investigations set updated_at = ? where id = ?', ['2027-09-10T12:02:00.000Z', newer.investigation.id]);
+
+    const list = await listInvestigationsForUser('list-owner');
+
+    expect(list).toEqual({ investigations: [
+      {
+        id: newer.investigation.id,
+        domain: { submitted: 'newer-list.example', normalized: 'https://newer-list.example' },
+        createdAt: newer.createdAt,
+        updatedAt: '2027-09-10T12:02:00.000Z',
+        latestSessionId: 'latest-list-session',
+        selectedCapabilityCount: 3,
+        completedCapabilityCount: 2,
+        findingsCount: 2,
+      },
+      {
+        id: older.investigation.id,
+        domain: { submitted: 'older-list.example', normalized: 'https://older-list.example' },
+        createdAt: older.createdAt,
+        updatedAt: '2027-09-10T12:01:00.000Z',
+        latestSessionId: older.sessionIds[0],
+        selectedCapabilityCount: 1,
+        completedCapabilityCount: 0,
+        findingsCount: 0,
+      },
+    ] });
+    expect(JSON.stringify(list)).not.toContain('owner_id');
+    expect(JSON.stringify(list)).not.toContain('capabilityStates');
+  });
+
+  it('uses latest snapshot identity for latest session summaries', async () => {
+    const record = await createInvestigation('list-owner', {
+      domain: { submitted: 'snapshot-identity.example', normalized: 'https://snapshot-identity.example' },
+      selectedCapabilities: [],
+    });
+    const latestSnapshot = session(record.investigation.id, 'snapshot-session-id');
+
+    await execute(
+      `insert into investigation_sessions
+        (id, investigation_id, session_id, sequence, snapshot_json, persisted_at)
+       values (?, ?, ?, ?, ?, ?)`,
+      ['database-row-id', record.investigation.id, 'database-session-id', 2, JSON.stringify(latestSnapshot), timestamp]
+    );
+
+    const list = await listInvestigationsForUser('list-owner');
+
+    expect(list.investigations.find(({ id }) => id === record.investigation.id).latestSessionId)
+      .toBe('snapshot-session-id');
+  });
+
+  it('uses the highest sequence session and returns zero counts without a session', async () => {
+    const record = await createInvestigation('list-owner', {
+      domain: { submitted: 'sequence-list.example', normalized: 'https://sequence-list.example' },
+      selectedCapabilities: [{ id: 'homepage', dependencies: [] }],
+    });
+    await saveInvestigationSession('list-owner', record.investigation.id, session(record.investigation.id, 'initial-list-session'));
+    await execute('insert into investigations (id, owner_id, submitted_domain, normalized_domain, created_at, updated_at) values (?, ?, ?, ?, ?, ?)', [
+      'no-session-list-investigation', 'no-session-owner', 'no-session-list.example', 'https://no-session-list.example', timestamp, '2026-09-10T12:03:00.000Z',
+    ]);
+
+    const list = await listInvestigationsForUser('list-owner');
+    const summary = list.investigations.find(({ id }) => id === record.investigation.id);
+    expect(summary).toEqual(expect.objectContaining({
+      latestSessionId: 'initial-list-session',
+      selectedCapabilityCount: 0,
+      completedCapabilityCount: 0,
+      findingsCount: 0,
+    }));
+    expect((await listInvestigationsForUser('no-session-owner')).investigations).toEqual([{
+      id: 'no-session-list-investigation',
+      domain: { submitted: 'no-session-list.example', normalized: 'https://no-session-list.example' },
+      createdAt: timestamp,
+      updatedAt: '2026-09-10T12:03:00.000Z',
+      selectedCapabilityCount: 0,
+      completedCapabilityCount: 0,
+      findingsCount: 0,
+    }]);
   });
 
   it('stores repeated snapshots for one logical session in sequence', async () => {

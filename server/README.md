@@ -91,7 +91,7 @@ All file writes are protected by a simple promise queue to prevent concurrent co
 
 ## Operational Tips
 
-- Increase the `REQUEST_TIMEOUT_MS` constant in `src/index.js` for exceptionally slow targets.
+- Increase the `REQUEST_TIMEOUT_MS` constant in `src/index.ts` for exceptionally slow targets.
 - Keep `activity.log` under 1 MB by rotating or archiving older entries.
 - Use `PORT` to run the proxy on a non-default port when needed; the frontend picks up `VITE_API_BASE_URL`.
 - To debug proxy failures, run with `DEBUG=fetch` or insert temporary `console.log` statements wrapped in descriptive log types.

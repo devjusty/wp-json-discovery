@@ -2,12 +2,13 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import {
   claimAnonymousInvestigation,
   fetchInvestigation,
+  fetchInvestigations,
   request,
   saveInvestigationSession,
   startInvestigation,
   setAuthUserProvider,
   setTokenProvider
-} from './client.js';
+} from './client';
 
 describe('request', () => {
   beforeEach(() => {
@@ -36,10 +37,11 @@ describe('request', () => {
     });
 
     expect(fetch).toHaveBeenCalledTimes(1);
-    const [, init] = fetch.mock.calls[0];
-    expect(init.headers.get('authorization')).toBe('Bearer test-token');
-    expect(init.headers.get('x-user-email')).toBe('user@example.com');
-    expect(init.headers.get('x-user-name')).toBe('Test User');
+    const [, init] = vi.mocked(fetch).mock.calls[0];
+    const headers = init.headers as Headers;
+    expect(headers.get('authorization')).toBe('Bearer test-token');
+    expect(headers.get('x-user-email')).toBe('user@example.com');
+    expect(headers.get('x-user-name')).toBe('Test User');
   });
 
   it('attaches the user token to /api/recon-scan requests', async () => {
@@ -51,8 +53,8 @@ describe('request', () => {
     });
 
     expect(fetch).toHaveBeenCalledTimes(1);
-    const [, init] = fetch.mock.calls[0];
-    expect(init.headers.get('authorization')).toBe('Bearer recon-token');
+    const [, init] = vi.mocked(fetch).mock.calls[0];
+    expect((init.headers as Headers).get('authorization')).toBe('Bearer recon-token');
   });
 
   it('checks response status before consuming the response body', async () => {
@@ -86,13 +88,13 @@ describe('request', () => {
       normalized: 'https://example.com'
     }, [{ id: 'wordpress', dependencies: [] }])).resolves.toEqual(record);
 
-    const [url, init] = fetch.mock.calls[0];
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
     expect(url).toBe('http://localhost:4100/api/investigations');
-    expect(JSON.parse(init.body)).toEqual({
+    expect(JSON.parse(init.body as string)).toEqual({
       domain: { submitted: 'Example.com', normalized: 'https://example.com' },
       selectedCapabilities: [{ id: 'wordpress', dependencies: [] }]
     });
-    expect(init.headers.get('authorization')).toBe('Bearer investigation-token');
+    expect((init.headers as Headers).get('authorization')).toBe('Bearer investigation-token');
   });
 
   it('uses canonical session URL and validates successful responses', async () => {
@@ -103,10 +105,10 @@ describe('request', () => {
 
     await expect(saveInvestigationSession('inv-1', session)).resolves.toEqual(record);
 
-    const [url, init] = fetch.mock.calls[0];
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
     expect(url).toBe('http://localhost:4100/api/investigations/inv-1/sessions/session-1');
-    expect(JSON.parse(init.body)).toEqual({ session });
-    expect(init.headers.get('authorization')).toBe('Bearer session-token');
+    expect(JSON.parse(init.body as string)).toEqual({ session });
+    expect((init.headers as Headers).get('authorization')).toBe('Bearer session-token');
   });
 
   it('rejects malformed session-save payloads', async () => {
@@ -125,7 +127,28 @@ describe('request', () => {
     vi.stubGlobal('fetch', jsonResponse({ status: 'success', requestId: 'req-1', data: record }));
 
     await expect(fetchInvestigation('inv-1')).resolves.toEqual(record);
-    expect(fetch.mock.calls[0][0]).toBe('http://localhost:4100/api/investigations/inv-1');
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe('http://localhost:4100/api/investigations/inv-1');
+  });
+
+  it('fetches validated investigation summaries', async () => {
+    vi.stubGlobal('fetch', jsonResponse({
+      status: 'success',
+      requestId: 'request-1',
+      data: { investigations: [] }
+    }));
+
+    await expect(fetchInvestigations()).resolves.toEqual({ investigations: [] });
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe('http://localhost:4100/api/investigations');
+  });
+
+  it('rejects malformed investigation summary collections', async () => {
+    vi.stubGlobal('fetch', jsonResponse({
+      status: 'success',
+      requestId: 'request-1',
+      data: { investigations: [{ id: 'missing-summary-fields' }] }
+    }));
+
+    await expect(fetchInvestigations()).rejects.toThrow('Invalid investigation response');
   });
 
   it('throws stable errors for non-success or invalid envelopes', async () => {
@@ -147,8 +170,8 @@ describe('request', () => {
     await expect(claimAnonymousInvestigation({
       submitted: 'Example.com', normalized: 'https://example.com'
     }, anonymousRecord)).resolves.toEqual(record);
-    expect(fetch.mock.calls[0][0]).toBe('http://localhost:4100/api/investigations/claim');
-    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe('http://localhost:4100/api/investigations/claim');
+    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1].body as string)).toEqual({
       domain: { submitted: 'Example.com', normalized: 'https://example.com' },
       anonymousRecord
     });

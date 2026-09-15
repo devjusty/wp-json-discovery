@@ -1,8 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
   "entry": [
-    "frontend/src/main.jsx",
-    "server/src/index.js",
+    "frontend/src/main.tsx",
+    "server/src/index.ts",
     "server/src/db/import-logs.js",
     "server/src/db/inspect.js",
     "server/src/db/list-assets.js",

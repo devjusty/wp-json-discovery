@@ -34,7 +34,7 @@ const mocks = vi.hoisted(() => ({
   activeDomain: ''
 }));
 
-vi.mock('../templates/AppLayout.jsx', () => ({
+vi.mock('../templates/AppLayout', () => ({
   default: ({ children, sidebar, title }) => (
     <div>
       <h1>{title}</h1>
@@ -76,7 +76,7 @@ function createScanResults(overrides = {}) {
   };
 }
 
-vi.mock('./scan/ScanSidebarNav.jsx', () => ({
+vi.mock('./scan/ScanSidebarNav', () => ({
   default: (props) => {
     mocks.sidebar(props);
     return (
