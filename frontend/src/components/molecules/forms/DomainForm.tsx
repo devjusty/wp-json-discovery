@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { ChangeEvent, FormEvent } from 'react';
 import PropTypes from 'prop-types';
 import Button from '../../atoms/Button.jsx';
 import {
@@ -11,6 +12,22 @@ import { normalizeDomain } from '../../../utils/format.js';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible.jsx';
 import ScanSettingsPanel from './ScanSettingsPanel.jsx';
 
+type ScanSettings = {
+  capabilityIds: string[];
+  options: Record<string, Record<string, unknown>>;
+};
+
+type DomainFormProps = {
+  onSubmit: (normalized: string, submitted: string) => void;
+  isScanning?: boolean;
+  initialDomain?: string;
+  domain?: string;
+  onDomainChange?: (value: string) => void;
+  scanSettings?: ScanSettings;
+  onScanSettingsChange?: (next: ScanSettings | ((current: ScanSettings) => ScanSettings)) => void;
+  onSaveDefaults?: (settings?: ScanSettings) => void;
+};
+
 function DomainForm({
   onSubmit,
   isScanning,
@@ -20,7 +37,7 @@ function DomainForm({
   scanSettings,
   onScanSettingsChange,
   onSaveDefaults
-}) {
+}: DomainFormProps) {
   const isControlled = typeof domain === 'string';
   const [internalDomain, setInternalDomain] = useState(initialDomain ?? '');
   const value = isControlled ? domain : internalDomain;
@@ -31,7 +48,7 @@ function DomainForm({
     }
   }, [initialDomain, isControlled]);
 
-  const handleChange = (event) => {
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const next = event.target.value;
     if (isControlled && onDomainChange) {
       onDomainChange(next);
@@ -40,7 +57,7 @@ function DomainForm({
     }
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const normalized = normalizeDomain(value);
 
@@ -48,7 +65,7 @@ function DomainForm({
       return;
     }
 
-    onSubmit(normalized);
+    onSubmit(normalized, value);
   };
 
   const isValidDomain = Boolean(normalizeDomain(value));
@@ -56,7 +73,7 @@ function DomainForm({
   return (
     <Card className="domain-form">
       <form onSubmit={handleSubmit}>
-        <CardHeader>
+          <CardHeader className="">
           <div>
             <h2>WordPress domain</h2>
             <p className="card__meta">
@@ -65,7 +82,7 @@ function DomainForm({
             </p>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="">
           <label className="domain-form__label" htmlFor="domain-input">
             Domain
           </label>
@@ -98,6 +115,7 @@ function DomainForm({
                   size="sm"
                   className="mt-3"
                   disabled={isScanning}
+                  children="Scan settings"
                 />
               )}
             >

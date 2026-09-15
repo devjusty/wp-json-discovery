@@ -5,6 +5,8 @@ import {
   normalizeDomain
 } from '../utils/format.js';
 
+export { toWordpressCapabilityResult } from './wordpressCapabilityResult.js';
+
 const MIN_WORDPRESS_VERSION = '6.3.0';
 const REGISTRY_CACHE_TTL_MS = 60 * 1000;
 

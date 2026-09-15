@@ -53,6 +53,24 @@ describe('scan session', () => {
     expect(changes.some((next) => next.capabilities.homepage.status === 'running')).toBe(true);
   });
 
+  it('passes execution-only domain identity to runners without changing session shape', async () => {
+    const wordpress = vi.fn().mockResolvedValue({ namespaces: ['wp/v2'] });
+    const domainIdentity = {
+      submitted: 'https://Example.com/path',
+      normalized: 'example.com'
+    };
+    const session = createScanSession('example.com', { capabilityIds: ['wordpress'] }, {}, domainIdentity);
+
+    await executeScanSession(session, { wordpress });
+
+    expect(wordpress).toHaveBeenCalledWith({
+      domain: 'example.com',
+      domainIdentity,
+      options: {}
+    });
+    expect(Object.keys(session)).not.toContain('domainIdentity');
+  });
+
   it('records synchronous runner throws as failed capabilities', async () => {
     const session = createScanSession('example.com', { capabilityIds: ['homepage'] });
 
@@ -84,6 +102,20 @@ describe('scan session', () => {
     expect(completed.capabilities.homepage).toMatchObject({
       status: 'unavailable',
       error: { code: 'runner_unavailable', retryable: false }
+    });
+  });
+
+  it('retries an unavailable capability when its runner becomes available', async () => {
+    const session = createScanSession('example.com', { capabilityIds: ['homepage'] });
+    const unavailable = await executeScanSession(session, {});
+    const retried = await retryCapability(unavailable, 'homepage', {
+      homepage: vi.fn().mockResolvedValue({ assets: [] })
+    });
+
+    expect(retried.capabilities.homepage).toMatchObject({
+      status: 'success',
+      result: { assets: [] },
+      error: null
     });
   });
 
@@ -253,6 +285,21 @@ describe('scan session', () => {
 
     expect(validation.success).toBe(false);
     expect(validation.error).toBeInstanceOf(Error);
+  });
+
+  it('validates redesigned snapshots at the migration boundary', () => {
+    const validation = validateSessionSnapshot({
+      id: 'session-1',
+      investigationId: 'investigation-1',
+      status: 'completed',
+      startedAt: '2026-09-09T12:00:00.000Z',
+      completedAt: '2026-09-09T12:00:00.000Z',
+      selectedCapabilities: [],
+      capabilityStates: {},
+      overall: { status: 'complete' }
+    });
+
+    expect(validation).toMatchObject({ success: true, format: 'contract' });
   });
 
   it('rejects malformed contract data at session execution boundary', async () => {

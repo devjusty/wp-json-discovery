@@ -98,7 +98,11 @@ describe('useScan', () => {
       expect(result.current.session?.overallStatus).toBe('complete');
     });
 
-    expect(wordpress).toHaveBeenCalledWith({ domain: 'example.com', options: {} });
+    expect(wordpress).toHaveBeenCalledWith({
+      domain: 'example.com',
+      domainIdentity: { submitted: 'example.com', normalized: 'example.com' },
+      options: {}
+    });
     expect(homepage).toHaveBeenCalledWith({ domain: 'example.com', options: {} });
     expect(result.current.session.capabilities).toMatchObject({
       wordpress: { status: 'success', result: { site: 'wordpress' } },
@@ -107,6 +111,28 @@ describe('useScan', () => {
     for (const key of ['scanResult', 'scanError']) {
       expect(result.current).not.toHaveProperty(key);
     }
+  });
+
+  it('forwards submitted URL provenance to runners while using normalized domain', async () => {
+    const wordpress = vi.fn().mockResolvedValue({ site: 'wordpress' });
+    mocks.getCapabilityRunners.mockReturnValue({ wordpress });
+    const { result } = renderHook(() => useScan(), { wrapper: createWrapper() });
+
+    act(() => {
+      result.current.startScan(
+        'example.com',
+        { capabilityIds: ['wordpress'] },
+        { submitted: 'https://Example.com/path', normalized: 'example.com' }
+      );
+    });
+
+    await waitFor(() => expect(wordpress).toHaveBeenCalledOnce());
+
+    expect(wordpress).toHaveBeenCalledWith({
+      domain: 'example.com',
+      domainIdentity: { submitted: 'https://Example.com/path', normalized: 'example.com' },
+      options: {}
+    });
   });
 
   it('does not let a late prior-domain session overwrite a newer session', async () => {

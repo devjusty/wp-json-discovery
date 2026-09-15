@@ -1,6 +1,6 @@
 import { expect, fn, userEvent, within } from 'storybook/test';
 
-import DomainForm from './DomainForm.jsx';
+import DomainForm from './DomainForm';
 
 export default {
   component: DomainForm,

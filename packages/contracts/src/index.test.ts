@@ -8,7 +8,9 @@ import {
   capabilityOutcomeSchema,
   capabilitySelectionSchema,
   capabilityStateSchema,
+  sessionCapabilityStateSchema,
   capabilityStatusSchema,
+  claimInvestigationRequestSchema,
   dependencyStateSchema,
   domainIdentitySchema,
   evidenceReferenceSchema,
@@ -27,6 +29,13 @@ import {
 const timestamp = '2026-09-09T12:00:00.000Z';
 
 describe('domain identity', () => {
+  it('keeps submitted and normalized domain identity distinct', () => {
+    expect(domainIdentitySchema.parse({
+      submitted: ' HTTPS://Example.com/ ',
+      normalized: 'https://example.com',
+    })).toEqual({ submitted: ' HTTPS://Example.com/ ', normalized: 'https://example.com' });
+  });
+
   it('accepts submitted and normalized values', () => {
     expect(
       domainIdentitySchema.safeParse({
@@ -48,6 +57,14 @@ describe('domain identity', () => {
 });
 
 describe('capability outcomes', () => {
+  it('accepts partial evidence with an explicit structured error', () => {
+    expect(capabilityOutcomeSchema.safeParse({
+      status: 'partial',
+      result: { finding: 'x' },
+      error: { code: 'blocked', message: 'Blocked', retryable: false },
+    }).success).toBe(true);
+  });
+
   it('accepts success, failed, unavailable, and partial outcomes', () => {
     expect(
       capabilityOutcomeSchema.safeParse({ status: 'success', result: { links: 3 }, error: null })
@@ -100,7 +117,7 @@ describe('capability outcomes', () => {
       status: 'partial', result: { links: 3 },
       error: { code: 'SOME_ITEMS_FAILED', message: 'Some links failed', retryable: true },
     }).success).toBe(false);
-    expect(capabilityStatusSchema.safeParse('partial').success).toBe(true);
+    expect(capabilityStatusSchema.safeParse('partial').success).toBe(false);
   });
 });
 
@@ -179,28 +196,74 @@ describe('scan sessions', () => {
     ).toBe(true);
   });
 
-  it('accepts completed sessions with partial capability outcomes', () => {
-    expect(
-      scanSessionSchema.safeParse({
-        id: 'session-1',
-        investigationId: 'investigation-1',
-        status: 'completed',
-        startedAt: timestamp,
-        completedAt: timestamp,
-        selectedCapabilities: [{ id: 'html', dependencies: [] }],
-        capabilityStates: {
-          html: {
-            status: 'partial',
-            outcome: {
-              status: 'partial', result: { links: 3 },
-              error: { code: 'SOME_ITEMS_FAILED', message: 'Some links failed', retryable: false },
-            },
-            retry: { status: 'not-retryable' },
+  it('rejects a complete session with any non-success capability', () => {
+    expect(scanSessionSchema.safeParse({
+      id: 'session-invalid-complete',
+      investigationId: 'investigation-1',
+      status: 'completed',
+      startedAt: timestamp,
+      completedAt: timestamp,
+      selectedCapabilities,
+      capabilityStates: {
+        html: {
+          status: 'failed',
+          outcome: {
+            status: 'failed',
+            result: null,
+            error: { code: 'FAILED', message: 'HTML failed', retryable: false },
           },
+          retry: { status: 'not-retryable' },
         },
-        overall: { status: 'incomplete' },
-      }).success,
-    ).toBe(true);
+        'wp-json': {
+          status: 'unavailable',
+          outcome: {
+            status: 'unavailable',
+            result: null,
+            error: { code: 'DEPENDENCY_FAILED', message: 'HTML failed', retryable: false },
+          },
+          dependency: {
+            status: 'failed',
+            dependencyId: 'html',
+            error: { code: 'FAILED', message: 'Dependency failed', retryable: false },
+          },
+          retry: { status: 'not-retryable' },
+        },
+      },
+      overall: { status: 'complete' },
+    }).success).toBe(false);
+  });
+
+  it('accepts provider-unavailable capabilities without dependency state', () => {
+    expect(capabilityStateSchema.safeParse({
+      status: 'unavailable',
+      outcome: {
+        status: 'unavailable', result: null,
+        error: { code: 'NOT_SUPPORTED', message: 'Not supported', retryable: false },
+      },
+      retry: { status: 'not-retryable' },
+    }).success).toBe(true);
+  });
+
+  it('rejects retryable unavailable capabilities in generic state contract', () => {
+    expect(capabilityStateSchema.safeParse({
+      status: 'unavailable',
+      outcome: {
+        status: 'unavailable', result: null,
+        error: { code: 'RUNNER_UNAVAILABLE', message: 'Runner unavailable', retryable: true },
+      },
+      retry: { status: 'retrying', attempt: 1, nextAttemptAt: timestamp },
+    }).success).toBe(false);
+  });
+
+  it('accepts retryable unavailable capabilities in session state contract', () => {
+    expect(sessionCapabilityStateSchema.safeParse({
+      status: 'unavailable',
+      outcome: {
+        status: 'unavailable', result: null,
+        error: { code: 'RUNNER_UNAVAILABLE', message: 'Runner unavailable', retryable: true },
+      },
+      retry: { status: 'not-retryable' },
+    }).success).toBe(true);
   });
 
   it('rejects completed timestamp on a running session', () => {
@@ -237,7 +300,7 @@ describe('scan sessions', () => {
     expect(retryStateSchema.safeParse({ status: 'exhausted', attempts: 2 }).success).toBe(true);
   });
 
-  it('rejects retrying unavailable and non-retryable failed states', () => {
+  it('rejects partial lifecycle states and non-retryable failed states', () => {
     const retrying = { status: 'retrying', attempt: 1, nextAttemptAt: timestamp } as const;
     for (const status of ['success', 'queued', 'running'] as const) {
       const state = status === 'success'
@@ -245,19 +308,6 @@ describe('scan sessions', () => {
         : { status, retry: retrying };
       expect(capabilityStateSchema.safeParse(state).success).toBe(false);
     }
-    expect(capabilityStateSchema.safeParse({
-      status: 'partial',
-      outcome: {
-        status: 'partial', result: {},
-        error: { code: 'PARTIAL', message: 'Partial', retryable: true },
-      },
-      retry: retrying,
-    }).success).toBe(false);
-    expect(capabilityStateSchema.safeParse({
-      status: 'unavailable',
-      outcome: { status: 'unavailable', result: null, error: { code: 'NOPE', message: 'Nope', retryable: false } },
-      dependency: { status: 'ready' }, retry: retrying,
-    }).success).toBe(false);
     expect(capabilityStateSchema.safeParse({
       status: 'failed',
       outcome: { status: 'failed', result: null, error: { code: 'NOPE', message: 'Nope', retryable: false } },
@@ -297,7 +347,7 @@ describe('capabilities, identity, findings, and auth', () => {
     expect(capabilityDefinitionSchema.safeParse({
       id: 'wp-json', availability: 'unavailable', status: 'unavailable',
       dependencies: [], retry: { status: 'retrying', attempt: 1, nextAttemptAt: timestamp },
-    }).success).toBe(false);
+    }).success).toBe(true);
     expect(capabilityDefinitionSchema.safeParse({
       id: 'wp-json', availability: 'available', status: 'queued', dependencies: [],
       retry: { status: 'retrying', attempt: 1, nextAttemptAt: timestamp },
@@ -347,12 +397,13 @@ describe('capabilities, identity, findings, and auth', () => {
     expect(authStateSchema.safeParse({ status: 'anonymous' }).success).toBe(true);
   });
 
-  it('rejects an unavailable capability without dependency state when dependency is selected', () => {
+  it('rejects partial as a capability lifecycle status', () => {
+    expect(capabilityStatusSchema.safeParse('partial').success).toBe(false);
     expect(capabilityStateSchema.safeParse({
-      status: 'unavailable',
+      status: 'partial',
       outcome: {
-        status: 'unavailable', result: null,
-        error: { code: 'DEPENDENCY_FAILED', message: 'Missing dependency', retryable: false },
+        status: 'partial', result: {},
+        error: { code: 'PARTIAL', message: 'Partial', retryable: false },
       },
       retry: { status: 'not-retryable' },
     }).success).toBe(false);
@@ -477,7 +528,7 @@ describe('capabilities, identity, findings, and auth', () => {
   });
 
   it('rejects invalid idle and queued capability states', () => {
-    const stateFor = (status: 'idle' | 'queued' | 'running' | 'success' | 'failed' | 'unavailable' | 'partial') => {
+    const stateFor = (status: 'idle' | 'queued' | 'running' | 'success' | 'failed' | 'unavailable') => {
       if (status === 'success') {
         return { status, outcome: { status: 'success', result: {}, error: null }, retry: { status: 'not-retryable' } };
       }
@@ -487,19 +538,16 @@ describe('capabilities, identity, findings, and auth', () => {
       if (status === 'unavailable') {
         return { status, outcome: { status: 'unavailable', result: null, error: { code: 'NOPE', message: 'Unavailable', retryable: false } }, dependency: { status: 'ready' }, retry: { status: 'not-retryable' } };
       }
-      if (status === 'partial') {
-        return { status, outcome: { status: 'partial', result: {}, error: { code: 'PARTIAL', message: 'Partial', retryable: true } }, retry: { status: 'not-retryable' } };
-      }
       return { status, retry: { status: 'not-retryable' } };
     };
-    for (const capabilityStatus of ['queued', 'running', 'success', 'failed', 'unavailable', 'partial'] as const) {
+    for (const capabilityStatus of ['queued', 'running', 'success', 'failed', 'unavailable'] as const) {
       expect(scanSessionSchema.safeParse({
         id: 'session-1', investigationId: 'investigation-1', status: 'idle',
         startedAt: null, completedAt: null, selectedCapabilities: [{ id: 'html', dependencies: [] }],
         capabilityStates: { html: stateFor(capabilityStatus) }, overall: { status: 'incomplete' },
       }).success).toBe(false);
     }
-    for (const capabilityStatus of ['running', 'success', 'failed', 'unavailable', 'partial'] as const) {
+    for (const capabilityStatus of ['running', 'success', 'failed', 'unavailable'] as const) {
       expect(scanSessionSchema.safeParse({
         id: 'session-1', investigationId: 'investigation-1', status: 'queued',
         startedAt: null, completedAt: null, selectedCapabilities: [{ id: 'html', dependencies: [] }],
@@ -561,5 +609,45 @@ describe('persisted records', () => {
 
   it('rejects malformed persisted records', () => {
     expect(persistedRecordSchema.safeParse({ recordType: 'session', session: {} }).success).toBe(false);
+  });
+
+  it('accepts a claim request containing only an anonymous persisted record', () => {
+    expect(claimInvestigationRequestSchema.safeParse({
+      domain: { submitted: 'example.com', normalized: 'https://example.com' },
+      anonymousRecord: {
+        recordType: 'session',
+        session,
+        persistedAt: timestamp,
+      },
+    }).success).toBe(true);
+  });
+
+  it('rejects a claim request with a target user identity in its body', () => {
+    expect(claimInvestigationRequestSchema.safeParse({
+      domain: { submitted: 'example.com', normalized: 'https://example.com' },
+      anonymousRecord: {
+        recordType: 'session',
+        session,
+        persistedAt: timestamp,
+      },
+      ownerId: 'user-from-request',
+    }).success).toBe(false);
+  });
+
+  it('rejects a claim request with an owner-bearing investigation record', () => {
+    expect(claimInvestigationRequestSchema.safeParse({
+      domain: { submitted: 'example.com', normalized: 'https://example.com' },
+      anonymousRecord: {
+        recordType: 'investigation',
+        investigation: {
+          id: 'investigation-attacker',
+          ownerId: 'attacker-controlled-owner',
+          domain: { submitted: 'example.com', normalized: 'https://example.com' },
+        },
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        sessionIds: ['session-1'],
+      },
+    }).success).toBe(false);
   });
 });

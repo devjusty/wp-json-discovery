@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import DomainForm from './DomainForm.jsx';
+import DomainForm from './DomainForm';
 
 describe('DomainForm', () => {
   it('normalizes submitted domains', async () => {
@@ -10,9 +10,12 @@ describe('DomainForm', () => {
 
     render(<DomainForm initialDomain="https://WWW.Example.com/" onSubmit={onSubmit} />);
 
+    expect(screen.getByRole('textbox', { name: 'WordPress domain' })).toHaveAttribute('type', 'text');
+    expect(screen.getByRole('textbox', { name: 'WordPress domain' }).parentElement).toHaveClass('domain-form__controls');
+
     await user.click(screen.getByRole('button', { name: 'Start scan' }));
 
-    expect(onSubmit).toHaveBeenCalledWith('example.com');
+    expect(onSubmit).toHaveBeenCalledWith('example.com', 'https://WWW.Example.com/');
   });
 
   it('passes scan settings actions through its disclosure', async () => {

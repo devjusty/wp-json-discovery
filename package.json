@@ -2,6 +2,7 @@
   "name": "wp-json-discovery",
   "private": true,
   "scripts": {
+    "predev": "pnpm --filter @wp-json-discovery/contracts run build",
     "dev": "pnpm --parallel --recursive run dev",
     "dev:frontend": "pnpm --filter frontend run dev",
     "dev:server": "pnpm --filter wp-json-discovery-server run dev",

@@ -1,3 +1,9 @@
+import {
+  apiEnvelopeSchema,
+  investigationRecordSchema,
+  sessionRecordSchema
+} from '@wp-json-discovery/contracts';
+
 let globalGetAccessToken = null;
 let globalAuthUser = null;
 
@@ -64,6 +70,7 @@ export async function request(path, options = {}) {
       path === '/api/recon-scan' ||
       path.startsWith('/api/recon-scan/') ||
       path.startsWith('/api/unsupported-plugins')
+      || path.startsWith('/api/investigations')
     )) {
       try {
         const token = await globalGetAccessToken();
@@ -282,4 +289,47 @@ export async function clearUserSavedScans() {
   }
 
   return result.data;
+}
+
+export async function startInvestigation(domain, selectedCapabilities) {
+  return requestInvestigation('/api/investigations', {
+    method: 'POST',
+    body: JSON.stringify({ domain, selectedCapabilities })
+  });
+}
+
+export async function fetchInvestigation(investigationId) {
+  return requestInvestigation(`/api/investigations/${encodeURIComponent(investigationId)}`);
+}
+
+export async function saveInvestigationSession(investigationId, session) {
+  return requestInvestigation(
+    `/api/investigations/${encodeURIComponent(investigationId)}/sessions/${encodeURIComponent(session.id)}`,
+    { method: 'POST', body: JSON.stringify({ session }) },
+    sessionRecordSchema
+  );
+}
+
+export async function claimAnonymousInvestigation(domain, anonymousRecord) {
+  return requestInvestigation('/api/investigations/claim', {
+    method: 'POST',
+    body: JSON.stringify({ domain, anonymousRecord })
+  });
+}
+
+async function requestInvestigation(path, options, dataSchema = investigationRecordSchema) {
+  const result = await request(path, options);
+  const envelope = apiEnvelopeSchema.safeParse(result.data);
+
+  if (!envelope.success) throw new Error('Invalid investigation response');
+  if (!result.ok || envelope.data.status === 'error') {
+    throw new Error(envelope.data.status === 'error'
+      ? envelope.data.error.message
+      : 'Investigation request failed');
+  }
+  if (envelope.data.status !== 'success') throw new Error('Investigation request incomplete');
+
+  const record = dataSchema.safeParse(envelope.data.data);
+  if (!record.success) throw new Error('Invalid investigation response');
+  return record.data;
 }

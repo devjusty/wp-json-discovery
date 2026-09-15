@@ -1,5 +1,11 @@
-import { describe, expect, it } from 'vitest';
-import { gatherExposure } from './scan.js';
+import { describe, expect, it, vi } from 'vitest';
+
+const fetchPluginRegistry = vi.fn();
+const proxyRequest = vi.fn();
+
+vi.mock('../api/client.js', () => ({ fetchPluginRegistry, proxyRequest }));
+
+const { gatherExposure, scanDomain } = await import('./scan.js');
 
 describe('gatherExposure', () => {
   it('derives the open user sample and wp total header', () => {
@@ -54,5 +60,35 @@ describe('gatherExposure', () => {
       sitemapXml: { available: false, statusCode: null },
       uploads: { statusCode: null }
     });
+  });
+});
+
+describe('scanDomain', () => {
+  it('returns legacy-only payloads for existing scan consumers', async () => {
+    fetchPluginRegistry.mockResolvedValue({ plugins: [], coreNamespaces: [] });
+    proxyRequest.mockImplementation(async ({ endpoint }) => {
+      if (endpoint === '/wp-json/') {
+        return {
+          ok: true,
+          status: 200,
+          data: { name: 'Example site', url: 'https://example.com', namespaces: [], routes: {} },
+          headers: {}
+        };
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        data: endpoint.includes('/wp-json/wp/v2/') ? [] : {},
+        headers: { 'content-type': 'text/html' }
+      };
+    });
+
+    const result = await scanDomain('example.com');
+
+    expect(result).toHaveProperty('exposure');
+    expect(result).toHaveProperty('performance');
+    expect(result).not.toHaveProperty('identity');
+    expect(result).not.toHaveProperty('findings');
   });
 });
