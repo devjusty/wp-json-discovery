@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import ScanStatusStack from './ScanStatusStack.jsx';
+import ScanStatusStack from './ScanStatusStack';
 
 describe('ScanStatusStack', () => {
   it('shows session and per-capability state while partial results are available', () => {
@@ -47,14 +47,14 @@ describe('ScanStatusStack', () => {
         homepage: { status: 'success', outcome: { status: 'success', result: {}, error: null } }
       }
     }
-  ])('keeps identity neutral for $name', ({ capabilityStates }) => {
+  ])('renders compact progress for $name', ({ capabilityStates }) => {
     render(<ScanStatusStack session={{ domain: { normalized: 'example.com' }, status: 'completed', capabilityStates }} />);
 
-    expect(screen.getByText('Identity: awaiting evidence')).toBeInTheDocument();
-    expect(screen.queryByText('Identity: observed')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Scan progress' })).toBeInTheDocument();
+    expect(screen.getByText('Identity')).toBeInTheDocument();
   });
 
-  it('shows observed identity only from canonical WordPress identity evidence', () => {
+  it('derives WordPress progress from capability state', () => {
     render(<ScanStatusStack session={{
       domain: { normalized: 'example.com' },
       status: 'completed',
@@ -76,7 +76,7 @@ describe('ScanStatusStack', () => {
       }
     }} />);
 
-    expect(screen.getByText('Identity: observed')).toBeInTheDocument();
+    expect(screen.getAllByText('Complete')).toHaveLength(3);
   });
 
   it('keeps identity neutral when recognized identity metadata has no evidence references', () => {
@@ -95,8 +95,8 @@ describe('ScanStatusStack', () => {
       }
     }} />);
 
-    expect(screen.getByText('Identity: awaiting evidence')).toBeInTheDocument();
-    expect(screen.queryByText('Identity: observed')).not.toBeInTheDocument();
+    expect(screen.getByText('Identity')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('3 of 4 complete');
   });
 
   it('renders auth hints when scan requires auth', () => {
@@ -160,8 +160,8 @@ describe('ScanStatusStack', () => {
       />
     );
 
-    expect(screen.getByText('WordPress API: Complete')).toBeInTheDocument();
-    expect(screen.getByText('Homepage: Unavailable')).toBeInTheDocument();
+    expect(screen.getByText('WordPress API')).toBeInTheDocument();
+    expect(screen.getByText('Homepage')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /retry homepage/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /retry homepage/i })).toBeDisabled();
   });

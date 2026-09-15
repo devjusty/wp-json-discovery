@@ -9,7 +9,7 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([globalIgnores(['dist', 'storybook-static']), js.configs.recommended, {
-  files: ['**/*.{js,jsx}'],
+  files: ['**/*.{js,jsx,ts,tsx}'],
   plugins: {
     'react-hooks': reactHooks,
     'react-refresh': reactRefresh,

@@ -230,6 +230,28 @@ body {
   min-width: 10.5rem;
 }
 
+.scan-progress {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.scan-progress__segment {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  padding: 0.75rem;
+}
+
+.scan-progress__status {
+  font-size: var(--font-size-sm);
+  color: var(--color-ink-muted);
+}
+
 .domain-form__hint {
   margin-top: 0.5rem;
   color: var(--color-ink-soft);
@@ -1767,6 +1789,7 @@ th.sortable .table__sort:hover {
   display: grid;
   place-items: center;
   padding: 1.25rem;
+  animation: registry-modal-backdrop 150ms ease-out both;
 }
 
 .registry-modal__backdrop {
@@ -1786,6 +1809,38 @@ th.sortable .table__sort:hover {
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   box-shadow: var(--shadow-elev-5);
+  animation: registry-modal-panel 200ms ease-out both;
+}
+
+@keyframes registry-modal-backdrop {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes registry-modal-panel {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes registry-modal-panel-reduced {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .registry-modal {
+    animation-duration: 120ms;
+  }
+
+  .registry-modal__panel {
+    animation: registry-modal-panel-reduced 120ms ease-out both;
+  }
 }
 
 .registry-modal__header,
@@ -2129,6 +2184,11 @@ th.sortable .table__sort:hover {
   .domain-form__controls {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .domain-form__input {
+    flex: 0 0 48px;
+    height: 48px;
   }
 
   .domain-form__button {

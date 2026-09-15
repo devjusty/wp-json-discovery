@@ -42,7 +42,7 @@
     "wp-json-sb-mcp": {
       "type": "remote",
       "url": "http://localhost:6006/mcp",
-      "enabled": false
+      "enabled": true
     }
   }
 }

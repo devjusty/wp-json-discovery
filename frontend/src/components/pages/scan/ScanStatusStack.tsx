@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent } from '@/components/ui/card.jsx';
+import ScanProgress from './ScanProgress';
 
 const CAPABILITY_LABELS = {
   wordpress: 'WordPress API',
@@ -8,17 +9,6 @@ const CAPABILITY_LABELS = {
   sitemap: 'Sitemap',
   recon: 'Domain recon'
 };
-
-function hasCanonicalIdentityEvidence(identity) {
-  return Array.isArray(identity?.evidence)
-    && identity.evidence.some((reference) => (
-      typeof reference?.id === 'string'
-      && reference.id.length > 0
-      && reference.capabilityId === 'wordpress'
-      && typeof reference.locator === 'string'
-      && reference.locator.length > 0
-    ));
-}
 
 function formatStatus(status) {
   return {
@@ -41,33 +31,37 @@ function formatInvestigatorStatus(status) {
   }[status] ?? 'Queued';
 }
 
-function ScanStatusStack({ session, onRetryCapability, retryingCapabilityId }) {
+type InvestigatorCapability = {
+  status: string;
+  outcome?: { result?: unknown; error?: { message?: string; retryable?: boolean } | null };
+};
+
+type RetryHandler = (id: string) => void;
+
+type ScanStatusStackProps = {
+  session?: Record<string, unknown> | null;
+  onRetryCapability?: RetryHandler;
+  retryingCapabilityId?: string | null;
+};
+
+function ScanStatusStack({ session, onRetryCapability = () => {}, retryingCapabilityId = null }: ScanStatusStackProps) {
   if (!session) {
     return null;
   }
 
   if (session.capabilityStates) {
-    const capabilities = Object.entries(session.capabilityStates);
-    const hasRunning = ['queued', 'running'].includes(session.status);
-    const successful = capabilities.filter(([, capability]) => capability.status === 'success');
-    const wordpressIdentity = session.capabilityStates.wordpress?.outcome?.result?.identity;
-    const hasIdentityEvidence = session.capabilityStates.wordpress?.status === 'success'
-      && Boolean(wordpressIdentity?.value)
-      && ['observed', 'corroborated', 'inferred'].includes(wordpressIdentity.evidenceLevel)
-      && hasCanonicalIdentityEvidence(wordpressIdentity);
+    const capabilities = Object.entries(session.capabilityStates) as [string, InvestigatorCapability][];
+    const details = capabilities.filter(([, capability]) => ['failed', 'unavailable'].includes(capability.status));
     return (
       <>
-        {hasRunning ? <Card className="card card--info" role="status" aria-live="polite"><CardContent><p>Scanning {session.domain?.normalized ?? 'site'}…</p></CardContent></Card> : null}
-        <Card role="status"><CardContent><p>Identity: {hasIdentityEvidence ? 'observed' : 'awaiting evidence'}</p></CardContent></Card>
-        {successful.some(([id]) => id === 'wordpress') ? <Card role="status"><CardContent><p>Exposure: observed</p></CardContent></Card> : null}
-        {successful.some(([id]) => id === 'homepage') ? <Card role="status"><CardContent><p>Action: review homepage signals</p></CardContent></Card> : null}
-        {capabilities.map(([id, capability]) => (
-          <Card key={id} className={capability.status === 'failed' ? 'card card--error' : undefined} role={capability.status === 'failed' ? 'alert' : 'status'}>
-            <CardContent>
+        <ScanProgress capabilityStates={session.capabilityStates as Record<string, { status?: string }>} />
+        {details.map(([id, capability]) => (
+          <Card key={id} className={`section-enter${capability.status === 'failed' ? ' card card--error' : ''}`} role={capability.status === 'failed' ? 'alert' : 'status'}>
+            <CardContent className="">
               <p>{CAPABILITY_LABELS[id] ?? id}: {formatInvestigatorStatus(capability.status)}</p>
               {capability.outcome?.error ? <p>{capability.outcome.error.message}</p> : null}
               {['failed', 'unavailable'].includes(capability.status) && capability.outcome?.error?.retryable === true ? (
-                <Button type="button" variant="secondary" size="sm" aria-label={`Retry ${CAPABILITY_LABELS[id] ?? id}`} disabled={retryingCapabilityId === id} onClick={() => onRetryCapability(id)}>
+                <Button className="" type="button" variant="secondary" size="sm" aria-label={`Retry ${CAPABILITY_LABELS[id] ?? id}`} disabled={retryingCapabilityId === id} onClick={() => onRetryCapability(id)}>
                   {retryingCapabilityId === id ? `Retrying ${CAPABILITY_LABELS[id] ?? id}…` : `Retry ${CAPABILITY_LABELS[id] ?? id}`}
                 </Button>
               ) : null}
@@ -79,14 +73,15 @@ function ScanStatusStack({ session, onRetryCapability, retryingCapabilityId }) {
   }
 
   const isScanning = session.overallStatus === 'running';
-  const capabilities = Object.entries(session.capabilities ?? {});
+  const capabilities = Object.entries(session.capabilities ?? {}) as [string, { status: string; error?: { message?: string; code?: string; retryable?: boolean } | null }][];
+  const legacyDomain = session.domain as string | undefined;
 
   return (
     <>
       {isScanning ? (
         <Card className="card card--info" role="status" aria-live="polite">
-          <CardContent>
-            <p>Scanning {session.domain}…</p>
+          <CardContent className="">
+            <p>Scanning {legacyDomain ?? 'site'}…</p>
           </CardContent>
         </Card>
       ) : null}
@@ -97,7 +92,7 @@ function ScanStatusStack({ session, onRetryCapability, retryingCapabilityId }) {
           className={capability.status === 'failed' ? 'card card--error' : undefined}
           role={capability.status === 'failed' ? 'alert' : 'status'}
         >
-          <CardContent>
+          <CardContent className="">
             <p>{CAPABILITY_LABELS[id] ?? id}: {formatStatus(capability.status)}</p>
             {capability.error ? <p>{capability.error.message}</p> : null}
             {capability.error?.code === 'auth_required' ? (
@@ -108,7 +103,7 @@ function ScanStatusStack({ session, onRetryCapability, retryingCapabilityId }) {
               </ul>
             ) : null}
             {capability.status === 'failed' && capability.error?.retryable ? (
-              <Button type="button" variant="secondary" size="sm" onClick={() => onRetryCapability(id)}>
+              <Button className="" type="button" variant="secondary" size="sm" onClick={() => onRetryCapability(id)}>
                 Retry {CAPABILITY_LABELS[id] ?? id}
               </Button>
             ) : null}
