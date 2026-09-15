@@ -184,6 +184,28 @@ const MIGRATIONS = [
   {
     version: 8,
     statements: [
+      // Version markers can outlive a partially applied batch. Recreate the
+      // version 7 tables before altering them so recovery remains idempotent.
+      `
+      create table if not exists investigations (
+        id text primary key,
+        owner_id text references users(id) on delete cascade,
+        submitted_domain text not null,
+        normalized_domain text not null,
+        created_at text not null,
+        updated_at text not null
+      );
+      `,
+      `
+      create table if not exists investigation_sessions (
+        id text primary key,
+        investigation_id text not null references investigations(id) on delete cascade,
+        sequence integer not null,
+        snapshot_json text not null,
+        persisted_at text not null,
+        unique(investigation_id, sequence)
+      );
+      `,
       `alter table investigation_sessions add column session_id text;`,
       `update investigation_sessions set session_id = id where session_id is null;`,
       `create index if not exists idx_investigation_sessions_logical_session on investigation_sessions(investigation_id, session_id, sequence);`
@@ -196,6 +218,44 @@ const MIGRATIONS = [
       // claim producer. Claim replay protection starts at this migration;
       // existing session rows are ordinary authenticated history and must
       // not be backfilled into this table.
+      `
+      create table if not exists investigation_claims (
+        session_id text primary key,
+        investigation_id text not null unique references investigations(id) on delete cascade,
+        owner_id text not null references users(id) on delete cascade,
+        claimed_at text not null
+      );
+      `,
+      `create index if not exists idx_investigation_claims_owner on investigation_claims(owner_id);`
+    ]
+  },
+  {
+    version: 10,
+    statements: [
+      `
+      create table if not exists investigations (
+        id text primary key,
+        owner_id text references users(id) on delete cascade,
+        submitted_domain text not null,
+        normalized_domain text not null,
+        created_at text not null,
+        updated_at text not null
+      );
+      `,
+      `
+      create table if not exists investigation_sessions (
+        id text primary key,
+        investigation_id text not null references investigations(id) on delete cascade,
+        session_id text,
+        sequence integer not null,
+        snapshot_json text not null,
+        persisted_at text not null,
+        unique(investigation_id, sequence)
+      );
+      `,
+      `create index if not exists idx_investigations_owner on investigations(owner_id);`,
+      `create index if not exists idx_investigation_sessions_investigation on investigation_sessions(investigation_id, sequence);`,
+      `create index if not exists idx_investigation_sessions_logical_session on investigation_sessions(investigation_id, session_id, sequence);`,
       `
       create table if not exists investigation_claims (
         session_id text primary key,
