@@ -16,7 +16,7 @@ function AdditionalScansPanel({ selectedCapabilityIds, capabilities, onRunCapabi
   }
 
   return (
-    <section className="section" aria-label="Additional scans">
+    <section className="section section-enter" aria-label="Additional scans">
       <h2>Additional scans</h2>
       {availableCapabilities.map((capability) => (
         <div key={capability.id}>

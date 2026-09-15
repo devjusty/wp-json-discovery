@@ -56,7 +56,7 @@ function ScanStatusStack({ session, onRetryCapability = () => {}, retryingCapabi
       <>
         <ScanProgress capabilityStates={session.capabilityStates as Record<string, { status?: string }>} />
         {details.map(([id, capability]) => (
-          <Card key={id} className={capability.status === 'failed' ? 'card card--error' : undefined} role={capability.status === 'failed' ? 'alert' : 'status'}>
+          <Card key={id} className={`section-enter${capability.status === 'failed' ? ' card card--error' : ''}`} role={capability.status === 'failed' ? 'alert' : 'status'}>
             <CardContent className="">
               <p>{CAPABILITY_LABELS[id] ?? id}: {formatInvestigatorStatus(capability.status)}</p>
               {capability.outcome?.error ? <p>{capability.outcome.error.message}</p> : null}

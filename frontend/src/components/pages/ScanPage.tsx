@@ -383,7 +383,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
       {resumeError ? <p role="alert">{resumeError}</p> : null}
 
       {isAuthenticated && anonymousSnapshot ? (
-        <section aria-label="Anonymous investigation import">
+        <section className="section-enter" aria-label="Anonymous investigation import">
           <button type="button" onClick={handleClaim}>Import this investigation</button>
           {claimError ? <p role="alert">{claimError}</p> : null}
         </section>
