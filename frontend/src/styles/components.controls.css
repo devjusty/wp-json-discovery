@@ -1,5 +1,5 @@
 .text-input {
-  border-radius: var(--control-border-radius);
+  border-radius: 0px;
   border: 1px solid var(--color-border-strong);
   padding: var(--control-padding-y) var(--control-padding-x);
   font-size: var(--font-size-base);
@@ -29,7 +29,7 @@
 
 .button {
   border: none;
-  border-radius: 10px;
+  border-radius: 0px;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;

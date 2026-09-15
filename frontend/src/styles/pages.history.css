@@ -36,7 +36,7 @@
 
 .history-card {
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: 0px;
   background: var(--color-surface);
   padding: 0.95rem;
   display: grid;
@@ -93,7 +93,7 @@
 
 .history-runs-list__item {
   border: 1px solid var(--color-border);
-  border-radius: 10px;
+  border-radius: 0px;
   padding: 0.75rem 0.85rem;
   background: var(--color-surface-muted);
 }
@@ -266,7 +266,7 @@
 }
 
 .trend-badge {
-  border-radius: 10px;
+  border-radius: 0px;
   border: 1px solid var(--color-border);
   background: var(--color-surface-muted);
   padding: 0.65rem 0.8rem;
