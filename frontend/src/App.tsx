@@ -43,7 +43,8 @@ function AppContent() {
     setActivePage,
     setDomain,
     startScan,
-    currentScanDomain
+    currentScanDomain,
+    setSelectedInvestigationId
   } = useScanShellContext();
   const { isRotatingLogs, rotateLogs } = useActivityLog();
   const { isAuthenticated } = useAuth0();
@@ -76,8 +77,7 @@ function AppContent() {
             >
               Current scan
             </Button>
-            {isAuthenticated && (
-              <Button
+            <Button
                 type="button"
                 className=""
                 variant={activePage === 'investigations' ? 'secondary' : 'ghost'}
@@ -88,8 +88,7 @@ function AppContent() {
                 aria-current={activePage === 'investigations' ? 'page' : undefined}
               >
                 Investigations
-              </Button>
-            )}
+            </Button>
             {isAdmin && (
               <Button
                 type="button"
@@ -207,7 +206,14 @@ function AppContent() {
           headerActions={headerActions}
           onNavigate={setActivePage}
           isAuthenticated={isAuthenticated}
-          onResumeLocal={() => setActivePage('scan')}
+          onResumeLocal={() => {
+            setSelectedInvestigationId('local');
+            setActivePage('scan');
+          }}
+          onResumeInvestigation={(investigationId) => {
+            setSelectedInvestigationId(investigationId);
+            setActivePage('scan');
+          }}
         />
       </Suspense>
     );

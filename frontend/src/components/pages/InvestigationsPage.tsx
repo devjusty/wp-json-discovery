@@ -33,6 +33,7 @@ type InvestigationSummary = {
 type LocalSnapshot = {
   domain: { normalized: string };
   record: {
+    persistedAt: string;
     session: {
       completedAt: string | null;
       selectedCapabilities: unknown[];
@@ -149,7 +150,7 @@ function toLocalRow(snapshot: LocalSnapshot): InvestigationRow {
   return {
     id: 'local-investigation',
     domain: snapshot.domain,
-    updatedAt: session.completedAt ?? new Date().toISOString(),
+    updatedAt: snapshot.record.persistedAt,
     selectedCapabilityCount: session.selectedCapabilities.length,
     completedCapabilityCount: successfulStates.length,
     findingsCount,

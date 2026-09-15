@@ -51,7 +51,8 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
     handleDomainChange: onDomainChange,
     setActivePage,
     activeDomain,
-    setInvestigatorDomain
+    setInvestigatorDomain,
+    selectedInvestigationId
   } = useScanShellContext();
   const {
     session,
@@ -108,7 +109,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
     const snapshot = loadAnonymousInvestigation();
     if (snapshot) {
       setAnonymousSnapshot(snapshot);
-      if (!isAuthenticated) {
+       if (!isAuthenticated || selectedInvestigationId === 'local') {
         const hydrated = hydrateSession(snapshot.record.session, snapshot.domain, scanSettings.options, true);
         setInvestigatorSession(hydrated);
         onDomainChange(snapshot.domain.submitted);
@@ -118,12 +119,12 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
     }
     // Snapshot selection options are restored from persisted scan settings when
     // engine-private selection metadata was not serialized.
-  }, [isAuthenticated, persistInvestigatorSession]);
+  }, [isAuthenticated, persistInvestigatorSession, selectedInvestigationId]);
 
   useEffect(() => {
-    if (!isAuthenticated) return undefined;
-    if (activeDomain) return undefined;
-    const investigationId = loadAuthenticatedInvestigationId();
+    if (!isAuthenticated || selectedInvestigationId === 'local') return undefined;
+    if (activeDomain && !selectedInvestigationId) return undefined;
+    const investigationId = selectedInvestigationId || loadAuthenticatedInvestigationId();
     if (!investigationId) return undefined;
     let cancelled = false;
     setIsResumingInvestigation(true);
@@ -145,7 +146,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
         if (!cancelled) setIsResumingInvestigation(false);
       });
     return () => { cancelled = true; };
-  }, [activeDomain, isAuthenticated, persistInvestigatorSession]);
+  }, [activeDomain, isAuthenticated, persistInvestigatorSession, selectedInvestigationId]);
 
   const handleInvestigatorSubmit = useCallback(async (normalizedValue, submittedValue = normalizedValue) => {
     if (startInFlightRef.current) return;

@@ -32,6 +32,8 @@ type ScanShellContextValue = {
   activeDomain: string;
   investigatorDomain: string;
   setInvestigatorDomain: Dispatch<SetStateAction<string>>;
+  selectedInvestigationId: string;
+  setSelectedInvestigationId: Dispatch<SetStateAction<string>>;
   currentScanDomain: string;
   handleDomainChange: (value: string) => void;
 };
@@ -57,6 +59,7 @@ export function ScanProvider({ children }: ScanProviderProps) {
   const [activePage, setActivePage] = useState('scan');
   const [domain, setDomain] = useState('');
   const [investigatorDomain, setInvestigatorDomain] = useState('');
+  const [selectedInvestigationId, setSelectedInvestigationId] = useState('');
   const [scanSettings, setScanSettings] = useState<ScanSettings>(() => normalizeSelection(loadScanPreferences()) as ScanSettings);
 
   const {
@@ -90,6 +93,7 @@ export function ScanProvider({ children }: ScanProviderProps) {
     const domainIdentity = { submitted: value, normalized: normalizeDomain(value) };
     setDomain(value);
     setInvestigatorDomain('');
+    setSelectedInvestigationId('');
     return startScan(domainIdentity.normalized, normalizeSelection(scanSettings), domainIdentity);
   }, [scanSettings, startScan]);
 
@@ -103,6 +107,8 @@ export function ScanProvider({ children }: ScanProviderProps) {
       activeDomain: scanActiveDomain,
       investigatorDomain,
       setInvestigatorDomain,
+      selectedInvestigationId,
+      setSelectedInvestigationId,
        currentScanDomain: investigatorDomain || scanActiveDomain,
       handleDomainChange
     }),
@@ -111,6 +117,7 @@ export function ScanProvider({ children }: ScanProviderProps) {
       domain,
       scanActiveDomain,
       investigatorDomain,
+      selectedInvestigationId,
       handleStartScan,
       handleDomainChange
     ]
