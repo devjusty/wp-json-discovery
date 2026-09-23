@@ -5,12 +5,13 @@ import {
 } from '@wp-json-discovery/contracts';
 import type { InvestigationStore } from '../../application/ports/investigation-store';
 import { createInvestigation } from '../../domain/investigation/model';
-import type { CapabilityRunInput, Investigation } from '../../domain/investigation/model';
+import type { Investigation } from '../../domain/investigation/model';
 import { ContractInvalidError } from '../contractErrors';
 import {
   loadAnonymousInvestigation,
   saveAnonymousInvestigation,
 } from '../../services/anonymousInvestigations.js';
+import { domainToSession } from './sessionMapping';
 
 export type LocalInvestigationPersistence = {
   load: (id: string) => Promise<Investigation | null>;
@@ -104,7 +105,7 @@ function createAnonymousStore(persistence: AnonymousPersistence): InvestigationS
         investigation: state,
         record: {
           recordType: 'session',
-          session: domainToSession(state),
+           session: domainToSession(state),
           persistedAt: state.createdAt,
         },
       });
@@ -195,67 +196,4 @@ function validateIdentifier(value: string, label: string): void {
   if (typeof value !== 'string' || value.trim() === '') {
     throw new ContractInvalidError(`Invalid ${label}`);
   }
-}
-
-function domainToSession(investigation: Investigation) {
-  const capabilities = investigation.capabilities;
-  const selectedIds = new Set(capabilities.map(({ name }) => name));
-  const hasFailure = capabilities.some(({ status }) => ['failed', 'unavailable'].includes(status));
-  const hasSuccess = capabilities.some(({ status }) => status === 'success');
-  const active = capabilities.some(({ status }) => ['queued', 'running'].includes(status));
-  const status = active ? 'running' : hasFailure && !hasSuccess ? 'failed' : 'completed';
-  const timestamp = investigation.createdAt;
-
-  return {
-    id: `${investigation.id}-session`,
-    investigationId: investigation.id,
-    status,
-    startedAt: timestamp,
-    completedAt: status === 'running' ? null : timestamp,
-    selectedCapabilities: capabilities.map(({ name, dependencies = [], options }) => ({
-      id: name,
-      dependencies: dependencies.filter(dependency => selectedIds.has(dependency)),
-      ...(options ? { options } : {}),
-    })),
-    capabilityStates: Object.fromEntries(capabilities.map(capability => [
-      capability.name,
-      capabilityState(capability),
-    ])),
-    overall: {
-      status: !capabilities.length || active
-        ? 'incomplete'
-        : hasSuccess && hasFailure ? 'partial' : hasSuccess ? 'complete' : 'failed',
-    },
-    investigationState: investigation,
-  };
-}
-
-function capabilityState(capability: CapabilityRunInput) {
-  if (capability.status === 'failed') {
-    return {
-      status: 'failed',
-      outcome: { status: 'failed', result: null, error: capability.error },
-      retry: { status: 'not-retryable' },
-    };
-  }
-  if (capability.status === 'unavailable') {
-    return {
-      status: 'unavailable',
-      outcome: {
-        status: 'unavailable',
-        result: null,
-        error: capability.error ?? { code: 'unavailable', message: 'Unavailable', retryable: false },
-      },
-      retry: { status: 'not-retryable' },
-    };
-  }
-  if (capability.status === 'success') {
-    const outcome = { status: 'success' as const, error: null };
-    return {
-      status: 'success',
-      outcome: capability.result === undefined ? outcome : { ...outcome, result: capability.result },
-      retry: { status: 'not-retryable' },
-    };
-  }
-  return { status: capability.status, retry: { status: 'not-retryable' } };
 }

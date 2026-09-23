@@ -45,6 +45,7 @@ import {
 } from '../../services/anonymousInvestigations.js';
 import { normalizeCapabilityStates } from '../../domain/investigation/capabilityStates';
 import { normalizeDomain } from '../../utils/format.js';
+import { createPersistableSession } from '../../adapters/persistence/sessionMapping';
 
 function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
   const {
@@ -91,16 +92,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
       const revision = ++persistenceRevisionRef.current;
       const persist = async () => {
         try {
-          const persistable = { ...nextSession };
-          Object.defineProperty(persistable, 'investigationState', {
-            value: materializeInvestigationState(
-              nextSession,
-              identity,
-              nextSession.selectedCapabilities ?? []
-            ),
-            enumerable: false,
-            configurable: true,
-          });
+          const persistable = createPersistableSession(nextSession, identity);
           await saveInvestigationSession(nextSession.investigationId, persistable);
         } catch (error) {
           if (revision !== persistenceRevisionRef.current) return;
@@ -464,45 +456,6 @@ function hydrateSession(session, domain, fallbackOptions = {}, recover = false) 
     configurable: true
   });
   return recover ? recoverInvestigationSession(hydrated) : hydrated;
-}
-
-function materializeInvestigationState(session, domain, selectedCapabilities) {
-  const source = session.investigationState;
-  const sourceCapabilities = new Map((source?.capabilities ?? []).map((capability) => [capability.name, capability]));
-  const capabilities = selectedCapabilities.map(({ id: name, dependencies, options }) => {
-    const capabilityState = session.capabilityStates?.[name];
-    const status = capabilityState?.status === 'idle' ? 'queued' : capabilityState?.status ?? 'queued';
-    const capability: Record<string, unknown> = Object.assign(
-      {},
-      sourceCapabilities.get(name) ?? {},
-      {
-        name,
-        status,
-        ...(dependencies?.length ? { dependencies } : {}),
-        ...(options ? { options } : {}),
-      },
-    );
-    if (status === 'success' && Object.prototype.hasOwnProperty.call(capabilityState?.outcome ?? {}, 'result')) {
-      capability.result = capabilityState.outcome.result;
-    }
-    if (status === 'failed' || status === 'unavailable') {
-      capability.error = capabilityState?.outcome?.error;
-    }
-    return capability;
-  });
-
-  return {
-    ...(source ?? {}),
-    id: session.investigationId,
-    submittedUrl: domain.submitted,
-    normalizedUrl: domain.normalized,
-    redirectChain: source?.redirectChain ?? [],
-    createdAt: source?.createdAt ?? session.startedAt ?? new Date().toISOString(),
-    capabilities,
-    observationTimeline: source?.observationTimeline ?? [],
-    evidence: source?.evidence ?? [],
-    findings: source?.findings ?? [],
-  };
 }
 
 function bridgeInvestigatorSession(session) {

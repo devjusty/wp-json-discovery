@@ -69,9 +69,9 @@ describe('remote investigation store', () => {
     await expect(store.list()).resolves.toEqual([full]);
   });
 
-  describe('authenticated API transport', () => {
-    beforeEach(() => {
-      setTokenProvider(async () => 'remote-token');
+    describe('authenticated API transport', () => {
+      beforeEach(() => {
+      setTokenProvider(null);
       vi.stubGlobal('fetch', vi.fn(async () => ({
         ok: true,
         status: 200,

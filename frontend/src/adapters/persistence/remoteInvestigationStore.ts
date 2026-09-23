@@ -1,6 +1,7 @@
 import type { InvestigationStore } from '../../application/ports/investigation-store';
 import type { AuthSession } from '../../application/ports/auth-session';
 import type { Investigation } from '../../domain/investigation/model';
+import { createInvestigationApiClient } from '../../api/client';
 import {
   createInvestigationTransport,
 } from '../http/investigationTransport';
@@ -15,11 +16,14 @@ export type RemoteInvestigationTransport = {
 
 export const createRemoteInvestigationStore = ({
   authSession,
-  transport = createInvestigationTransport(),
+  transport,
 }: {
   authSession: AuthSession;
   transport?: RemoteInvestigationTransport;
 }): InvestigationStore => {
+  const boundTransport = transport ?? createInvestigationTransport(
+    createInvestigationApiClient(() => authSession.getAccessToken())
+  );
   const requireAuthentication = async () => {
     try {
       const token = await authSession.getAccessToken();
@@ -33,19 +37,19 @@ export const createRemoteInvestigationStore = ({
   return {
     async save(investigation) {
       await requireAuthentication();
-      return transport.save(investigation);
+      return boundTransport.save(investigation);
     },
     async get(id) {
       await requireAuthentication();
-      return transport.get(id);
+      return boundTransport.get(id);
     },
     async list() {
       await requireAuthentication();
-      return transport.list();
+      return boundTransport.list();
     },
     async claim(id) {
       await requireAuthentication();
-      return transport.claim(id);
+      return boundTransport.claim(id);
     },
   };
 };

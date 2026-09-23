@@ -26,6 +26,7 @@ import {
 import { createInvestigation } from '../../domain/investigation/model';
 import type { Investigation } from '../../domain/investigation/model';
 import { ContractInvalidError } from '../contractErrors';
+import { domainToSession } from '../persistence/sessionMapping';
 
 export { ContractInvalidError } from '../contractErrors';
 
@@ -239,58 +240,4 @@ function assertDomainIdentity(investigation: Investigation, domain: DomainIdenti
     || investigation.normalizedUrl !== domain.normalized) {
     throw new ContractInvalidError('Investigation domain identity mismatch');
   }
-}
-
-function domainToSession(investigation: Investigation) {
-  const hasFailure = investigation.capabilities.some(({ status }) => ['failed', 'unavailable'].includes(status));
-  const hasSuccess = investigation.capabilities.some(({ status }) => status === 'success');
-  const active = investigation.capabilities.some(({ status }) => ['queued', 'running'].includes(status));
-  const selectedIds = new Set(investigation.capabilities.map(({ name }) => name));
-  const status = active ? 'running' : hasFailure && !hasSuccess ? 'failed' : 'completed';
-  const timestamp = investigation.createdAt;
-
-  return {
-    id: `${investigation.id}-session`,
-    investigationId: investigation.id,
-    status,
-    startedAt: timestamp,
-    completedAt: status === 'running' ? null : timestamp,
-    selectedCapabilities: investigation.capabilities.map(({ name, dependencies = [], options }) => ({
-      id: name,
-      dependencies: dependencies.filter(dependency => selectedIds.has(dependency)),
-      ...(options ? { options } : {}),
-    })),
-    capabilityStates: Object.fromEntries(investigation.capabilities.map(capability => [
-      capability.name,
-      capabilityState(capability),
-    ])),
-    overall: {
-      status: !investigation.capabilities.length || active
-        ? 'incomplete'
-        : hasSuccess && hasFailure ? 'partial' : hasSuccess ? 'complete' : 'failed',
-    },
-    investigationState: investigation,
-  };
-}
-
-function capabilityState(capability: Investigation['capabilities'][number]) {
-  if (capability.status === 'failed') {
-    return { status: 'failed', outcome: { status: 'failed', result: null, error: capability.error }, retry: { status: 'not-retryable' } };
-  }
-  if (capability.status === 'unavailable') {
-    return {
-      status: 'unavailable',
-      outcome: { status: 'unavailable', result: null, error: capability.error ?? { code: 'unavailable', message: 'Unavailable', retryable: false } },
-      retry: { status: 'not-retryable' },
-    };
-  }
-  if (capability.status === 'success') {
-    const outcome = { status: 'success' as const, error: null };
-    return {
-      status: 'success',
-      outcome: capability.result === undefined ? outcome : { ...outcome, result: capability.result },
-      retry: { status: 'not-retryable' },
-    };
-  }
-  return { status: capability.status, retry: { status: 'not-retryable' } };
 }

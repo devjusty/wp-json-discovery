@@ -93,7 +93,7 @@ async function readResponseBody(response: Response, contentType: string): Promis
   return response.text();
 }
 
-export async function request(path: string, options: RequestInit = {}): Promise<RequestResult> {
+export async function request(path: string, options: RequestInit = {}, tokenProvider: TokenProvider | null = null): Promise<RequestResult> {
   const url = `${API_BASE_URL}${path}`;
 
   try {
@@ -107,7 +107,8 @@ export async function request(path: string, options: RequestInit = {}): Promise<
       headers.set('x-wpjd-admin-key', ADMIN_API_KEY);
     }
 
-    if (globalGetAccessToken && (
+    const getAccessToken = tokenProvider ?? globalGetAccessToken;
+    if (getAccessToken && (
       path.startsWith('/api/user/') ||
       path.startsWith('/api/admin/') ||
       path === '/api/logs' ||
@@ -119,7 +120,7 @@ export async function request(path: string, options: RequestInit = {}): Promise<
       || path.startsWith('/api/investigations')
     )) {
       try {
-        const token = await globalGetAccessToken();
+        const token = await getAccessToken();
         if (token) {
           headers.set('authorization', `Bearer ${token}`);
         }
@@ -345,27 +346,29 @@ export async function clearUserSavedScans() {
 
 export async function startInvestigation(
   domain: DomainIdentity,
-  selectedCapabilities: StartInvestigationRequest['selectedCapabilities']
+  selectedCapabilities: StartInvestigationRequest['selectedCapabilities'],
+  tokenProvider: TokenProvider | null = null,
 ): Promise<InvestigationRecord> {
   return requestInvestigation('/api/investigations', {
     method: 'POST',
     body: JSON.stringify({ domain, selectedCapabilities })
-  });
+  }, undefined, tokenProvider);
 }
 
-export async function fetchInvestigation(investigationId: string): Promise<InvestigationRecord> {
-  return requestInvestigation(`/api/investigations/${encodeURIComponent(investigationId)}`);
+export async function fetchInvestigation(investigationId: string, tokenProvider: TokenProvider | null = null): Promise<InvestigationRecord> {
+  return requestInvestigation(`/api/investigations/${encodeURIComponent(investigationId)}`, undefined, undefined, tokenProvider);
 }
 
 /** @returns {Promise<import('@wp-json-discovery/contracts').InvestigationList>} */
-export async function fetchInvestigations(): Promise<InvestigationList> {
+export async function fetchInvestigations(tokenProvider: TokenProvider | null = null): Promise<InvestigationList> {
   // Collection endpoint uses same envelope parser with different payload schema.
-  return requestInvestigation('/api/investigations', undefined, investigationListSchema);
+  return requestInvestigation('/api/investigations', undefined, investigationListSchema, tokenProvider);
 }
 
 export async function saveInvestigationSession(
   investigationId: string,
-  session: unknown
+  session: unknown,
+  tokenProvider: TokenProvider | null = null,
 ): Promise<SessionRecord> {
   const parsedSession = scanSessionSchema.safeParse(session);
   if (!parsedSession.success) {
@@ -383,27 +386,40 @@ export async function saveInvestigationSession(
   return requestInvestigation(
     `/api/investigations/${encodeURIComponent(investigationId)}/sessions/${encodeURIComponent(parsedSession.data.id)}`,
     { method: 'POST', body: JSON.stringify({ session: parsedSession.data }) },
-    sessionRecordSchema
+    sessionRecordSchema,
+    tokenProvider,
   );
 }
 
 export async function claimAnonymousInvestigation(
   domain: DomainIdentity,
-  anonymousRecord: unknown
+  anonymousRecord: unknown,
+  tokenProvider: TokenProvider | null = null,
 ): Promise<InvestigationRecord> {
   return requestInvestigation('/api/investigations/claim', {
     method: 'POST',
     body: JSON.stringify({ domain, anonymousRecord })
-  });
+  }, undefined, tokenProvider);
+}
+
+export function createInvestigationApiClient(tokenProvider: TokenProvider) {
+  return {
+    start: (domain: DomainIdentity, selectedCapabilities: StartInvestigationRequest['selectedCapabilities']) => startInvestigation(domain, selectedCapabilities, tokenProvider),
+    get: (id: string) => fetchInvestigation(id, tokenProvider),
+    list: () => fetchInvestigations(tokenProvider),
+    save: (id: string, session: unknown) => saveInvestigationSession(id, session, tokenProvider),
+    claim: (domain: DomainIdentity, anonymousRecord: unknown) => claimAnonymousInvestigation(domain, anonymousRecord, tokenProvider),
+  };
 }
 
 async function requestInvestigation<T>(
   path: string,
   options?: RequestInit,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  dataSchema: { safeParse: (data: unknown) => any } = investigationRecordSchema
+  dataSchema: { safeParse: (data: unknown) => any } = investigationRecordSchema,
+  tokenProvider: TokenProvider | null = null,
 ): Promise<T> {
-  const result = await request(path, options);
+  const result = await request(path, options, tokenProvider);
   const envelope = apiEnvelopeSchema.safeParse(result.data);
 
   if (!envelope.success) {
