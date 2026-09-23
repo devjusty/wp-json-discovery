@@ -4,7 +4,7 @@ import {
   normalizeSelection
 } from './scanCapabilities.js';
 import { normalizeScanError } from './scanSession.js';
-import { applyInvestigationEvent } from '../domain/investigation/lifecycle.ts';
+import { applyInvestigationEvent, canRetryCapability } from '../domain/investigation/lifecycle.ts';
 import { selectInvestigationStatus } from '../domain/investigation/selectors.ts';
 
 const DEPENDENCY_ERROR = {
@@ -102,7 +102,7 @@ export async function runInvestigationSession(session, runners, onChange, token)
 export async function retryInvestigationCapability(session, capabilityId, runners, onChange, token) {
   let current = cloneSession(session);
   const state = current.capabilityStates[capabilityId];
-  if (!state || !['failed', 'unavailable'].includes(state.status) || !isActive(token)) return current;
+  if (!state || !canRetryCapability(current, capabilityId) || !isActive(token)) return current;
   if (!hasSuccessfulDependencies(current, capabilityId)) {
     current = updateCapability(current, capabilityId, unavailableState(DEPENDENCY_ERROR, getFailedDependency(current, capabilityId)));
     notify(onChange, current, token);
@@ -200,7 +200,7 @@ function errorState(error) {
 }
 
 function unavailableState(error, dependencyId) {
-  const normalizedError = { ...error, retryable: dependencyId ? false : error.retryable === true };
+  const normalizedError = { ...error, retryable: false };
   const state = {
     status: 'unavailable',
     outcome: { status: 'unavailable', result: null, error: normalizedError },
@@ -224,10 +224,7 @@ function updateCapability(session, id, state) {
   const transitioned = applyInvestigationEvent(session, event);
   const next = {
     ...transitioned,
-    capabilityStates: Object.fromEntries(Object.entries(transitioned.capabilityStates).map(([capabilityId, capabilityState]) => [
-      capabilityId,
-      { ...capabilityState, retry: { status: 'not-retryable' } }
-    ])),
+    capabilityStates: transitioned.capabilityStates,
     overall: { status: selectInvestigationStatus(transitioned) === 'complete' ? 'complete' : 'incomplete' }
   };
   if (state.status === 'queued' && session.status !== 'idle') {

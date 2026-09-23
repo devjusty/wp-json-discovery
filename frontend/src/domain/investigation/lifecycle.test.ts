@@ -72,6 +72,66 @@ describe('investigation lifecycle', () => {
     })).toThrowError(expect.objectContaining({ code: 'invalid-transition' }));
   });
 
+  it('does not terminalize while a selected capability is still idle', () => {
+    let state = applyInvestigationEvent(startingState(), {
+      type: 'capability-queued', capability: 'wordpress',
+    });
+    state = applyInvestigationEvent(state, {
+      type: 'capability-running', capability: 'wordpress',
+    });
+    const after = applyInvestigationEvent(state, {
+      type: 'capability-succeeded', capability: 'wordpress', result: { ok: true },
+    });
+
+    expect(after.status).toBe('running');
+    expect(after.completedAt).toBeNull();
+    expect(after.overall.status).toBe('incomplete');
+  });
+
+  it('terminalizes partial status only after every selected capability is terminal', () => {
+    let state = startingState();
+    state = applyInvestigationEvent(state, { type: 'capability-queued', capability: 'wordpress' });
+    state = applyInvestigationEvent(state, { type: 'capability-running', capability: 'wordpress' });
+    state = applyInvestigationEvent(state, {
+      type: 'capability-succeeded', capability: 'wordpress', result: { ok: true },
+    });
+    expect(state.overall.status).toBe('incomplete');
+
+    state = applyInvestigationEvent(state, {
+      type: 'capability-unavailable', capability: 'sitemap',
+      error: { code: 'auth_required', message: 'Authentication required', retryable: true },
+    });
+
+    expect(state.status).toBe('completed');
+    expect(state.overall.status).toBe('partial');
+    expect(state.completedAt).toBeNull();
+  });
+
+  it('rejects direct retry transitions unless failed capability is retryable', () => {
+    let state = startingState();
+    state = applyInvestigationEvent(state, { type: 'capability-queued', capability: 'wordpress' });
+    state = applyInvestigationEvent(state, { type: 'capability-running', capability: 'wordpress' });
+    state = applyInvestigationEvent(state, {
+      type: 'capability-failed', capability: 'wordpress',
+      error: { code: 'permanent', message: 'Permanent failure', retryable: false },
+    });
+
+    expect(() => applyInvestigationEvent(state, {
+      type: 'capability-queued', capability: 'wordpress',
+    })).toThrowError(expect.objectContaining({ code: 'invalid-transition' }));
+  });
+
+  it('never permits unavailable capability retry transitions', () => {
+    const unavailable = applyInvestigationEvent(startingState(), {
+      type: 'capability-unavailable', capability: 'sitemap',
+      error: { code: 'runner_unavailable', message: 'Runner unavailable', retryable: true },
+    });
+
+    expect(() => applyInvestigationEvent(unavailable, {
+      type: 'capability-queued', capability: 'sitemap',
+    })).toThrowError(expect.objectContaining({ code: 'invalid-transition' }));
+  });
+
   it('does not retry unavailable capabilities without retryable error', () => {
     const unavailable = applyInvestigationEvent(startingState(), {
       type: 'capability-unavailable', capability: 'sitemap',
@@ -81,13 +141,15 @@ describe('investigation lifecycle', () => {
     expect(canRetryCapability(unavailable, 'sitemap')).toBe(false);
   });
 
-  it('does not retry unavailable capabilities even when runner error is transient', () => {
+  it('marks unavailable capabilities non-retryable even when runner error is transient', () => {
     const unavailable = applyInvestigationEvent(startingState(), {
       type: 'capability-unavailable', capability: 'sitemap',
       error: { code: 'runner_unavailable', message: 'Runner unavailable', retryable: true },
     });
 
     expect(canRetryCapability(unavailable, 'sitemap')).toBe(false);
+    expect(unavailable.capabilityStates.sitemap.outcome?.error?.retryable).toBe(false);
+    expect(unavailable.capabilityStates.sitemap.retry).toEqual({ status: 'not-retryable' });
   });
 
   it('preserves successful evidence while another capability fails', () => {

@@ -94,7 +94,7 @@ describe('investigation session', () => {
     expectValidSession(result);
     expect(result.capabilityStates.homepage).toMatchObject({
       status: 'unavailable',
-      outcome: { status: 'unavailable', error: { code: 'runner_unavailable', retryable: true } }
+      outcome: { status: 'unavailable', error: { code: 'runner_unavailable', retryable: false } }
     });
   });
 
@@ -257,31 +257,30 @@ describe('investigation session', () => {
     expect(retried.capabilityStates.homepage.outcome.status).toBe('success');
   });
 
-  it('retries unavailable capability when its runner becomes available', async () => {
+  it('does not retry unavailable capability when its runner becomes available', async () => {
     const wordpress = vi.fn().mockResolvedValue({ ok: true });
     const unavailable = await runInvestigationSession(session, { wordpress });
     const homepage = vi.fn().mockResolvedValue({ assets: [] });
 
     expect(unavailable.capabilityStates.homepage.status).toBe('unavailable');
-    const changes = [];
-    const retried = await retryInvestigationCapability(unavailable, 'homepage', { wordpress, homepage }, (next) => changes.push(next));
+    const retried = await retryInvestigationCapability(unavailable, 'homepage', { wordpress, homepage });
 
     expectValidSession(retried);
-    changes.forEach(expectValidSession);
-    expect(homepage).toHaveBeenCalledOnce();
+    expect(homepage).not.toHaveBeenCalled();
     expect(wordpress).toHaveBeenCalledOnce();
     expect(retried.capabilityStates.wordpress.outcome.result).toEqual({ ok: true });
-    expect(retried.capabilityStates.homepage.outcome.status).toBe('success');
+    expect(retried.capabilityStates.homepage.status).toBe('unavailable');
   });
 
   it('preserves settled retry evidence after cancellation without notifying success', async () => {
     let release;
     const token = { active: true };
     const changes = [];
-    const unavailable = await runInvestigationSession(session, {
-      wordpress: vi.fn().mockResolvedValue({ ok: true })
+    const failed = await runInvestigationSession(session, {
+      wordpress: vi.fn().mockResolvedValue({ ok: true }),
+      homepage: vi.fn().mockRejectedValue(new Error('temporary'))
     });
-    const retried = retryInvestigationCapability(unavailable, 'homepage', {
+    const retried = retryInvestigationCapability(failed, 'homepage', {
       homepage: () => new Promise((resolve) => { release = resolve; })
     }, (next) => changes.push(next), token);
 
@@ -327,7 +326,7 @@ describe('investigation session', () => {
     expect(contextual.selectedCapabilities).toContainEqual({ id: 'sitemap', dependencies: ['wordpress'] });
   });
 
-  it('allows sitemap retry after its failed WordPress dependency is recovered', async () => {
+  it('does not retry sitemap after its failed WordPress dependency is recovered', async () => {
     const dependentSession = addInvestigationCapability(
       createInvestigationSession({
         investigationId: 'inv-retry-dependency',
@@ -350,7 +349,7 @@ describe('investigation session', () => {
       sitemap: vi.fn().mockResolvedValue({ pages: [] })
     });
 
-    expect(retried.capabilityStates.sitemap.status).toBe('success');
+    expect(retried.capabilityStates.sitemap.status).toBe('unavailable');
   });
 
   it('repairs persisted sitemap dependency metadata before retry', async () => {

@@ -7,6 +7,7 @@ import {
 export const selectInvestigationStatus = (state: InvestigationLifecycleState): InvestigationOverallStatus => {
   const selected = state.selectedCapabilities.map(({ id }) => state.capabilityStates[id]).filter(Boolean);
   if (['invalid', 'auth-required', 'unusable'].includes(state.status) || selected.length === 0) return 'blocked';
+  if (!selected.every(({ status }) => ['success', 'failed', 'unavailable'].includes(status))) return 'incomplete';
   const successful = selected.filter(({ status }) => status === 'success').length;
   const failed = selected.some(({ status }) => ['failed', 'unavailable'].includes(status));
   if (successful === selected.length) return 'complete';

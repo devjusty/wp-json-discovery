@@ -10,7 +10,7 @@ export type InvestigationCapabilityState = {
     result: unknown;
     error: CapabilityError | null;
   };
-  retry?: { status: 'retryable' | 'not-retryable' };
+  retry?: { status: 'not-retryable' };
   dependency?: { status: 'failed'; dependencyId: string; error: CapabilityError };
 };
 
@@ -56,12 +56,13 @@ const getState = (state: InvestigationLifecycleState, capability: string): Inves
 
 const assertTransition = (state: InvestigationCapabilityState, capability: string, next: CapabilityStatus): void => {
   const allowed = {
-    queued: ['idle', 'failed', 'unavailable'],
+    queued: ['idle'],
     running: ['queued'],
     success: ['running'],
     failed: ['queued', 'running'],
     unavailable: ['idle', 'running'],
   } satisfies Record<CapabilityStatus, string[]>;
+  if (next === 'queued' && state.status === 'failed' && state.outcome?.error?.retryable === true) return;
   if (!allowed[next].includes(state.status)) {
     throw new InvalidInvestigationTransitionError(capability, state.status, next);
   }
@@ -71,6 +72,8 @@ const terminalStatus = (state: InvestigationLifecycleState): InvestigationOveral
   const selected = state.selectedCapabilities.map(({ id }) => state.capabilityStates[id]).filter(Boolean);
   if (state.status === 'invalid' || state.status === 'auth-required' || state.status === 'unusable' || selected.length === 0) return 'blocked';
   const successes = selected.filter(({ status }) => status === 'success').length;
+  const terminal = selected.every(({ status }) => ['success', 'failed', 'unavailable'].includes(status));
+  if (!terminal) return 'incomplete';
   const failures = selected.some(({ status }) => status === 'failed' || status === 'unavailable');
   if (successes === selected.length) return 'complete';
   if (successes > 0 && failures) return 'partial';
@@ -109,10 +112,13 @@ export const applyInvestigationEvent = (
     capability.outcome = { status: 'success', result: event.result, error: null };
     capability.retry = { status: 'not-retryable' };
   } else {
-    const error = ('error' in event ? event.error : undefined)
+    const eventError = ('error' in event ? event.error : undefined);
+    const error = (nextStatus === 'unavailable' && eventError
+      ? { ...eventError, retryable: false }
+      : eventError)
       ?? { code: 'unavailable', message: 'Capability unavailable.', retryable: false };
     capability.outcome = { status: nextStatus, result: null, error };
-    capability.retry = { status: error.retryable ? 'retryable' : 'not-retryable' };
+    capability.retry = { status: 'not-retryable' };
     if (nextStatus === 'unavailable' && event.type === 'capability-unavailable' && event.dependencyId) {
       capability.dependency = { status: 'failed', dependencyId: event.dependencyId, error };
     }
