@@ -117,6 +117,9 @@ const assertCapabilityRun = (capability: CapabilityRunInput): void => {
   if (!capability || typeof capability !== 'object' || Array.isArray(capability)) {
     throw new InvestigationModelError('invalid-capability-run', 'Capability run must be an object');
   }
+  if (typeof capability.name !== 'string' || !capability.name.trim()) {
+    throw new InvestigationModelError('invalid-capability-run', 'Capability run name must be non-empty');
+  }
   if (!['queued', 'running', 'success', 'failed', 'unavailable'].includes(capability.status as CapabilityStatus)) {
     throw new InvestigationModelError('invalid-capability-run', `${capability.name} has an invalid status`);
   }
