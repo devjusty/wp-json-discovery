@@ -1,31 +1,17 @@
 import type { CapabilityError, CapabilityStatus } from './model';
 import { selectInvestigationStatus } from './selectors';
+import type {
+  InvestigationCapabilityState,
+  InvestigationLifecycleState,
+} from './state';
 
 export { canRetryCapability } from './retry';
-
-export type InvestigationLifecycleStatus = 'idle' | 'queued' | 'running' | 'completed' | 'invalid' | 'auth-required' | 'unusable';
-export type InvestigationOverallStatus = 'complete' | 'partial' | 'failed' | 'blocked' | 'incomplete';
-
-export type InvestigationCapabilityState = {
-  status: CapabilityStatus | 'idle';
-  outcome?: {
-    status: CapabilityStatus;
-    result: unknown;
-    error: CapabilityError | null;
-  };
-  retry?: { status: 'not-retryable' };
-  dependency?: { status: 'failed'; dependencyId: string; error: CapabilityError };
-};
-
-export type InvestigationLifecycleState = {
-  status: InvestigationLifecycleStatus;
-  startedAt: string | null;
-  completedAt: string | null;
-  selectedCapabilities: ReadonlyArray<{ id: string }>;
-  capabilityStates: Record<string, InvestigationCapabilityState>;
-  overall: { status: InvestigationOverallStatus };
-  evidence?: ReadonlyArray<unknown>;
-};
+export type {
+  InvestigationCapabilityState,
+  InvestigationLifecycleState,
+  InvestigationLifecycleStatus,
+  InvestigationOverallStatus,
+} from './state';
 
 type InvestigationEvent =
   | { type: 'capability-queued'; capability: string; at?: string }
@@ -76,9 +62,7 @@ export const applyInvestigationEvent = (
   event: InvestigationEvent,
 ): InvestigationLifecycleState => {
   const current = getState(state, event.capability);
-  const nextStatus = event.type === 'capability-succeeded'
-    ? 'success'
-    : event.type.replace('capability-', '') as CapabilityStatus;
+  const nextStatus = getCapabilityStatus(event);
   assertTransition(current, event.capability, nextStatus);
   const next = clone(state);
   const capability = next.capabilityStates[event.capability];
@@ -124,3 +108,13 @@ export const applyInvestigationEvent = (
 };
 
 export type { InvestigationEvent };
+
+const getCapabilityStatus = (event: InvestigationEvent): CapabilityStatus => {
+  switch (event.type) {
+    case 'capability-queued': return 'queued';
+    case 'capability-running': return 'running';
+    case 'capability-succeeded': return 'success';
+    case 'capability-failed': return 'failed';
+    case 'capability-unavailable': return 'unavailable';
+  }
+};
