@@ -104,7 +104,14 @@ export class InvestigationModelError extends Error {
 const timestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 
 const assertTimestamp = (value: unknown, field: string): void => {
-  if (typeof value !== 'string' || !timestampPattern.test(value) || Number.isNaN(Date.parse(value))) {
+  const datePart = typeof value === 'string' ? value.slice(0, 10).split('-').map(Number) : [];
+  const [year, month, day] = datePart;
+  const isLeapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = month === 2
+    ? (isLeapYear ? 29 : 28)
+    : [4, 6, 9, 11].includes(month) ? 30 : 31;
+  const validCalendarDate = month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth;
+  if (typeof value !== 'string' || !timestampPattern.test(value) || !validCalendarDate || Number.isNaN(Date.parse(value))) {
     throw new InvestigationModelError('invalid-timestamp', `${field} must be an ISO timestamp with timezone`);
   }
 };
@@ -178,6 +185,9 @@ const assertCapabilityRun = (capability: CapabilityRunInput): void => {
   }
   if (typeof capability.name !== 'string' || !capability.name.trim()) {
     throw new InvestigationModelError('invalid-capability-run', 'Capability run name must be non-empty');
+  }
+  if (capability.reason !== undefined && typeof capability.reason !== 'string') {
+    throw new InvestigationModelError('invalid-capability-run', `${capability.name} reason must be a string`);
   }
   if (!['queued', 'running', 'success', 'failed', 'unavailable'].includes(capability.status as CapabilityStatus)) {
     throw new InvestigationModelError('invalid-capability-run', `${capability.name} has an invalid status`);

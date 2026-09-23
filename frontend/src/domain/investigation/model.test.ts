@@ -181,12 +181,14 @@ describe('investigation model', () => {
       { name: 'html', status: 'success' as const, error: { code: 'bad', message: 'Bad', retryable: false } },
       { name: 'html', status: 'failed' as const },
       { name: 'html', status: 'unavailable' as const, error: { code: 'bad', message: 'Bad', retryable: true } },
+      { name: 'sitemap', status: 'unavailable' as const, reason: 42 as unknown as string },
       { name: 'html', status: 'success' as const, completedAt: 'not-a-timestamp' },
     ]) {
       expect(() => createInvestigation({ ...base, capabilities: [capability] })).toThrow(InvestigationModelError);
     }
 
     expect(() => createInvestigation({ ...base, createdAt: 'not-a-timestamp' })).toThrow(InvestigationModelError);
+    expect(() => createInvestigation({ ...base, createdAt: '2026-02-31T12:00:00.000Z' })).toThrow(InvestigationModelError);
   });
 
   it('rejects runtime-invalid capability statuses and errors', () => {
