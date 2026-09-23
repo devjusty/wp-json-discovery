@@ -8,6 +8,8 @@ import { ScanProvider, useScanShellContext } from './context/ScanContext';
 import { useActivityLog } from './hooks/useActivityLog.js';
 import { setTokenProvider, setAuthUserProvider, fetchUserProfile } from './api/client.js';
 import { setScanCapabilityContext } from './services/scanCapabilities.js';
+import { AdminShell } from './ui/shell/AdminShell';
+import { InvestigatorShell } from './ui/shell/InvestigatorShell';
 
 const loadScanPage = () => import('./components/pages/ScanPage');
 const loadAdminPage = () => import('./components/pages/AdminPage');
@@ -149,19 +151,24 @@ function AppContent() {
     }
 
     return (
-      <Suspense fallback={<PageLoadingState label="Loading admin console..." />}>
-        <AdminPage
-          headerActions={headerActions}
-          onNavigate={setActivePage}
-          rotateLogs={rotateLogs}
-          isRotatingLogs={isRotatingLogs}
-          onRescan={(domain) => {
-            if (!domain) return;
-            setActivePage('scan');
-            startScan(domain);
-          }}
-        />
-      </Suspense>
+      <AdminShell
+        navigation={{ items: [{ id: 'admin', label: 'Admin' }], activeId: 'admin' }}
+        commands={{ onNavigate: setActivePage }}
+      >
+        <Suspense fallback={<PageLoadingState label="Loading admin console..." />}>
+          <AdminPage
+            headerActions={headerActions}
+            onNavigate={setActivePage}
+            rotateLogs={rotateLogs}
+            isRotatingLogs={isRotatingLogs}
+            onRescan={(domain) => {
+              if (!domain) return;
+              setActivePage('scan');
+              startScan(domain);
+            }}
+          />
+        </Suspense>
+      </AdminShell>
     );
   }
 
@@ -180,50 +187,67 @@ function AppContent() {
     }
 
     return (
-      <Suspense fallback={<PageLoadingState label="Loading scan history..." />}>
-        <HistoryPage
-          headerActions={headerActions}
-          onRescan={(domain) => {
-
-            if (!domain) return;
-            setActivePage('scan');
-            startScan(domain);
-          }}
-          onUseDomain={(domain) => {
-            if (!domain) return;
-            setDomain(domain);
-            setActivePage('scan');
-          }}
-        />
-      </Suspense>
+      <InvestigatorShell readModel={routeReadModel(currentScanDomain)} commands={{ onSectionChange: setActivePage }} activeSection={activePage}>
+        <Suspense fallback={<PageLoadingState label="Loading scan history..." />}>
+          <HistoryPage
+            headerActions={headerActions}
+            onRescan={(domain) => {
+              if (!domain) return;
+              setActivePage('scan');
+              startScan(domain);
+            }}
+            onUseDomain={(domain) => {
+              if (!domain) return;
+              setDomain(domain);
+              setActivePage('scan');
+            }}
+          />
+        </Suspense>
+      </InvestigatorShell>
     );
   }
 
   if (activePage === 'investigations') {
     return (
-      <Suspense fallback={<PageLoadingState label="Loading investigations..." />}>
-        <InvestigationsPage
-          headerActions={headerActions}
-          onNavigate={setActivePage}
-          isAuthenticated={isAuthenticated}
-          onResumeLocal={() => {
-            setSelectedInvestigationId('local');
-            setActivePage('scan');
-          }}
-          onResumeInvestigation={(investigationId) => {
-            setSelectedInvestigationId(investigationId);
-            setActivePage('scan');
-          }}
-        />
-      </Suspense>
+      <InvestigatorShell readModel={routeReadModel(currentScanDomain)} commands={{ onSectionChange: setActivePage }} activeSection={activePage}>
+        <Suspense fallback={<PageLoadingState label="Loading investigations..." />}>
+          <InvestigationsPage
+            headerActions={headerActions}
+            onNavigate={setActivePage}
+            isAuthenticated={isAuthenticated}
+            onResumeLocal={() => {
+              setSelectedInvestigationId('local');
+              setActivePage('scan');
+            }}
+            onResumeInvestigation={(investigationId) => {
+              setSelectedInvestigationId(investigationId);
+              setActivePage('scan');
+            }}
+          />
+        </Suspense>
+      </InvestigatorShell>
     );
   }
 
-  return (
-    <Suspense fallback={<PageLoadingState label="Loading scanner..." />}>
-      <ScanPage headerActions={headerActions} onNavigate={setActivePage} isAdmin={isAdmin} isAuthenticated={isAuthenticated} />
-    </Suspense>
-  );
+    return (
+      <InvestigatorShell readModel={routeReadModel(currentScanDomain)} commands={{ onSectionChange: setActivePage }} activeSection={activePage}>
+        <Suspense fallback={<PageLoadingState label="Loading scanner..." />}>
+          <ScanPage headerActions={headerActions} onNavigate={setActivePage} isAdmin={isAdmin} isAuthenticated={isAuthenticated} />
+        </Suspense>
+      </InvestigatorShell>
+    );
+}
+
+function routeReadModel(currentScanDomain: string) {
+  return {
+    title: currentScanDomain || 'Investigation workspace',
+    status: 'incomplete' as const,
+    sections: [
+      { id: 'scan', label: 'Current scan' },
+      { id: 'investigations', label: 'Investigations' },
+      { id: 'history', label: 'History' },
+    ].map((section) => ({ ...section, disabled: section.id === 'history' && !currentScanDomain })),
+  };
 }
 
 function App() {
