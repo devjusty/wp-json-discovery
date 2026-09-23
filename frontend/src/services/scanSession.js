@@ -115,7 +115,9 @@ export async function executeScanSession(session, runners, onChange, token) {
 export async function retryCapability(session, id, runners, onChange, token) {
   session = cloneAcceptedLegacySession(session);
 
-  if (!session.selection.capabilityIds.includes(id) || !['failed', 'unavailable'].includes(session.capabilities[id]?.status)) {
+  if (!session.selection.capabilityIds.includes(id)
+    || session.capabilities[id]?.status !== 'failed'
+    || session.capabilities[id]?.error?.retryable !== true) {
     return cloneSession(session);
   }
 
