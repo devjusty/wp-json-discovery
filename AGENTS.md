@@ -44,9 +44,22 @@ Remember: A story name might not reflect the property name correctly, so always 
 ## Project Structure & Module Organization
 
 - The pnpm workspace splits logic into `server/` (Express proxy, persistence) and `frontend/` (Vite + React client). Run scans through `server/src/index.ts`; persisted artifacts live under `server/data/` (`activity.log`, `unsupported-plugins.json`).
-- React follows atomic design: `frontend/src/components/atoms|molecules|organisms|templates|pages` compose the UI, while `frontend/src/services/scan.js` orchestrates crawl logic and `frontend/src/config/plugins.js` defines plugin namespaces.
-- Shared helpers sit in `frontend/src/utils/` and API wrappers in `frontend/src/api/`. Keep new modules aligned with this layering to avoid bypassing the design system.
+- New work follows domain-first vertical slices, not atomic design. Treat `frontend/src/components/atoms|molecules|organisms|templates|pages` as legacy migration areas: do not add new feature dependencies there. Existing modules may remain until their consumers move.
+- Frontend target structure is `domain/` for framework-free deterministic investigation and findings rules, `application/` for use cases and ports, `adapters/` for capability/HTTP/persistence/auth integrations, and `ui/` for shells and feature-focused presentation modules. Keep route files thin composition boundaries.
+- Center behavior on the Investigation domain: an investigation owns submitted and normalized URL identity, redirect chain, immutable observations, capability runs, findings, and evidence. A scan session is one attempt. Capability states are `queued`, `running`, `success`, `failed`, or `unavailable`; preserve successful evidence when another capability fails and expose scoped retry only for retryable failures.
+- Keep domain modules free of React, browser APIs, HTTP clients, database clients, Auth0, and Zod. Application modules depend on explicit ports. Adapters validate external data and map transport values into domain values before UI receives them.
+- Keep Zod schemas and inferred transport types in `packages/contracts`; use `safeParse` at HTTP, local persistence, remote persistence, capability-envelope, and auth-claim seams. Invalid external data becomes a typed contract error, never a silent empty state. Do not add Zod parsing to components, reducers, or selectors.
+- Shared helpers remain in `frontend/src/utils/` and API wrappers in `frontend/src/api/` while they are migrated behind adapters. New capability behavior must reuse the existing registry in `frontend/src/services/scanCapabilities.js` through an adapter rather than creating a second registry.
 - Admin page orchestration is modularized under `frontend/src/components/pages/admin/` (queries, editor state, section state builder, renderers). Review `frontend/src/components/pages/admin/README.md` before expanding admin features.
+- Investigator and admin experiences use separate shells. Investigator UI prioritizes report comprehension, contextual navigation, evidence provenance, responsive behavior, keyboard access, and partial recovery. Admin UI prioritizes an operational inbox and evidence-first item review; do not add bulk actions until item-level actions and authorization are reliable.
+
+## Architecture Rules
+
+- Prefer deep modules: small interfaces with lifecycle, validation, persistence, or execution complexity hidden behind them. Do not introduce a single-implementation abstraction unless it represents a real persistence, capability execution, or authentication seam.
+- UI consumes domain read models and commands, not raw API responses. UI modules may compose visual primitives, but visual primitives must not import feature modules or own domain logic.
+- Keep local and authenticated persistence behind the same `InvestigationStore` interface. Store selection and anonymous-to-authenticated claim belong in application policy, not page components.
+- Server routes parse transport input and format responses; server application modules authorize before mutation, enforce domain rules, and call persistence implementations. Preserve existing endpoint behavior while migration is incremental.
+- Do not delete legacy orchestration or atomic modules until import search shows no active consumers and replacement tests prove equivalent behavior.
 
 ## Build, Test, and Development Commands
 
@@ -59,13 +72,14 @@ Remember: A story name might not reflect the property name correctly, so always 
 ## Coding Style & Naming Conventions
 
 - Frontend and server code are being incrementally migrated to TypeScript. New files use TypeScript (`.ts`/`.tsx`); migrate touched JavaScript files when needed for the feature. Use ES modules and 2-space indentation. Prefer single quotes and trailing commas when objects span multiple lines.
-- Components use PascalCase, hooks start with `use`, config constants are SHOUT_CASE (`SUPPORTED_PLUGINS`). Keep atom-level primitives free of domain logic; push orchestration into services.
+- UI modules use PascalCase, hooks start with `use`, config constants are SHOUT_CASE (`SUPPORTED_PLUGINS`). Keep visual primitives framework-focused and feature-agnostic; put orchestration in application use cases and domain lifecycle modules, not components.
 - Apply ESLint fixes (`--fix`) when practical and retain descriptive log messages via `server/src/logger.js`.
 
 ## Testing Guidelines
 
-- Automated suites are being introduced; target `vitest` + `@testing-library/react` under `frontend/src/__tests__/` and lightweight HTTP mocks (MSW/nock) for `server/`.
-- Name test files `*.test.js` or `*.test.tsx`; group by feature to mirror atomic layers (e.g., `components/organisms/ResultsTable/ResultsTable.test.tsx`).
+- Automated suites are being introduced; use Vitest plus `@testing-library/react` for frontend domain/application/UI modules and lightweight HTTP mocks (MSW/nock) for server adapters and routes.
+- Colocate tests with the module they exercise using `*.test.ts`, `*.test.tsx`, or existing `*.test.js` naming. Test domain and application behavior through ports and fakes; test adapters at contract seams; test UI from read models and commands; test complete scan workflows separately.
+- Required proof for architecture changes: focused tests, frontend lint, frontend typecheck, frontend build, and Storybook build for UI changes when available. Run browser walkthroughs when Playwright/Chromium is available. Report unavailable or blocked tooling as blocked, never passing.
 - Until the harness lands, document manual scan cases (auth-gated sites, HTML responses, plugin-heavy domains) in PR notes and attach failing logs from `server/data/activity.log`.
 - Future coverage priorities:
   - Automate API/scan-service contract tests and add CI hooks.
