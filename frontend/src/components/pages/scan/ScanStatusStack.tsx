@@ -60,7 +60,7 @@ function ScanStatusStack({ session, onRetryCapability = () => {}, retryingCapabi
             <CardContent className="">
               <p>{CAPABILITY_LABELS[id] ?? id}: {formatInvestigatorStatus(capability.status)}</p>
               {capability.outcome?.error ? <p>{capability.outcome.error.message}</p> : null}
-              {['failed', 'unavailable'].includes(capability.status) && capability.outcome?.error?.retryable === true ? (
+              {capability.status === 'failed' && capability.outcome?.error?.retryable === true ? (
                 <Button className="" type="button" variant="secondary" size="sm" aria-label={`Retry ${CAPABILITY_LABELS[id] ?? id}`} disabled={retryingCapabilityId === id} onClick={() => onRetryCapability(id)}>
                   {retryingCapabilityId === id ? `Retrying ${CAPABILITY_LABELS[id] ?? id}…` : `Retry ${CAPABILITY_LABELS[id] ?? id}`}
                 </Button>

@@ -69,13 +69,15 @@ const assertTransition = (state: InvestigationCapabilityState, capability: strin
 };
 
 const terminalStatus = (state: InvestigationLifecycleState): InvestigationOverallStatus => {
-  const selected = state.selectedCapabilities.map(({ id }) => state.capabilityStates[id]).filter(Boolean);
+  const selected = state.selectedCapabilities.map(({ id }) => state.capabilityStates[id]);
   if (state.status === 'invalid' || state.status === 'auth-required' || state.status === 'unusable' || selected.length === 0) return 'blocked';
-  const successes = selected.filter(({ status }) => status === 'success').length;
-  const terminal = selected.every(({ status }) => ['success', 'failed', 'unavailable'].includes(status));
+  if (selected.some((capabilityState) => !capabilityState)) return 'incomplete';
+  const available = selected.filter(Boolean);
+  const successes = available.filter(({ status }) => status === 'success').length;
+  const terminal = available.every(({ status }) => ['success', 'failed', 'unavailable'].includes(status));
   if (!terminal) return 'incomplete';
-  const failures = selected.some(({ status }) => status === 'failed' || status === 'unavailable');
-  if (successes === selected.length) return 'complete';
+  const failures = available.some(({ status }) => status === 'failed' || status === 'unavailable');
+  if (successes === available.length) return 'complete';
   if (successes > 0 && failures) return 'partial';
   if (successes === 0 && failures) return 'failed';
   return 'incomplete';

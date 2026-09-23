@@ -88,6 +88,21 @@ describe('investigation lifecycle', () => {
     expect(after.overall.status).toBe('incomplete');
   });
 
+  it('does not complete when a selected capability state is missing', () => {
+    const state = startingState();
+    delete state.capabilityStates.sitemap;
+    const after = applyInvestigationEvent(
+      applyInvestigationEvent(state, { type: 'capability-queued', capability: 'wordpress' }),
+      { type: 'capability-running', capability: 'wordpress' },
+    );
+    const complete = applyInvestigationEvent(after, {
+      type: 'capability-succeeded', capability: 'wordpress', result: { ok: true },
+    });
+
+    expect(complete.overall.status).toBe('incomplete');
+    expect(complete.status).toBe('running');
+  });
+
   it('terminalizes partial status only after every selected capability is terminal', () => {
     let state = startingState();
     state = applyInvestigationEvent(state, { type: 'capability-queued', capability: 'wordpress' });

@@ -43,6 +43,15 @@ describe('investigation selectors', () => {
     expect(selectInvestigationStatus(state({}))).toBe('blocked');
   });
 
+  it('reports incomplete when a selected capability state is missing', () => {
+    const investigation = state({
+      wordpress: { status: 'success', outcome: { status: 'success', result: {}, error: null } },
+    });
+    investigation.selectedCapabilities = [{ id: 'wordpress' }, { id: 'sitemap' }];
+
+    expect(selectInvestigationStatus(investigation)).toBe('incomplete');
+  });
+
   it('selects progress and retryable capabilities', () => {
     const investigation = state({
       wordpress: { status: 'success', outcome: { status: 'success', result: {}, error: null } },
