@@ -106,6 +106,20 @@ describe('investigation model', () => {
     expect(isPartialInvestigation(investigation)).toBe(true);
   });
 
+  it('finds queued capabilities and marks investigation partial', () => {
+    const investigation = createInvestigation({
+      id: 'inv-1',
+      submittedUrl: 'https://example.com',
+      normalizedUrl: 'https://example.com',
+      redirectChain: [],
+      createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [{ name: 'sitemap', status: 'queued' }],
+    });
+
+    expect(getCapabilityState(investigation, 'sitemap')?.status).toBe('queued');
+    expect(isPartialInvestigation(investigation)).toBe(true);
+  });
+
   it('does not expose mutable nested state', () => {
     const input = {
       id: 'inv-1',
