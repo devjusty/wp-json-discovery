@@ -102,7 +102,7 @@ function ScanStatusStack({ session, onRetryCapability = () => {}, retryingCapabi
                 <li>Otherwise, remove this domain from the scan list.</li>
               </ul>
             ) : null}
-            {capability.status === 'failed' && capability.error?.retryable ? (
+            {capability.status === 'failed' && capability.error?.retryable === true ? (
               <Button className="" type="button" variant="secondary" size="sm" onClick={() => onRetryCapability(id)}>
                 Retry {CAPABILITY_LABELS[id] ?? id}
               </Button>

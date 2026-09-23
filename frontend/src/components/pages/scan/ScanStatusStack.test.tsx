@@ -145,6 +145,26 @@ describe('ScanStatusStack', () => {
     expect(retryCapability).toHaveBeenCalledWith('homepage');
   });
 
+  it('does not retry legacy failures with malformed retryable metadata', () => {
+    render(
+      <ScanStatusStack
+        session={{
+          domain: 'example.com',
+          overallStatus: 'incomplete',
+          capabilities: {
+            homepage: {
+              status: 'failed',
+              result: null,
+              error: { message: 'Malformed retry metadata', retryable: 'true' }
+            }
+          }
+        }}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: 'Retry Homepage' })).not.toBeInTheDocument();
+  });
+
   it('uses stable investigator labels without retrying unavailable capabilities', () => {
     render(
       <ScanStatusStack
