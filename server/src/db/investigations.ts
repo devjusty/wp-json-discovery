@@ -124,10 +124,10 @@ function reconstructedInvestigationState(id, domain, session, createdAt) {
         ...(options ? { options } : {}),
       };
       if (status === 'success' && Object.prototype.hasOwnProperty.call(capabilityState.outcome ?? {}, 'result')) {
-        capability.result = capabilityState.outcome.result;
+        return { ...capability, result: capabilityState.outcome.result };
       }
       if (status === 'failed' || status === 'unavailable') {
-        capability.error = capabilityState.outcome.error;
+        return { ...capability, error: capabilityState.outcome.error };
       }
       return capability;
     }),
