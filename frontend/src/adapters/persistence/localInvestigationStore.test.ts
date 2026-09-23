@@ -1,4 +1,4 @@
-import { beforeEach, afterEach, describe, expect, it } from 'vitest';
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import type { Investigation } from '../../domain/investigation/model';
 import { createLocalInvestigationStore } from './localInvestigationStore';
 
@@ -80,6 +80,15 @@ describe('investigation store port', () => {
     await expect(store.claim('inv-1')).rejects.toMatchObject({ code: 'contract-invalid' });
   });
 
+  it('validates local IDs before accessing persistence', async () => {
+    const load = vi.fn(async () => investigation);
+    const store = createLocalInvestigationStore({ load, save: async () => {}, list: async () => [] });
+
+    await expect(store.get('')).rejects.toMatchObject({ code: 'contract-invalid' });
+    await expect(store.claim('')).rejects.toMatchObject({ code: 'contract-invalid' });
+    expect(load).not.toHaveBeenCalled();
+  });
+
   it('wraps anonymous persistence and preserves domain continuity', async () => {
     const storage = new Map();
     const store = createLocalInvestigationStore({
@@ -97,6 +106,7 @@ describe('investigation store port', () => {
       capabilities: [{ name: 'wordpress', status: 'success' }],
     });
     expect(storage.get('snapshot').revision).toBeUndefined();
+    expect(storage.get('snapshot').record.session.capabilityStates.wordpress.outcome).not.toHaveProperty('result');
   });
 
   it('surfaces malformed anonymous payloads as contract-invalid errors', async () => {

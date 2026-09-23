@@ -27,7 +27,7 @@ const capabilityErrorSchema = z.object({
   retryable: z.boolean(),
 }).strict();
 
-const jsonValueSchema: z.ZodType = z.lazy(() => z.union([
+export const jsonValueSchema: z.ZodType = z.lazy(() => z.union([
   z.null(),
   z.string(),
   z.number().finite(),
@@ -154,7 +154,7 @@ const addValidationIssues = (
 };
 
 const successOutcomeSchema = z.object({
-  status: z.literal('success'), result: z.unknown(), error: z.null(),
+  status: z.literal('success'), result: z.unknown().optional(), error: z.null(),
 }).strict();
 const failedOutcomeSchema = z.object({
   status: z.literal('failed'), result: z.null(), error: capabilityErrorSchema,

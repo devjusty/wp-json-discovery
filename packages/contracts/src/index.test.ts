@@ -73,6 +73,9 @@ describe('capability outcomes', () => {
         .success,
     ).toBe(true);
     expect(
+      capabilityOutcomeSchema.safeParse({ status: 'success', error: null }).success,
+    ).toBe(true);
+    expect(
       capabilityOutcomeSchema.safeParse({
         status: 'failed',
         result: null,

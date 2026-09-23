@@ -1,8 +1,10 @@
 import type { CapabilityRunner } from '../../application/ports/capability-runner';
+import { jsonValueSchema } from '@wp-json-discovery/contracts';
 import {
   getCapabilityById,
   getCapabilityRunners,
 } from '../../services/scanCapabilities.js';
+import { ContractInvalidError } from '../contractErrors';
 
 type LegacyCapability = {
   id: string;
@@ -38,7 +40,7 @@ export const createLegacyCapabilityRunner = (
       });
     }
 
-    return legacyRunner({
+    const result = await legacyRunner({
       domain: investigation.normalizedUrl,
       domainIdentity: {
         submitted: investigation.submittedUrl,
@@ -47,6 +49,9 @@ export const createLegacyCapabilityRunner = (
       options: definition.normalizeOptions?.(options),
       signal,
     });
+    const parsed = jsonValueSchema.optional().safeParse(result);
+    if (!parsed.success) throw new ContractInvalidError('Invalid legacy capability result', parsed.error);
+    return parsed.data;
   },
 });
 

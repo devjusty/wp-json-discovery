@@ -50,4 +50,17 @@ describe('capability runner port', () => {
       options: { sitemapUrl: 'https://example.com/sitemap.xml', maxPages: 12 },
     }));
   });
+
+  it('rejects malformed legacy runner results at the adapter boundary', async () => {
+    const runner = createLegacyCapabilityRunner({
+      getCapabilityById: vi.fn(() => ({
+        id: 'homepage',
+        availability: () => true,
+        runner: async () => BigInt(1),
+      })),
+    });
+
+    await expect(runner.run({ investigation, capability: 'homepage' }))
+      .rejects.toMatchObject({ code: 'contract-invalid' });
+  });
 });

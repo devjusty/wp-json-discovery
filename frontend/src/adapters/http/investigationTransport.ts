@@ -93,7 +93,10 @@ export const createInvestigationTransport = (
       source.save(investigation.id, domainToSession(state)),
       'save',
     );
-    parseSession(result);
+    const session = parseSession(result);
+    if (session.session.investigationId !== state.id) {
+      throw new ContractInvalidError('Investigation save response identity mismatch');
+    }
   },
   async get(id) {
     validateIdentifier(id, 'investigation id');
@@ -108,9 +111,14 @@ export const createInvestigationTransport = (
   async list() {
     const investigations = mapList(await call(source.list(), 'list'));
     const hydrated = await Promise.all(investigations.map(async investigation => {
-      const value = await source.get(investigation.id);
-      if (value === null) throw new ContractInvalidError('Investigation list item is missing full state');
-      return mapRecord(value, true, investigation.id);
+      try {
+        const value = await source.get(investigation.id);
+        if (value === null) throw new ContractInvalidError('Investigation list item is missing full state');
+        return mapRecord(value, true, investigation.id);
+      } catch (error) {
+        if (error instanceof ContractInvalidError) throw error;
+        throw new ContractInvalidError('Invalid investigation list item', error);
+      }
     }));
     return hydrated;
   },
@@ -214,7 +222,7 @@ function recordToDomain(record: InvestigationRecord, requireState: boolean): Inv
         name: capability.id,
         status: state?.status === 'idle' ? 'queued' : state?.status ?? 'queued',
         dependencies: capability.dependencies,
-        ...(state && 'outcome' in state && state.outcome.status === 'success'
+        ...(state && 'outcome' in state && state.outcome.status === 'success' && 'result' in state.outcome
           ? { result: state.outcome.result as JsonValue }
           : {}),
         startedAt: session.startedAt ?? undefined,
@@ -285,7 +293,12 @@ function capabilityState(capability: Investigation['capabilities'][number]) {
     };
   }
   if (capability.status === 'success') {
-    return { status: 'success', outcome: { status: 'success', result: capability.result ?? null, error: null }, retry: { status: 'not-retryable' } };
+    const outcome = { status: 'success' as const, error: null };
+    return {
+      status: 'success',
+      outcome: capability.result === undefined ? outcome : { ...outcome, result: capability.result },
+      retry: { status: 'not-retryable' },
+    };
   }
   return { status: capability.status, retry: { status: 'not-retryable' } };
 }

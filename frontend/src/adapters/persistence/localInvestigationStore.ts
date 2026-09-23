@@ -6,7 +6,7 @@ import {
 import type { InvestigationStore } from '../../application/ports/investigation-store';
 import { createInvestigation } from '../../domain/investigation/model';
 import type { CapabilityRunInput, Investigation } from '../../domain/investigation/model';
-import { ContractInvalidError } from '../http/investigationTransport';
+import { ContractInvalidError } from '../contractErrors';
 import {
   loadAnonymousInvestigation,
   saveAnonymousInvestigation,
@@ -44,6 +44,7 @@ export const createLocalInvestigationStore = (
       }
     },
     async get(id) {
+      validateIdentifier(id, 'investigation id');
       let value: Investigation | null;
       try {
         value = await direct.load(id);
@@ -63,6 +64,7 @@ export const createLocalInvestigationStore = (
       return values.map(value => validateDirectValue(value));
     },
     async claim(id) {
+      validateIdentifier(id, 'investigation id');
       let value: Investigation | null;
       try {
         value = direct.claim ? await direct.claim(id) : await direct.load(id);
@@ -108,6 +110,7 @@ function createAnonymousStore(persistence: AnonymousPersistence): InvestigationS
       });
     },
     async get(id) {
+      validateIdentifier(id, 'investigation id');
       const investigation = load();
       return investigation?.id === id ? investigation : null;
     },
@@ -116,6 +119,7 @@ function createAnonymousStore(persistence: AnonymousPersistence): InvestigationS
       return investigation ? [investigation] : [];
     },
     async claim(id) {
+      validateIdentifier(id, 'investigation id');
       const investigation = load();
       if (!investigation || investigation.id !== id) {
         throw new Error(`Investigation not found: ${id}`);
@@ -187,6 +191,12 @@ function validateDirectValue(value: unknown, expectedId?: string): Investigation
   });
 }
 
+function validateIdentifier(value: string, label: string): void {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new ContractInvalidError(`Invalid ${label}`);
+  }
+}
+
 function domainToSession(investigation: Investigation) {
   const capabilities = investigation.capabilities;
   const selectedIds = new Set(capabilities.map(({ name }) => name));
@@ -239,9 +249,10 @@ function capabilityState(capability: CapabilityRunInput) {
     };
   }
   if (capability.status === 'success') {
+    const outcome = { status: 'success' as const, error: null };
     return {
       status: 'success',
-      outcome: { status: 'success', result: capability.result ?? null, error: null },
+      outcome: capability.result === undefined ? outcome : { ...outcome, result: capability.result },
       retry: { status: 'not-retryable' },
     };
   }
