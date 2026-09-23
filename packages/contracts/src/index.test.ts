@@ -16,6 +16,7 @@ import {
   evidenceReferenceSchema,
   findingSchema,
   investigationIdentitySchema,
+  investigationStateSchema,
   investigationListSchema,
   investigationRecordSchema,
   investigationSummarySchema,
@@ -366,6 +367,31 @@ describe('scan sessions', () => {
 });
 
 describe('capabilities, identity, findings, and auth', () => {
+  it('allows results only on successful investigation capabilities', () => {
+    const base = {
+      id: 'investigation-1',
+      submittedUrl: 'example.com',
+      normalizedUrl: 'https://example.com',
+      redirectChain: [],
+      createdAt: timestamp,
+      observationTimeline: [],
+      evidence: [],
+      findings: [],
+    };
+    for (const capability of [
+      { name: 'queued', status: 'queued', result: {} },
+      { name: 'running', status: 'running', result: {} },
+      { name: 'failed', status: 'failed', result: {}, error: { code: 'FAILED', message: 'Failed', retryable: false } },
+      { name: 'unavailable', status: 'unavailable', result: {}, error: { code: 'UNAVAILABLE', message: 'Unavailable', retryable: false } },
+    ]) {
+      expect(investigationStateSchema.safeParse({ ...base, capabilities: [capability] }).success).toBe(false);
+    }
+    expect(investigationStateSchema.safeParse({
+      ...base,
+      capabilities: [{ name: 'success', status: 'success', result: {} }],
+    }).success).toBe(true);
+  });
+
   it('accepts investigation identity with ownership', () => {
     expect(investigationIdentitySchema.safeParse({
       id: 'investigation-1', ownerId: 'user-1',
@@ -513,6 +539,20 @@ describe('capabilities, identity, findings, and auth', () => {
         overall: { status: 'incomplete' },
       }).success).toBe(true);
     }
+  });
+
+  it('rejects session state with a different investigation identity', () => {
+    const base = {
+      id: 'session-1', investigationId: 'investigation-1', status: 'completed',
+      startedAt: timestamp, completedAt: timestamp, selectedCapabilities: [], capabilityStates: {},
+      overall: { status: 'complete' },
+    };
+    const state = {
+      id: 'other-investigation', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: [], createdAt: timestamp, capabilities: [], observationTimeline: [], evidence: [], findings: [],
+    };
+    expect(scanSessionSchema.safeParse({ ...base, investigationState: state }).success).toBe(false);
+    expect(scanSessionSchema.safeParse({ ...base, investigationState: { ...state, id: 'investigation-1' } }).success).toBe(true);
   });
 
   it('keeps queued sessions incomplete and without final capability states', () => {

@@ -47,6 +47,9 @@ const investigationCapabilitySchema = z.object({
   completedAt: timestampSchema.optional(),
   error: capabilityErrorSchema.optional(),
 }).strict().superRefine((capability, context) => {
+  if (capability.status !== 'success' && 'result' in capability) {
+    context.addIssue({ code: 'custom', message: 'Only successful capabilities may contain a result', path: ['result'] });
+  }
   if (capability.status === 'failed' && !capability.error) {
     context.addIssue({ code: 'custom', message: 'Failed capabilities require an error', path: ['error'] });
   }
@@ -290,11 +293,19 @@ const scanSessionUnionSchema = z.discriminatedUnion('status', [
 ]);
 type ScanSessionValue = z.infer<typeof scanSessionUnionSchema>;
 
+const sessionIdentityIssues = (session: ScanSessionValue): ValidationIssue[] => {
+  if (session.investigationState && session.investigationState.id !== session.investigationId) {
+    return [{ message: 'Investigation state must match session investigation ID', path: ['investigationState', 'id'] }];
+  }
+  return [];
+};
+
 const sessionReferenceIssues = (session: ScanSessionValue): ValidationIssue[] => {
   const selectedIds = new Set(session.selectedCapabilities.map((capability) => capability.id));
   return [
     ...selectedCapabilityIssues(session, selectedIds),
     ...dependencyStateIssues(session),
+    ...sessionIdentityIssues(session),
   ];
 };
 

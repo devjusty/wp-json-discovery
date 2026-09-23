@@ -25,15 +25,9 @@ import {
 } from '../../services/anonymousInvestigations.js';
 import { createInvestigation } from '../../domain/investigation/model';
 import type { Investigation, JsonValue } from '../../domain/investigation/model';
+import { ContractInvalidError } from '../contractErrors';
 
-export class ContractInvalidError extends Error {
-  readonly code = 'contract-invalid';
-
-  constructor(message: string, readonly cause?: unknown) {
-    super(message);
-    this.name = 'ContractInvalidError';
-  }
-}
+export { ContractInvalidError } from '../contractErrors';
 
 export type InvestigationTransport = {
   start(
