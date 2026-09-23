@@ -56,6 +56,7 @@ export default function createInvestigationRoutes(application = investigations) 
   router.use((error, req, res, next) => {
     if (res.headersSent) return next(error);
     const status = error.statusCode ?? 500;
+    if (status >= 500) return next(error);
     return res.status(status).json(errorEnvelope(req, error));
   });
 

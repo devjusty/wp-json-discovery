@@ -62,7 +62,7 @@ describe('startInvestigation', () => {
       remote: { code: 'persistence-failed', message: 'Unable to save investigation.' },
       local: 'saved',
     });
-    expect(deps.saved).toHaveLength(2);
+    expect(deps.saved).toHaveLength(1);
   });
 
   it('runs independent capabilities in parallel and blocks failed dependents', async () => {

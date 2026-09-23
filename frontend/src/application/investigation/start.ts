@@ -45,12 +45,13 @@ export async function startInvestigation(
       status: 'queued',
     })),
   });
+  const authenticated = Boolean(dependencies.auth.getUserId());
   const persistence = createPersistenceContext({
     auth: dependencies.auth,
-    store: dependencies.remoteStore,
-    localStore: dependencies.localStore,
+    store: authenticated ? dependencies.remoteStore : dependencies.localStore,
+    localStore: authenticated ? dependencies.localStore : undefined,
   });
-  const store = dependencies.auth.getUserId() ? persistence.store : dependencies.localStore;
+  const store = persistence.store;
   await persist(store, investigation);
   const result = await runCapabilities(investigation, { store, runner: dependencies.runner });
   return persistence.result(result);

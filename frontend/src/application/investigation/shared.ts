@@ -107,6 +107,7 @@ export const createPersistenceContext = (dependencies: {
 }) => {
   const authenticated = Boolean(dependencies.auth?.getUserId?.());
   let remoteFailure: PersistenceMetadata['remote'];
+  let localSaved = false;
   const store = authenticated && dependencies.localStore
     ? {
       ...dependencies.store,
@@ -116,10 +117,17 @@ export const createPersistenceContext = (dependencies: {
         } catch {
           remoteFailure = { code: 'persistence-failed', message: 'Unable to save investigation.' };
           await persist(dependencies.localStore, value);
+          localSaved = true;
         }
       },
     }
-    : dependencies.store;
+    : {
+      ...dependencies.store,
+      async save(value: Investigation) {
+        await dependencies.store.save(value);
+        if (!authenticated) localSaved = true;
+      },
+    };
 
   return {
     store,
@@ -128,7 +136,7 @@ export const createPersistenceContext = (dependencies: {
         investigation,
         persistence: {
           ...(remoteFailure ? { remote: remoteFailure } : {}),
-          local: authenticated ? (remoteFailure ? 'saved' : 'not-needed') : 'saved',
+          local: localSaved ? 'saved' : 'not-needed',
         },
       };
     },
@@ -139,13 +147,14 @@ export const runCapabilities = async (
   investigation: Investigation,
   { store, runner }: CommandDependencies,
 ): Promise<Investigation> => {
+  const changed = investigation.capabilities
+    .filter(({ status }) => status === 'queued')
+    .map(({ name }) => name);
+  if (changed.length === 0) return investigation;
   const session = await runInvestigationSession(
     toCoordinatorSession(investigation),
     createCoordinatorRunners(investigation, runner),
   );
-  const changed = investigation.capabilities
-    .filter(({ status }) => status === 'queued')
-    .map(({ name }) => name);
   const current = fromCoordinatorSession(investigation, session, changed);
   await persist(store, current);
   return current;
@@ -181,23 +190,7 @@ function toCoordinatorSession(investigation: Investigation) {
     selectedCapabilities,
     capabilityStates: Object.fromEntries(investigation.capabilities.map(capability => [
       capability.name,
-      capability.status === 'queued'
-        ? { status: 'idle', retry: { status: 'not-retryable' } }
-        : capability.status === 'success'
-          ? {
-            status: 'success',
-            outcome: { status: 'success', result: capability.result, error: null },
-            retry: { status: 'not-retryable' },
-          }
-          : {
-            status: capability.status,
-            outcome: {
-              status: capability.status,
-              result: null,
-              error: capability.error,
-            },
-            retry: { status: 'not-retryable' },
-          },
+      toCoordinatorCapabilityState(capability),
     ])),
     overall: { status: 'incomplete' },
   };
@@ -228,22 +221,50 @@ function fromCoordinatorSession(investigation: Investigation, session, changedCa
     if (!changedCapabilities.includes(capability.name)) continue;
     const next = session.capabilityStates[capability.name];
     if (!next || next.status === 'idle' || next.status === 'queued') continue;
-    const currentStatus = current.capabilities.find(({ name }) => name === capability.name)?.status;
-    if (currentStatus === 'failed') {
-      current = transition(current, { type: 'capability-queued', capability: capability.name });
-    }
-    if (current.capabilities.find(({ name }) => name === capability.name)?.status === 'queued') {
-      current = transition(current, { type: 'capability-running', capability: capability.name });
-    }
-    const error = next.error ?? next.outcome?.error;
-    current = next.status === 'success'
-      ? transition(current, { type: 'capability-succeeded', capability: capability.name, result: next.outcome?.result })
-      : transition(current, {
-        type: next.status === 'unavailable' ? 'capability-unavailable' : 'capability-failed',
-        capability: capability.name,
-        error: normalizeRunnerError(error),
-        ...(next.dependency?.dependencyId ? { dependencyId: next.dependency.dependencyId } : {}),
-      });
+    current = applyCoordinatorCapability(current, capability.name, next);
   }
   return current;
+}
+
+function toCoordinatorCapabilityState(capability) {
+  if (capability.status === 'queued') return { status: 'idle', retry: { status: 'not-retryable' } };
+  if (capability.status === 'success') {
+    return {
+      status: 'success',
+      outcome: { status: 'success', result: capability.result, error: null },
+      retry: { status: 'not-retryable' },
+    };
+  }
+  return {
+    status: capability.status,
+    outcome: { status: capability.status, result: null, error: capability.error },
+    retry: { status: 'not-retryable' },
+  };
+}
+
+function applyCoordinatorCapability(investigation: Investigation, capability: string, next): Investigation {
+  return completeCoordinatorCapability(prepareCoordinatorCapability(investigation, capability), capability, next);
+}
+
+function prepareCoordinatorCapability(investigation: Investigation, capability: string): Investigation {
+  let current = investigation;
+  const currentStatus = current.capabilities.find(({ name }) => name === capability)?.status;
+  if (currentStatus === 'failed') current = transition(current, { type: 'capability-queued', capability });
+  if (current.capabilities.find(({ name }) => name === capability)?.status === 'queued') {
+    current = transition(current, { type: 'capability-running', capability });
+  }
+  return current;
+}
+
+function completeCoordinatorCapability(investigation: Investigation, capability: string, next): Investigation {
+  const current = investigation;
+  const error = next.error ?? next.outcome?.error;
+  return next.status === 'success'
+    ? transition(current, { type: 'capability-succeeded', capability, result: next.outcome?.result })
+    : transition(current, {
+      type: next.status === 'unavailable' ? 'capability-unavailable' : 'capability-failed',
+      capability,
+      error: normalizeRunnerError(error),
+      ...(next.dependency?.dependencyId ? { dependencyId: next.dependency.dependencyId } : {}),
+    });
 }

@@ -34,12 +34,14 @@ describe('resumeInvestigation', () => {
       ],
     });
     const run = async () => { throw new Error('terminal capability was replayed'); };
+    let saves = 0;
     const result = await resumeInvestigation('inv-complete', {
-      store: { get: async () => investigation, save: async () => {}, list: async () => [], claim: async () => investigation },
+      store: { get: async () => investigation, save: async () => { saves += 1; }, list: async () => [], claim: async () => investigation },
       runner: { run },
     });
 
     expect(result.investigation).toEqual(investigation);
+    expect(saves).toBe(0);
   });
 
   it('falls back to local persistence when authenticated remote save fails', async () => {

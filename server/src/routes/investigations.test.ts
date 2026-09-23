@@ -6,8 +6,9 @@ import { beforeAll, describe, expect, it } from '@jest/globals';
 import createInvestigationRoutes from './investigations.ts';
 import { errorHandler } from '../middleware/errorHandler.js';
 import { execute, queryOne } from '../db/client.js';
+import { AppError } from '../utils/errors.js';
 
-function buildApp(user = null) {
+function buildApp(user = null, application = undefined) {
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
@@ -16,7 +17,7 @@ function buildApp(user = null) {
     authenticatedRequest.user = user;
     next();
   });
-  app.use('/api/investigations', createInvestigationRoutes());
+  app.use('/api/investigations', createInvestigationRoutes(application));
   app.use(errorHandler);
   return app;
 }
@@ -92,6 +93,17 @@ describe('investigation routes', () => {
     const response = await request(buildApp()).get('/api/investigations/inv-1');
 
     expect(response.status).toBe(401);
+  });
+
+  it('delegates injected 5xx application errors to global errorHandler shape', async () => {
+    const app = buildApp({ sub: 'route-owner' }, {
+      get: async () => { throw new AppError('database unavailable', 503); },
+    });
+
+    const response = await request(app).get('/api/investigations/inv-1');
+
+    expect(response.status).toBe(503);
+    expect(response.body).toEqual({ error: 'database unavailable' });
   });
 
   it('requires authentication for investigation lists', async () => {
