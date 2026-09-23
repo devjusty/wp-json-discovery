@@ -128,6 +128,15 @@ describe('request', () => {
     });
   });
 
+  it('rejects malformed sessions before constructing a URL', async () => {
+    const fetchSpy = vi.mocked(fetch);
+
+    await expect(saveInvestigationSession('inv-1', { id: undefined }))
+      .rejects.toMatchObject({ name: 'ApiError', code: 'contract-invalid' });
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it('fetches investigation records through canonical URL', async () => {
     const record = validInvestigationRecord();
     vi.stubGlobal('fetch', jsonResponse({ status: 'success', requestId: 'req-1', data: record }));
@@ -246,7 +255,18 @@ function validSession() {
     completedAt: null,
     selectedCapabilities: [{ id: 'wordpress', dependencies: [] }],
     capabilityStates: { wordpress: { status: 'idle', retry: { status: 'not-retryable' } } },
-    overall: { status: 'incomplete' }
+    overall: { status: 'incomplete' },
+    investigationState: {
+      id: 'inv-1',
+      submittedUrl: 'Example.com',
+      normalizedUrl: 'https://example.com',
+      redirectChain: [],
+      createdAt: '2026-09-10T12:00:00.000Z',
+      capabilities: [{ name: 'wordpress', status: 'queued' }],
+      observationTimeline: [],
+      evidence: [],
+      findings: []
+    }
   };
 }
 

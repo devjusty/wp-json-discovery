@@ -431,6 +431,18 @@ describe('capabilities, identity, findings, and auth', () => {
 
   it('accepts capability selection and public definition', () => {
     expect(capabilitySelectionSchema.safeParse({ id: 'html', dependencies: [] }).success).toBe(true);
+    expect(capabilitySelectionSchema.safeParse({
+      id: 'sitemap', dependencies: ['html'], options: { sitemapUrl: '/custom.xml', maxPages: 2 },
+    }).success).toBe(true);
+    expect(capabilitySelectionSchema.safeParse({
+      id: 'sitemap', dependencies: [], options: { maxPages: BigInt(2) },
+    }).success).toBe(false);
+    expect(capabilitySelectionSchema.safeParse({
+      id: 'sitemap', dependencies: ['html'], options: { sitemapUrl: '/custom.xml', maxPages: 2 },
+    }).success).toBe(true);
+    expect(capabilitySelectionSchema.safeParse({
+      id: 'sitemap', dependencies: [], options: { maxPages: BigInt(2) },
+    }).success).toBe(false);
     expect(capabilityDefinitionSchema.safeParse({
       id: 'wp-json', availability: 'available', status: 'failed',
       dependencies: ['html'], retry: { status: 'retrying', attempt: 1, nextAttemptAt: timestamp },

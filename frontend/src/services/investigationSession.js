@@ -28,9 +28,13 @@ const INTERRUPTED_ERROR = {
 export function createInvestigationSession({ investigationId, domain, selection }) {
   const normalizedSelection = normalizeSelection(selection);
   const dependencies = getCapabilityDependencies();
+  const sourceOptions = selection?.options ?? {};
   const selectedCapabilities = normalizedSelection.capabilityIds.map((id) => ({
     id,
-    dependencies: [...(dependencies[id] ?? [])]
+    dependencies: [...(dependencies[id] ?? [])],
+    ...(Object.keys(sourceOptions[id] ?? {}).length > 0
+      ? { options: { ...normalizedSelection.options[id] } }
+      : {})
   }));
   const session = {
     id: investigationId,
@@ -164,7 +168,7 @@ export function getContextualCapabilityIds(session) {
 export function addInvestigationCapability(session, capabilityId, options = {}) {
   if (session.selectedCapabilities.some(({ id }) => id === capabilityId)) return cloneSession(session);
   const next = cloneSession(session);
-  const capabilitySelection = getCapabilitySelection(capabilityId);
+  const capabilitySelection = getCapabilitySelection(capabilityId, options);
   if (!capabilitySelection) return cloneSession(session);
   next.selectedCapabilities = [...next.selectedCapabilities, capabilitySelection];
   next.capabilityStates = {
@@ -285,10 +289,12 @@ function getFailedDependency(session, id) {
 function cloneSession(session) {
   const next = {
     ...session,
-    selectedCapabilities: session.selectedCapabilities.map((capability) => getCapabilitySelection(capability.id) ?? ({
-      ...capability,
-      dependencies: [...(capability.dependencies ?? [])]
-    })),
+    selectedCapabilities: session.selectedCapabilities.map((capability) => {
+      const registered = getCapabilitySelection(capability.id);
+      return registered
+        ? { ...registered, ...(capability.options ? { options: { ...capability.options } } : {}) }
+        : { ...capability, dependencies: [...(capability.dependencies ?? [])] };
+    }),
     capabilityStates: Object.fromEntries(Object.entries(session.capabilityStates).map(([id, state]) => {
       const clonedState = {
         status: state.status,

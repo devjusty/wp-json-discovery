@@ -188,13 +188,16 @@ describe('investigation routes', () => {
         domain: { submitted: 'dependency-route.example', normalized: 'https://dependency-route.example' },
         selectedCapabilities: [
           { id: 'wordpress', dependencies: [] },
-          { id: 'sitemap', dependencies: ['wordpress'] }
+          { id: 'sitemap', dependencies: ['wordpress'], options: { sitemapUrl: '/custom.xml', maxPages: 2 } }
         ]
       });
 
     expect(response.status).toBe(201);
     expect(response.body.data.latestSession.selectedCapabilities).toContainEqual({
-      id: 'sitemap', dependencies: ['wordpress']
+      id: 'sitemap', dependencies: ['wordpress'], options: { sitemapUrl: '/custom.xml', maxPages: 2 }
+    });
+    expect(response.body.data.latestSession.investigationState.capabilities).toContainEqual({
+      name: 'sitemap', status: 'queued', dependencies: ['wordpress'], options: { sitemapUrl: '/custom.xml', maxPages: 2 }
     });
   });
 

@@ -15,6 +15,7 @@ export type CapabilityError = Readonly<{
 type CapabilityRunFields = Readonly<{
   name: string;
   dependencies?: ReadonlyArray<string>;
+  options?: Readonly<Record<string, JsonValue>>;
   metadata?: JsonValue;
   reason?: string;
   startedAt?: string;
@@ -31,6 +32,7 @@ export type CapabilityRunInput = Readonly<{
   name: string;
   status: CapabilityStatus;
   dependencies?: ReadonlyArray<string>;
+  options?: Readonly<Record<string, JsonValue>>;
   metadata?: JsonValue;
   result?: JsonValue;
   error?: CapabilityError;
@@ -228,6 +230,14 @@ const assertCapabilityRun = (capability: CapabilityRunInput): void => {
     throw new InvestigationModelError('invalid-capability-run', `${capability.name} non-success cannot have a result`);
   }
   if (capability.dependencies !== undefined) assertStringArray(capability.dependencies, `${capability.name}.dependencies`);
+  if (capability.options !== undefined) {
+    assertRecord(capability.options, `${capability.name}.options`);
+    assertJsonLike(capability.options, `${capability.name}.options`);
+  }
+  if (capability.options !== undefined) {
+    assertRecord(capability.options, `${capability.name}.options`);
+    assertJsonLike(capability.options, `${capability.name}.options`);
+  }
   if (capability.metadata !== undefined) assertJsonLike(capability.metadata, `${capability.name}.metadata`);
   if (capability.result !== undefined) assertJsonLike(capability.result, `${capability.name}.result`);
   if (!['queued', 'running', 'success', 'failed', 'unavailable'].includes(capability.status as CapabilityStatus)) {

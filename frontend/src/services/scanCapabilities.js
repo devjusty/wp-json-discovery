@@ -102,9 +102,15 @@ export function getCapabilityById(id) {
   return SCAN_CAPABILITIES.find((capability) => capability.id === id) ?? null;
 }
 
-export function getCapabilitySelection(id) {
+export function getCapabilitySelection(id, options) {
   const capability = getCapabilityById(id);
-  return capability ? { id: capability.id, dependencies: [...capability.dependencies] } : null;
+  if (!capability) return null;
+  const selection = { id: capability.id, dependencies: [...capability.dependencies] };
+  if (options && typeof options === 'object' && Object.keys(options).length > 0) {
+    const normalized = capability.normalizeOptions(options);
+    if (Object.keys(normalized).length > 0) selection.options = normalized;
+  }
+  return selection;
 }
 
 export function getRecommendedCapabilityIds() {

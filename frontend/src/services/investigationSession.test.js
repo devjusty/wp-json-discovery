@@ -76,6 +76,28 @@ describe('investigation session', () => {
     });
   });
 
+  it('preserves normalized sitemap options in selected session capabilities and runners', async () => {
+    const sitemap = vi.fn().mockResolvedValue({ urls: [] });
+    const runSession = createInvestigationSession({
+      investigationId: 'inv-sitemap-options',
+      domain: { submitted: 'Example.com', normalized: 'https://example.com' },
+      selection: {
+        capabilityIds: ['sitemap'],
+        options: { sitemap: { sitemapUrl: ' /custom.xml ', maxPages: 2 } }
+      }
+    });
+
+    expect(runSession.selectedCapabilities).toContainEqual({
+      id: 'sitemap',
+      dependencies: ['wordpress'],
+      options: { sitemapUrl: '/custom.xml', maxPages: 2 }
+    });
+    await runInvestigationSession(runSession, { wordpress: vi.fn().mockResolvedValue({}), sitemap });
+    expect(sitemap).toHaveBeenCalledWith(expect.objectContaining({
+      options: { sitemapUrl: '/custom.xml', maxPages: 2 }
+    }));
+  });
+
   it('keeps successful evidence while another capability fails', async () => {
     const result = await runInvestigationSession(session, {
       wordpress: async () => ({ exposure: { status: 'observed' } }),
@@ -363,7 +385,11 @@ describe('investigation session', () => {
   it('adds contextual sitemap with registry dependency', () => {
     const contextual = addInvestigationCapability(session, 'sitemap', { sitemapUrl: '/sitemap.xml' });
 
-    expect(contextual.selectedCapabilities).toContainEqual({ id: 'sitemap', dependencies: ['wordpress'] });
+    expect(contextual.selectedCapabilities).toContainEqual({
+      id: 'sitemap',
+      dependencies: ['wordpress'],
+      options: { sitemapUrl: '/sitemap.xml', maxPages: 50 },
+    });
   });
 
   it('does not retry sitemap after its failed WordPress dependency is recovered', async () => {

@@ -99,10 +99,11 @@ function investigationState(id, domain, selectedCapabilities, createdAt) {
     normalizedUrl: domain.normalized,
     redirectChain: [],
     createdAt,
-    capabilities: selectedCapabilities.map(({ id: name, dependencies }) => ({
+    capabilities: selectedCapabilities.map(({ id: name, dependencies, options }) => ({
       name,
       status: 'queued',
       ...(dependencies?.length ? { dependencies } : {}),
+      ...(options ? { options } : {}),
     })),
     observationTimeline: [],
     evidence: [],
@@ -113,13 +114,14 @@ function investigationState(id, domain, selectedCapabilities, createdAt) {
 function reconstructedInvestigationState(id, domain, session, createdAt) {
   return {
     ...investigationState(id, domain, session.selectedCapabilities, createdAt),
-    capabilities: session.selectedCapabilities.map(({ id: name, dependencies }) => {
+    capabilities: session.selectedCapabilities.map(({ id: name, dependencies, options }) => {
       const capabilityState = session.capabilityStates[name];
       const status = capabilityState.status === 'idle' ? 'queued' : capabilityState.status;
       const capability = {
         name,
         status,
         ...(dependencies?.length ? { dependencies } : {}),
+        ...(options ? { options } : {}),
       };
       if (status === 'success' && Object.prototype.hasOwnProperty.call(capabilityState.outcome ?? {}, 'result')) {
         capability.result = capabilityState.outcome.result;
@@ -193,19 +195,31 @@ export async function saveInvestigationSession(ownerId, investigationId, snapsho
   }
 
   const persistedAt = new Date().toISOString();
+  const persistedSession = parse(scanSessionSchema, {
+    ...session,
+    investigationState: {
+      ...(session.investigationState ?? reconstructedInvestigationState(
+        investigation.id,
+        { submitted: investigation.submitted_domain, normalized: investigation.normalized_domain },
+        session,
+        persistedAt
+      )),
+      id: investigation.id,
+    },
+  });
   await executeTransaction(async (transaction) => {
     await transaction.execute({
       sql: `insert into investigation_sessions
         (id, investigation_id, session_id, sequence, snapshot_json, persisted_at)
        values (?, ?, ?, (select coalesce(max(sequence), 0) + 1 from investigation_sessions where investigation_id = ?), ?, ?)`,
-      args: [randomUUID(), investigationId, session.id, investigationId, JSON.stringify(session), persistedAt],
+      args: [randomUUID(), investigationId, persistedSession.id, investigationId, JSON.stringify(persistedSession), persistedAt],
     });
     await transaction.execute({
       sql: 'update investigations set updated_at = ? where id = ? and owner_id = ?',
       args: [persistedAt, investigationId, ownerId],
     });
   });
-  return sessionRecord(session, persistedAt);
+  return sessionRecord(persistedSession, persistedAt);
 }
 
 export async function getInvestigationForUser(userId, investigationId) {

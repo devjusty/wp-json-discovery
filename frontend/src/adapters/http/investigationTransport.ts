@@ -255,9 +255,10 @@ function domainToSession(investigation: Investigation) {
     status,
     startedAt: timestamp,
     completedAt: status === 'running' ? null : timestamp,
-    selectedCapabilities: investigation.capabilities.map(({ name, dependencies = [] }) => ({
+    selectedCapabilities: investigation.capabilities.map(({ name, dependencies = [], options }) => ({
       id: name,
       dependencies: dependencies.filter(dependency => selectedIds.has(dependency)),
+      ...(options ? { options } : {}),
     })),
     capabilityStates: Object.fromEntries(investigation.capabilities.map(capability => [
       capability.name,

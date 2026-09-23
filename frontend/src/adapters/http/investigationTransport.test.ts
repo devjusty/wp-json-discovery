@@ -235,6 +235,34 @@ describe('investigation transport', () => {
     expect(savedSession.investigationState.findings).toHaveLength(1);
   });
 
+  it('round-trips capability options through session transport', async () => {
+    const full = {
+      ...fullInvestigation(),
+      capabilities: [{
+        ...fullInvestigation().capabilities[0],
+        name: 'sitemap',
+        options: { sitemapUrl: '/custom.xml', maxPages: 2 },
+      }],
+    };
+    let savedSession;
+    const transport = createInvestigationTransport({
+      get: async () => null,
+      list: async () => ({ investigations: [] }),
+      save: async (_id, session) => {
+        savedSession = session;
+        return { recordType: 'session', session, persistedAt: full.createdAt };
+      },
+    });
+
+    await transport.save(full);
+
+    expect(savedSession.selectedCapabilities).toContainEqual({
+      id: 'sitemap',
+      dependencies: [],
+      options: { sitemapUrl: '/custom.xml', maxPages: 2 },
+    });
+  });
+
   it('omits absent successful capability results when serializing a session', async () => {
     const investigation = { ...fullInvestigation(), capabilities: [{ name: 'wordpress', status: 'success' }] } as const;
     let savedSession;

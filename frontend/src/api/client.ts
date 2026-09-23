@@ -2,6 +2,7 @@ import {
   apiEnvelopeSchema,
   investigationListSchema,
   investigationRecordSchema,
+  scanSessionSchema,
   sessionRecordSchema
 } from '@wp-json-discovery/contracts';
 import type {
@@ -366,9 +367,22 @@ export async function saveInvestigationSession(
   investigationId: string,
   session: unknown
 ): Promise<SessionRecord> {
+  const parsedSession = scanSessionSchema.safeParse(session);
+  if (!parsedSession.success) {
+    throw new ApiError('Invalid investigation session request', {
+      code: 'contract-invalid',
+      details: parsedSession.error,
+    });
+  }
+  if (!parsedSession.data.investigationState) {
+    throw new ApiError('Investigation session is missing full state', {
+      code: 'contract-invalid',
+      details: { field: 'investigationState' },
+    });
+  }
   return requestInvestigation(
-    `/api/investigations/${encodeURIComponent(investigationId)}/sessions/${encodeURIComponent((session as { id: string }).id)}`,
-    { method: 'POST', body: JSON.stringify({ session }) },
+    `/api/investigations/${encodeURIComponent(investigationId)}/sessions/${encodeURIComponent(parsedSession.data.id)}`,
+    { method: 'POST', body: JSON.stringify({ session: parsedSession.data }) },
     sessionRecordSchema
   );
 }

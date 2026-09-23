@@ -36,7 +36,7 @@ describe('investigation store port', () => {
   it('validates direct persistence values and preserves capability results', async () => {
     const full = {
       ...investigation,
-      capabilities: [{ name: 'wordpress', status: 'success', result: { namespaces: ['wp/v2'] } }],
+      capabilities: [{ name: 'sitemap', status: 'success', options: { sitemapUrl: '/custom.xml', maxPages: 2 }, result: { urls: ['/'] } }],
     } as const;
     let saved: unknown;
     const store = createLocalInvestigationStore({
@@ -47,10 +47,10 @@ describe('investigation store port', () => {
     });
 
     await store.save(full);
-    await expect(store.get('inv-1')).resolves.toMatchObject({ capabilities: [{ result: full.capabilities[0].result }] });
-    await expect(store.list()).resolves.toMatchObject([{ capabilities: [{ result: full.capabilities[0].result }] }]);
-    await expect(store.claim('inv-1')).resolves.toMatchObject({ capabilities: [{ result: full.capabilities[0].result }] });
-    expect(saved).toMatchObject({ capabilities: [{ result: full.capabilities[0].result }] });
+    await expect(store.get('inv-1')).resolves.toMatchObject({ capabilities: [{ options: full.capabilities[0].options, result: full.capabilities[0].result }] });
+    await expect(store.list()).resolves.toMatchObject([{ capabilities: [{ options: full.capabilities[0].options, result: full.capabilities[0].result }] }]);
+    await expect(store.claim('inv-1')).resolves.toMatchObject({ capabilities: [{ options: full.capabilities[0].options, result: full.capabilities[0].result }] });
+    expect(saved).toMatchObject({ capabilities: [{ options: full.capabilities[0].options, result: full.capabilities[0].result }] });
   });
 
   it('maps malformed direct persistence values to contract-invalid errors', async () => {

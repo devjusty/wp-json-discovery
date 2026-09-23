@@ -43,6 +43,7 @@ const investigationCapabilitySchema = z.object({
   name: identifierSchema,
   status: z.enum(['queued', 'running', 'success', 'failed', 'unavailable']),
   dependencies: z.array(identifierSchema).optional(),
+  options: z.record(z.string(), jsonValueSchema).optional(),
   metadata: jsonValueSchema.optional(),
   result: jsonValueSchema.optional(),
   reason: z.string().optional(),
@@ -211,6 +212,7 @@ export type RetryState = z.infer<typeof retryStateSchema>;
 export const capabilitySelectionSchema = z.object({
   id: identifierSchema,
   dependencies: z.array(identifierSchema),
+  options: z.record(z.string(), jsonValueSchema).optional(),
 }).strict();
 export type CapabilitySelection = z.infer<typeof capabilitySelectionSchema>;
 
