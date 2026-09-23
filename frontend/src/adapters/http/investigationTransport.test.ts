@@ -77,6 +77,21 @@ describe('investigation transport', () => {
     expect(start).not.toHaveBeenCalled();
   });
 
+  it('validates the complete start request before calling the API client', async () => {
+    const start = vi.fn();
+    const transport = createInvestigationTransport({ start, get: async () => null, list: async () => ({ investigations: [] }), save: async () => validSessionRecord() });
+    const domain = { submitted: 'Example.com', normalized: 'https://example.com' };
+
+    await expect(transport.start(domain, [
+      { id: 'wordpress', dependencies: [] },
+      { id: 'wordpress', dependencies: [] },
+    ])).rejects.toMatchObject({ code: 'contract-invalid' });
+    await expect(transport.start(domain, [
+      { id: 'wordpress', dependencies: ['homepage'] },
+    ])).rejects.toMatchObject({ code: 'contract-invalid' });
+    expect(start).not.toHaveBeenCalled();
+  });
+
   it('preserves a valid not-found null from the HTTP client', async () => {
     const transport = createInvestigationTransport({
       get: async () => null,

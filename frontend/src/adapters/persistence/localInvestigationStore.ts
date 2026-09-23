@@ -35,14 +35,43 @@ export const createLocalInvestigationStore = (
 
   const direct = persistence as LocalInvestigationPersistence;
   return {
-    save: direct.save,
-    get: direct.load,
-    list: direct.list,
-    claim: direct.claim ?? (async (id) => {
-      const investigation = await direct.load(id);
-      if (!investigation) throw new Error(`Investigation not found: ${id}`);
-      return investigation;
-    }),
+    async save(investigation) {
+      const state = validateDirectValue(investigation);
+      try {
+        await direct.save(state);
+      } catch (cause) {
+        throw new ContractInvalidError('Invalid local investigation persistence', cause);
+      }
+    },
+    async get(id) {
+      let value: Investigation | null;
+      try {
+        value = await direct.load(id);
+      } catch (cause) {
+        throw new ContractInvalidError('Invalid local investigation persistence', cause);
+      }
+      return value === null ? null : validateDirectValue(value, id);
+    },
+    async list() {
+      let values: Investigation[];
+      try {
+        values = await direct.list();
+      } catch (cause) {
+        throw new ContractInvalidError('Invalid local investigation persistence', cause);
+      }
+      if (!Array.isArray(values)) throw new ContractInvalidError('Invalid local investigation list');
+      return values.map(value => validateDirectValue(value));
+    },
+    async claim(id) {
+      let value: Investigation | null;
+      try {
+        value = direct.claim ? await direct.claim(id) : await direct.load(id);
+      } catch (cause) {
+        throw new ContractInvalidError('Invalid local investigation persistence', cause);
+      }
+      if (!value) throw new Error(`Investigation not found: ${id}`);
+      return validateDirectValue(value, id);
+    },
   };
 };
 
@@ -136,6 +165,26 @@ function parseState(value: unknown, identity: { id: string; submitted: string; n
     throw new ContractInvalidError('Anonymous investigation identity mismatch');
   }
   return investigation;
+}
+
+function validateDirectValue(value: unknown, expectedId?: string): Investigation {
+  if (!value || typeof value !== 'object') {
+    throw new ContractInvalidError('Invalid local investigation state');
+  }
+  const candidate = value as Partial<Investigation>;
+  if (typeof candidate.id !== 'string'
+    || typeof candidate.submittedUrl !== 'string'
+    || typeof candidate.normalizedUrl !== 'string') {
+    throw new ContractInvalidError('Invalid local investigation state');
+  }
+  if (expectedId !== undefined && candidate.id !== expectedId) {
+    throw new ContractInvalidError('Local investigation identity mismatch');
+  }
+  return parseState(value, {
+    id: candidate.id,
+    submitted: candidate.submittedUrl,
+    normalized: candidate.normalizedUrl,
+  });
 }
 
 function domainToSession(investigation: Investigation) {

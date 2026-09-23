@@ -33,6 +33,53 @@ describe('investigation store port', () => {
     await expect(store.claim('inv-1')).resolves.toEqual(investigation);
   });
 
+  it('validates direct persistence values and preserves capability results', async () => {
+    const full = {
+      ...investigation,
+      capabilities: [{ name: 'wordpress', status: 'success', result: { namespaces: ['wp/v2'] } }],
+    } as const;
+    let saved: unknown;
+    const store = createLocalInvestigationStore({
+      load: async () => full,
+      save: async (value) => { saved = value; },
+      list: async () => [full],
+      claim: async () => full,
+    });
+
+    await store.save(full);
+    await expect(store.get('inv-1')).resolves.toMatchObject({ capabilities: [{ result: full.capabilities[0].result }] });
+    await expect(store.list()).resolves.toMatchObject([{ capabilities: [{ result: full.capabilities[0].result }] }]);
+    await expect(store.claim('inv-1')).resolves.toMatchObject({ capabilities: [{ result: full.capabilities[0].result }] });
+    expect(saved).toMatchObject({ capabilities: [{ result: full.capabilities[0].result }] });
+  });
+
+  it('maps malformed direct persistence values to contract-invalid errors', async () => {
+    const malformed = { ...investigation, capabilities: [{ name: 'wordpress', status: 'success', result: BigInt(1) }] } as unknown as Investigation;
+    const store = createLocalInvestigationStore({
+      load: async () => malformed,
+      save: async () => {},
+      list: async () => [malformed],
+      claim: async () => malformed,
+    });
+
+    await expect(store.get('inv-1')).rejects.toMatchObject({ code: 'contract-invalid' });
+    await expect(store.list()).rejects.toMatchObject({ code: 'contract-invalid' });
+    await expect(store.claim('inv-1')).rejects.toMatchObject({ code: 'contract-invalid' });
+    await expect(store.save(malformed)).rejects.toMatchObject({ code: 'contract-invalid' });
+  });
+
+  it('rejects direct persistence identity mismatches', async () => {
+    const mismatched = { ...investigation, id: 'other' };
+    const store = createLocalInvestigationStore({
+      load: async () => mismatched,
+      save: async () => {},
+      list: async () => [],
+    });
+
+    await expect(store.get('inv-1')).rejects.toMatchObject({ code: 'contract-invalid' });
+    await expect(store.claim('inv-1')).rejects.toMatchObject({ code: 'contract-invalid' });
+  });
+
   it('wraps anonymous persistence and preserves domain continuity', async () => {
     const storage = new Map();
     const store = createLocalInvestigationStore({

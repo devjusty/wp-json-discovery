@@ -1,10 +1,10 @@
 import {
-  capabilitySelectionSchema,
   domainIdentitySchema,
   investigationListSchema,
   investigationRecordSchema,
   investigationStateSchema,
   sessionRecordSchema,
+  startInvestigationRequestSchema,
 } from '@wp-json-discovery/contracts';
 import type {
   DomainIdentity,
@@ -78,12 +78,10 @@ export const createInvestigationTransport = (
   const source = { ...defaultClient, ...client };
   return {
   async start(domain, selectedCapabilities) {
-    const parsedDomain = domainIdentitySchema.safeParse(domain);
-    if (!parsedDomain.success) throw new ContractInvalidError('Invalid investigation domain', parsedDomain.error);
-    const selected = capabilitySelectionSchema.array().safeParse(selectedCapabilities);
-    if (!selected.success) throw new ContractInvalidError('Invalid capability selection', selected.error);
+    const request = startInvestigationRequestSchema.safeParse({ domain, selectedCapabilities });
+    if (!request.success) throw new ContractInvalidError('Invalid investigation start request', request.error);
     if (!source.start) throw new Error('Investigation client cannot start.');
-    return mapRecord(await call(source.start(parsedDomain.data, selected.data), 'start'), false);
+    return mapRecord(await call(source.start(request.data.domain, request.data.selectedCapabilities), 'start'), false);
   },
   async save(investigation) {
     const state = parseState(investigation, {
