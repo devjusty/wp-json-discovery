@@ -6,6 +6,10 @@ import { createInvestigation, type CapabilityError, type CapabilityRunInput, typ
 import type { InvestigationLifecycleState } from '../../domain/investigation/state';
 import type { InvestigationStore } from '../ports/investigation-store';
 import type { CapabilityRunner } from '../ports/capability-runner';
+import {
+  retryInvestigationCapability,
+  runInvestigationSession,
+} from '../../services/investigationSession.js';
 
 export type InvestigationCommandCode =
   | 'auth-required'
@@ -88,33 +92,108 @@ export const persist = async (store: InvestigationStore, investigation: Investig
 export const runCapabilities = async (
   investigation: Investigation,
   { store, runner }: CommandDependencies,
-  only?: string,
 ): Promise<Investigation> => {
-  let current = investigation;
-  for (const capability of current.capabilities) {
-    if (only && capability.name !== only) continue;
-    if (capability.status !== 'queued' && capability.status !== 'failed') continue;
-    if (capability.status === 'failed') {
-      if (!capability.error?.retryable) continue;
-      current = transition(current, { type: 'capability-queued', capability: capability.name });
-    }
-    current = transition(current, { type: 'capability-running', capability: capability.name });
-    try {
-      const result = await runner.run({
-        investigation: current,
-        capability: capability.name,
-        options: capability.options,
-      });
-      current = transition(current, { type: 'capability-succeeded', capability: capability.name, result });
-    } catch (cause) {
-      const error = normalizeRunnerError(cause);
-      current = transition(current, {
-        type: error.code === 'runner_unavailable' ? 'capability-unavailable' : 'capability-failed',
-        capability: capability.name,
-        error,
-      });
-    }
-  }
+  const session = await runInvestigationSession(
+    toCoordinatorSession(investigation),
+    createCoordinatorRunners(investigation, runner),
+  );
+  const current = fromCoordinatorSession(investigation, session);
   await persist(store, current);
   return current;
 };
+
+export const retryWithCoordinator = async (
+  investigation: Investigation,
+  capability: string,
+  { store, runner }: CommandDependencies,
+): Promise<Investigation> => {
+  const session = await retryInvestigationCapability(
+    toCoordinatorSession(investigation),
+    capability,
+    createCoordinatorRunners(investigation, runner),
+  );
+  const current = fromCoordinatorSession(investigation, session);
+  await persist(store, current);
+  return current;
+};
+
+function toCoordinatorSession(investigation: Investigation) {
+  const selectedCapabilities = investigation.capabilities.map(({ name, dependencies = [], options }) => ({
+    id: name,
+    dependencies: [...dependencies],
+    ...(options ? { options } : {}),
+  }));
+  const session = {
+    id: `${investigation.id}-session`,
+    investigationId: investigation.id,
+    status: 'idle',
+    startedAt: null,
+    completedAt: null,
+    selectedCapabilities,
+    capabilityStates: Object.fromEntries(investigation.capabilities.map(capability => [
+      capability.name,
+      capability.status === 'queued'
+        ? { status: 'idle', retry: { status: 'not-retryable' } }
+        : capability.status === 'success'
+          ? {
+            status: 'success',
+            outcome: { status: 'success', result: capability.result, error: null },
+            retry: { status: 'not-retryable' },
+          }
+          : {
+            status: capability.status,
+            outcome: {
+              status: capability.status,
+              result: null,
+              error: capability.error,
+            },
+            retry: { status: 'not-retryable' },
+          },
+    ])),
+    overall: { status: 'incomplete' },
+  };
+  Object.defineProperty(session, 'domain', {
+    value: { submitted: investigation.submittedUrl, normalized: investigation.normalizedUrl },
+    enumerable: false,
+  });
+  Object.defineProperty(session, 'selection', {
+    value: {
+      capabilityIds: selectedCapabilities.map(({ id }) => id),
+      options: Object.fromEntries(selectedCapabilities.map(({ id, options }) => [id, options ?? {}])),
+    },
+    enumerable: false,
+  });
+  return session;
+}
+
+function createCoordinatorRunners(investigation: Investigation, runner: CapabilityRunner) {
+  return Object.fromEntries(investigation.capabilities.map(({ name }) => [
+    name,
+    ({ options }) => runner.run({ investigation, capability: name, options }),
+  ]));
+}
+
+function fromCoordinatorSession(investigation: Investigation, session): Investigation {
+  let current = investigation;
+  for (const capability of investigation.capabilities) {
+    const next = session.capabilityStates[capability.name];
+    if (!next || next.status === 'idle' || next.status === 'queued') continue;
+    const currentStatus = current.capabilities.find(({ name }) => name === capability.name)?.status;
+    if (currentStatus === 'failed') {
+      current = transition(current, { type: 'capability-queued', capability: capability.name });
+    }
+    if (current.capabilities.find(({ name }) => name === capability.name)?.status === 'queued') {
+      current = transition(current, { type: 'capability-running', capability: capability.name });
+    }
+    const error = next.error ?? next.outcome?.error;
+    current = next.status === 'success'
+      ? transition(current, { type: 'capability-succeeded', capability: capability.name, result: next.outcome?.result })
+      : transition(current, {
+        type: next.status === 'unavailable' ? 'capability-unavailable' : 'capability-failed',
+        capability: capability.name,
+        error: normalizeRunnerError(error),
+        ...(next.dependency?.dependencyId ? { dependencyId: next.dependency.dependencyId } : {}),
+      });
+  }
+  return current;
+}
