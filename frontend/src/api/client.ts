@@ -416,9 +416,25 @@ async function requestInvestigation<T>(
       requestId: envelope.data.requestId,
     });
   }
-  if (envelope.data.status !== 'success') throw new Error('Investigation request incomplete');
+  if (envelope.data.status === 'partial') {
+    const [firstError] = envelope.data.errors;
+    throw new ApiError(firstError.message, {
+      code: firstError.code,
+      details: envelope.data.errors,
+      retryable: firstError.retryable,
+      status: result.status,
+      requestId: envelope.data.requestId,
+    });
+  }
 
   const record = dataSchema.safeParse(envelope.data.data);
-  if (!record.success) throw new Error('Invalid investigation response');
+  if (!record.success) {
+    throw new ApiError('Invalid investigation response', {
+      code: 'INVALID_RESPONSE',
+      details: record.error,
+      status: result.status,
+      requestId: envelope.data.requestId,
+    });
+  }
   return record.data as T;
 }

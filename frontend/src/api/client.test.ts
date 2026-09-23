@@ -119,8 +119,13 @@ describe('request', () => {
       data: { recordType: 'session', session: { nope: true }, persistedAt: 'invalid' }
     }));
 
-    await expect(saveInvestigationSession('inv-1', validSession()))
-      .rejects.toThrow('Invalid investigation response');
+    await expect(saveInvestigationSession('inv-1', validSession())).rejects.toMatchObject({
+      name: 'ApiError',
+      code: 'INVALID_RESPONSE',
+      status: 200,
+      requestId: 'req-1',
+      details: expect.anything(),
+    });
   });
 
   it('fetches investigation records through canonical URL', async () => {
@@ -160,7 +165,31 @@ describe('request', () => {
     await expect(fetchInvestigation('missing')).rejects.toThrow('Investigation not found');
 
     vi.stubGlobal('fetch', jsonResponse({ status: 'success', requestId: 'req-1', data: { nope: true } }));
-    await expect(fetchInvestigation('invalid')).rejects.toThrow('Invalid investigation response');
+    await expect(fetchInvestigation('invalid')).rejects.toMatchObject({
+      name: 'ApiError',
+      code: 'INVALID_RESPONSE',
+      status: 200,
+      requestId: 'req-1',
+      details: expect.anything(),
+    });
+  });
+
+  it('preserves typed errors from partial investigation envelopes', async () => {
+    vi.stubGlobal('fetch', jsonResponse({
+      status: 'partial',
+      requestId: 'req-partial',
+      data: { investigations: [] },
+      errors: [{ code: 'SESSION_UNAVAILABLE', message: 'Session unavailable', retryable: true }],
+    }));
+
+    await expect(fetchInvestigations()).rejects.toMatchObject({
+      name: 'ApiError',
+      code: 'SESSION_UNAVAILABLE',
+      details: [{ code: 'SESSION_UNAVAILABLE', message: 'Session unavailable', retryable: true }],
+      retryable: true,
+      status: 200,
+      requestId: 'req-partial',
+    });
   });
 
   it('preserves typed API error codes and details', async () => {
