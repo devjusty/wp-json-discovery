@@ -1,11 +1,9 @@
-import { initialize, mswLoader } from 'msw-storybook-addon';
+import { mswLoader } from 'msw-storybook-addon/csf3';
 
 import '../src/index.css';
 import '../src/App.css';
 import '@fontsource-variable/ibm-plex-sans';
 import '@fontsource/ibm-plex-mono';
-
-initialize({ onUnhandledRequest: 'bypass' });
 
 /** @type { import('@storybook/react-vite').Preview } */
 const preview = {
@@ -20,7 +18,7 @@ const preview = {
       );
     },
   ],
-  loaders: [mswLoader],
+  loaders: [mswLoader()],
   parameters: {
     layout: 'padded',
     controls: {

@@ -3,7 +3,6 @@
 /** @type { import('@storybook/react-vite').StorybookConfig } */
 const config = {
   "stories": [
-    "../src/**/*.mdx",
     "../src/**/*.stories.@(js|jsx|mjs|ts|tsx)"
   ],
 
@@ -16,7 +15,8 @@ const config = {
     "@storybook/addon-vitest",
     "@storybook/addon-a11y",
     "@storybook/addon-docs",
-    "@storybook/addon-mcp"
+    "@storybook/addon-mcp",
+    "msw-storybook-addon"
   ],
 
   "framework": "@storybook/react-vite"
