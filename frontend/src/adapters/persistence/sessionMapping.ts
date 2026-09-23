@@ -44,15 +44,19 @@ export function createPersistableSession(session, domain: DomainIdentity) {
   return persistable;
 }
 
-export function materializeInvestigationState(session, domain: DomainIdentity, selectedCapabilities) {
+function materializeInvestigationState(session, domain: DomainIdentity, selectedCapabilities) {
   const source = session.investigationState;
   const sourceCapabilities = new Map((source?.capabilities ?? []).map((capability) => [capability.name, capability]));
   const capabilities = selectedCapabilities.map(({ id: name, dependencies, options }) => {
     const capabilityState = session.capabilityStates?.[name];
     const status = capabilityState?.status === 'idle' ? 'queued' : capabilityState?.status ?? 'queued';
+    const stableFields = Object.fromEntries(
+      Object.entries(sourceCapabilities.get(name) ?? {})
+        .filter(([key]) => key !== 'result' && key !== 'error'),
+    );
     const capability: Record<string, unknown> = Object.assign(
       {},
-      sourceCapabilities.get(name) ?? {},
+      stableFields,
       {
         name,
         status,

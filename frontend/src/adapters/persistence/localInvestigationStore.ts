@@ -13,7 +13,7 @@ import {
 } from '../../services/anonymousInvestigations.js';
 import { domainToSession } from './sessionMapping';
 
-export type LocalInvestigationPersistence = {
+type LocalInvestigationPersistence = {
   load: (id: string) => Promise<Investigation | null>;
   save: (investigation: Investigation) => Promise<void>;
   list: () => Promise<Investigation[]>;
