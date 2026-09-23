@@ -257,7 +257,7 @@ describe('scan sessions', () => {
     }).success).toBe(false);
   });
 
-  it('accepts retryable unavailable capabilities in session state contract', () => {
+  it('rejects retryable unavailable capabilities in session state contract', () => {
     expect(sessionCapabilityStateSchema.safeParse({
       status: 'unavailable',
       outcome: {
@@ -265,6 +265,17 @@ describe('scan sessions', () => {
         error: { code: 'RUNNER_UNAVAILABLE', message: 'Runner unavailable', retryable: true },
       },
       retry: { status: 'not-retryable' },
+    }).success).toBe(false);
+  });
+
+  it('preserves retryable failed capabilities in session state contract', () => {
+    expect(sessionCapabilityStateSchema.safeParse({
+      status: 'failed',
+      outcome: {
+        status: 'failed', result: null,
+        error: { code: 'TIMEOUT', message: 'Timed out', retryable: true },
+      },
+      retry: { status: 'retrying', attempt: 1, nextAttemptAt: timestamp },
     }).success).toBe(true);
   });
 

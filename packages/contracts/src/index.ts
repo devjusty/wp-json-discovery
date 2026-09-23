@@ -85,11 +85,7 @@ const unavailableOutcomeSchema = z.object({
   result: z.null(),
   error: capabilityErrorSchema.extend({ retryable: z.literal(false) }).strict(),
 }).strict();
-const sessionUnavailableOutcomeSchema = z.object({
-  status: z.literal('unavailable'),
-  result: z.null(),
-  error: capabilityErrorSchema,
-}).strict();
+const sessionUnavailableOutcomeSchema = unavailableOutcomeSchema;
 const partialOutcomeSchema = z.object({
   status: z.literal('partial'),
   result: z.unknown(),
