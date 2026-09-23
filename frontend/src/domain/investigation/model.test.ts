@@ -219,4 +219,37 @@ describe('investigation model', () => {
       })).toThrow(InvestigationModelError);
     }
   });
+
+  it('rejects malformed investigation input with typed errors', () => {
+    const base = {
+      id: 'inv-1',
+      submittedUrl: 'https://example.com',
+      normalizedUrl: 'https://example.com',
+      redirectChain: [],
+      createdAt: '2026-09-23T12:00:00.000Z',
+    };
+    const malformedInputs: unknown[] = [
+      null,
+      'investigation',
+      { ...base, id: '' },
+      { ...base, submittedUrl: 42 },
+      { ...base, normalizedUrl: '   ' },
+      { ...base, redirectChain: 'https://example.com' },
+      { ...base, redirectChain: [42] },
+      { ...base, observationTimeline: [{}] },
+      { ...base, observationTimeline: [{ id: 'obs-1', capability: 'html', observedAt: 'bad' }] },
+      { ...base, evidence: [{}] },
+      { ...base, evidence: [{
+        id: 'evidence-1', kind: 'observed', capability: 'html', value: 'x', source: null,
+      }] },
+      { ...base, findings: [{}] },
+      { ...base, findings: [{
+        id: 'finding-1', capability: 'html', summary: 'Found', evidenceIds: 'evidence-1', confidence: 'high',
+      }] },
+    ];
+
+    for (const input of malformedInputs) {
+      expect(() => createInvestigation(input as never)).toThrow(InvestigationModelError);
+    }
+  });
 });

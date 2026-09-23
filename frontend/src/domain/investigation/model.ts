@@ -89,7 +89,7 @@ export type CreateInvestigationInput = Readonly<{
   findings?: ReadonlyArray<Finding>;
 }>;
 
-export type InvestigationModelErrorCode = 'invalid-capability-run' | 'invalid-timestamp';
+export type InvestigationModelErrorCode = 'invalid-capability-run' | 'invalid-investigation' | 'invalid-timestamp';
 
 export class InvestigationModelError extends Error {
   readonly code: InvestigationModelErrorCode;
@@ -103,14 +103,73 @@ export class InvestigationModelError extends Error {
 
 const timestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 
-const assertTimestamp = (value: string, field: string): void => {
-  if (!timestampPattern.test(value) || Number.isNaN(Date.parse(value))) {
+const assertTimestamp = (value: unknown, field: string): void => {
+  if (typeof value !== 'string' || !timestampPattern.test(value) || Number.isNaN(Date.parse(value))) {
     throw new InvestigationModelError('invalid-timestamp', `${field} must be an ISO timestamp with timezone`);
   }
 };
 
-const assertOptionalTimestamp = (value: string | undefined, field: string): void => {
+const assertOptionalTimestamp = (value: unknown, field: string): void => {
   if (value !== undefined) assertTimestamp(value, field);
+};
+
+const assertRecord = (value: unknown, field: string): Record<string, unknown> => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new InvestigationModelError('invalid-investigation', `${field} must be an object`);
+  }
+  return value as Record<string, unknown>;
+};
+
+const assertNonEmptyString = (value: unknown, field: string): void => {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new InvestigationModelError('invalid-investigation', `${field} must be a non-empty string`);
+  }
+};
+
+const assertStringArray = (value: unknown, field: string): void => {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string' || !item.trim())) {
+    throw new InvestigationModelError('invalid-investigation', `${field} must be an array of non-empty strings`);
+  }
+};
+
+const assertObservation = (value: unknown, index: number): void => {
+  const observation = assertRecord(value, `observationTimeline[${index}]`);
+  assertNonEmptyString(observation.id, `observationTimeline[${index}].id`);
+  assertNonEmptyString(observation.capability, `observationTimeline[${index}].capability`);
+  assertTimestamp(observation.observedAt, `observationTimeline[${index}].observedAt`);
+};
+
+const assertEvidence = (value: unknown, index: number): void => {
+  const evidence = assertRecord(value, `evidence[${index}]`);
+  assertNonEmptyString(evidence.id, `evidence[${index}].id`);
+  assertNonEmptyString(evidence.capability, `evidence[${index}].capability`);
+  if (!['observed', 'inference', 'request-trace', 'absence'].includes(evidence.kind as EvidenceKind)) {
+    throw new InvestigationModelError('invalid-investigation', `evidence[${index}].kind is invalid`);
+  }
+
+  const source = assertRecord(evidence.source, `evidence[${index}].source`);
+  if (source.locator !== undefined) assertNonEmptyString(source.locator, `evidence[${index}].source.locator`);
+  assertOptionalTimestamp(source.observedAt, `evidence[${index}].source.observedAt`);
+  if (source.evidenceIds !== undefined) assertStringArray(source.evidenceIds, `evidence[${index}].source.evidenceIds`);
+  if (source.request !== undefined) {
+    const request = assertRecord(source.request, `evidence[${index}].source.request`);
+    assertNonEmptyString(request.method, `evidence[${index}].source.request.method`);
+    assertNonEmptyString(request.url, `evidence[${index}].source.request.url`);
+    if (request.status !== undefined && (typeof request.status !== 'number' || !Number.isFinite(request.status))) {
+      throw new InvestigationModelError('invalid-investigation', `evidence[${index}].source.request.status is invalid`);
+    }
+  }
+};
+
+const assertFinding = (value: unknown, index: number): void => {
+  const finding = assertRecord(value, `findings[${index}]`);
+  assertNonEmptyString(finding.id, `findings[${index}].id`);
+  assertNonEmptyString(finding.capability, `findings[${index}].capability`);
+  assertNonEmptyString(finding.summary, `findings[${index}].summary`);
+  assertStringArray(finding.evidenceIds, `findings[${index}].evidenceIds`);
+  if (!['low', 'medium', 'high'].includes(finding.confidence as Finding['confidence'])) {
+    throw new InvestigationModelError('invalid-investigation', `findings[${index}].confidence is invalid`);
+  }
 };
 
 const assertCapabilityRun = (capability: CapabilityRunInput): void => {
@@ -171,14 +230,36 @@ const freeze = <T>(value: T, seen = new WeakSet<object>()): T => {
 const cloneAndFreeze = <T>(value: T): T => freeze(clone(value));
 
 export const createInvestigation = (input: CreateInvestigationInput): Investigation => {
+  assertRecord(input, 'investigation');
+  assertNonEmptyString(input.id, 'id');
+  assertNonEmptyString(input.submittedUrl, 'submittedUrl');
+  assertNonEmptyString(input.normalizedUrl, 'normalizedUrl');
+  assertStringArray(input.redirectChain, 'redirectChain');
   assertTimestamp(input.createdAt, 'createdAt');
-  input.capabilities?.forEach(assertCapabilityRun);
-  input.observationTimeline?.forEach((observation) => {
-    assertTimestamp(observation.observedAt, `${observation.id}.observedAt`);
-  });
-  input.evidence?.forEach((evidence) => {
-    assertOptionalTimestamp(evidence.source.observedAt, `${evidence.id}.source.observedAt`);
-  });
+  if (input.capabilities !== undefined) {
+    if (!Array.isArray(input.capabilities)) {
+      throw new InvestigationModelError('invalid-investigation', 'capabilities must be an array');
+    }
+    input.capabilities.forEach(assertCapabilityRun);
+  }
+  if (input.observationTimeline !== undefined) {
+    if (!Array.isArray(input.observationTimeline)) {
+      throw new InvestigationModelError('invalid-investigation', 'observationTimeline must be an array');
+    }
+    input.observationTimeline.forEach(assertObservation);
+  }
+  if (input.evidence !== undefined) {
+    if (!Array.isArray(input.evidence)) {
+      throw new InvestigationModelError('invalid-investigation', 'evidence must be an array');
+    }
+    input.evidence.forEach(assertEvidence);
+  }
+  if (input.findings !== undefined) {
+    if (!Array.isArray(input.findings)) {
+      throw new InvestigationModelError('invalid-investigation', 'findings must be an array');
+    }
+    input.findings.forEach(assertFinding);
+  }
 
   return cloneAndFreeze({
     id: input.id,
