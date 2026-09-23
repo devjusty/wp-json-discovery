@@ -463,7 +463,7 @@ function bridgeInvestigatorSession(session) {
   return {
     domain: session.domain.normalized,
     selection,
-    overallStatus: session.status === 'completed' ? 'complete' : session.status === 'failed' ? 'incomplete' : session.status,
+    overallStatus: session.overall?.status ?? session.status,
     capabilities: Object.fromEntries(Object.entries(session.capabilityStates as Record<string, { status: string; outcome?: { result?: unknown; error?: { message?: string; code?: string; retryable?: boolean } | null } }>).map(([id, state]) => [id, {
       status: state.status,
       result: state.outcome?.result ?? null,
