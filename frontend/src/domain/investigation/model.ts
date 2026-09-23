@@ -234,10 +234,6 @@ const assertCapabilityRun = (capability: CapabilityRunInput): void => {
     assertRecord(capability.options, `${capability.name}.options`);
     assertJsonLike(capability.options, `${capability.name}.options`);
   }
-  if (capability.options !== undefined) {
-    assertRecord(capability.options, `${capability.name}.options`);
-    assertJsonLike(capability.options, `${capability.name}.options`);
-  }
   if (capability.metadata !== undefined) assertJsonLike(capability.metadata, `${capability.name}.metadata`);
   if (capability.result !== undefined) assertJsonLike(capability.result, `${capability.name}.result`);
   if (!['queued', 'running', 'success', 'failed', 'unavailable'].includes(capability.status as CapabilityStatus)) {

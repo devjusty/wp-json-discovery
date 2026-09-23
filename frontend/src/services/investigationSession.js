@@ -178,7 +178,7 @@ export function addInvestigationCapability(session, capabilityId, options = {}) 
   Object.defineProperty(next, 'selection', {
     value: cloneSelection({
       capabilityIds: [...session.selection.capabilityIds, capabilityId],
-      options: { ...session.selection.options, [capabilityId]: options }
+      options: { ...session.selection.options, [capabilityId]: capabilitySelection.options ?? {} }
     }),
     enumerable: false,
     configurable: true

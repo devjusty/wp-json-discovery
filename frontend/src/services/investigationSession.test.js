@@ -382,7 +382,7 @@ describe('investigation session', () => {
     expect(getContextualCapabilityIds(selectedSitemap)).toEqual([]);
   });
 
-  it('adds contextual sitemap with registry dependency', () => {
+  it('adds contextual sitemap with normalized options for execution', async () => {
     const contextual = addInvestigationCapability(session, 'sitemap', { sitemapUrl: '/sitemap.xml' });
 
     expect(contextual.selectedCapabilities).toContainEqual({
@@ -390,6 +390,15 @@ describe('investigation session', () => {
       dependencies: ['wordpress'],
       options: { sitemapUrl: '/sitemap.xml', maxPages: 50 },
     });
+    const sitemap = vi.fn().mockResolvedValue({ urls: [] });
+    await runInvestigationSession(contextual, {
+      wordpress: vi.fn().mockResolvedValue({}),
+      homepage: vi.fn().mockResolvedValue({}),
+      sitemap,
+    });
+    expect(sitemap).toHaveBeenCalledWith(expect.objectContaining({
+      options: { sitemapUrl: '/sitemap.xml', maxPages: 50 },
+    }));
   });
 
   it('does not retry sitemap after its failed WordPress dependency is recovered', async () => {

@@ -430,6 +430,12 @@ describe('ScanPage', () => {
     render(<QueryClientProvider client={new QueryClient()}><ScanPage isAuthenticated /></QueryClientProvider>);
 
     await waitFor(() => expect(mocks.saveInvestigationSession).toHaveBeenCalledWith('inv-authenticated', recovered));
+    expect(mocks.saveInvestigationSession.mock.calls[0][1].investigationState).toMatchObject({
+      id: 'inv-authenticated',
+      submittedUrl: 'Example.com',
+      normalizedUrl: 'example.com',
+      capabilities: [{ name: 'wordpress', status: 'failed' }],
+    });
     expect(mocks.runInvestigationSession).not.toHaveBeenCalled();
   });
 

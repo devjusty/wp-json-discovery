@@ -253,6 +253,7 @@ describe('investigation model', () => {
       { ...base, normalizedUrl: '   ' },
       { ...base, redirectChain: 'https://example.com' },
       { ...base, redirectChain: [42] },
+      { ...base, capabilities: [{ name: 'sitemap', status: 'queued', options: { maxPages: BigInt(2) } }] },
       { ...base, observationTimeline: [{}] },
       { ...base, observationTimeline: [{ id: 'obs-1', capability: 'html', observedAt: 'bad' }] },
       { ...base, evidence: [{}] },
