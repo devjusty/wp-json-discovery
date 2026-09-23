@@ -1,5 +1,8 @@
 import type { InvestigationStore } from '../../application/ports/investigation-store';
 import type { Investigation } from '../../domain/investigation/model';
+import {
+  createInvestigationTransport,
+} from '../http/investigationTransport';
 
 export type RemoteInvestigationTransport = {
   save: (investigation: Investigation) => Promise<void>;
@@ -9,7 +12,7 @@ export type RemoteInvestigationTransport = {
 };
 
 export const createRemoteInvestigationStore = (
-  transport: RemoteInvestigationTransport,
+  transport: RemoteInvestigationTransport = createInvestigationTransport(),
 ): InvestigationStore => ({
   save: transport.save,
   get: transport.get,

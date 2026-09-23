@@ -26,7 +26,7 @@ const defaultRegistry: Registry = { getCapabilityById, getCapabilityRunners };
 export const createLegacyCapabilityRunner = (
   registry: Registry = defaultRegistry,
 ): CapabilityRunner => ({
-  async run({ investigation, capability, signal }) {
+  async run({ investigation, capability, options, signal }) {
     const definition = registry.getCapabilityById?.(capability) as LegacyCapability | null | undefined;
     const legacyRunner = definition?.runner
       ?? registry.getCapabilityRunners?.([capability])?.[capability] as LegacyCapability['runner'] | undefined;
@@ -44,7 +44,7 @@ export const createLegacyCapabilityRunner = (
         submitted: investigation.submittedUrl,
         normalized: investigation.normalizedUrl,
       },
-      options: definition.normalizeOptions?.(),
+      options: definition.normalizeOptions?.(options),
       signal,
     });
   },

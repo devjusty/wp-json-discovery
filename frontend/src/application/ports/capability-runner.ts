@@ -6,6 +6,7 @@ export interface CapabilityRunner {
   run(input: {
     investigation: Investigation;
     capability: string;
+    options?: unknown;
     signal?: AbortSignal;
   }): Promise<CapabilityResult>;
 }

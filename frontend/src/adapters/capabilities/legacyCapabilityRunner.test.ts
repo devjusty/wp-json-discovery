@@ -29,4 +29,25 @@ describe('capability runner port', () => {
       domain: 'https://example.com',
     });
   });
+
+  it('forwards configured capability options to legacy runners', async () => {
+    const runnerFunction = vi.fn(async ({ options }) => options);
+    const runner = createLegacyCapabilityRunner({
+      getCapabilityById: vi.fn(() => ({
+        id: 'sitemap',
+        availability: () => true,
+        normalizeOptions: (options) => options,
+        runner: runnerFunction,
+      })),
+    });
+
+    await expect(runner.run({
+      investigation,
+      capability: 'sitemap',
+      options: { sitemapUrl: 'https://example.com/sitemap.xml', maxPages: 12 },
+    })).resolves.toEqual({ sitemapUrl: 'https://example.com/sitemap.xml', maxPages: 12 });
+    expect(runnerFunction).toHaveBeenCalledWith(expect.objectContaining({
+      options: { sitemapUrl: 'https://example.com/sitemap.xml', maxPages: 12 },
+    }));
+  });
 });

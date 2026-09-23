@@ -1,8 +1,26 @@
 import {
+  capabilitySelectionSchema,
   investigationListSchema,
   investigationRecordSchema,
+  sessionRecordSchema,
 } from '@wp-json-discovery/contracts';
-import type { InvestigationRecord, SessionCapabilityState } from '@wp-json-discovery/contracts';
+import type {
+  DomainIdentity,
+  InvestigationRecord,
+  SessionRecord,
+  StartInvestigationRequest,
+} from '@wp-json-discovery/contracts';
+import {
+  claimAnonymousInvestigation,
+  fetchInvestigation,
+  fetchInvestigations,
+  saveInvestigationSession,
+  startInvestigation,
+} from '../../api/client';
+import {
+  createClaimPayload,
+  loadAnonymousInvestigation,
+} from '../../services/anonymousInvestigations.js';
 import { createInvestigation } from '../../domain/investigation/model';
 import type { Investigation } from '../../domain/investigation/model';
 
@@ -16,26 +34,102 @@ export class ContractInvalidError extends Error {
 }
 
 export type InvestigationTransport = {
+  start(
+    domain: DomainIdentity,
+    selectedCapabilities: StartInvestigationRequest['selectedCapabilities'],
+  ): Promise<Investigation>;
   save(investigation: Investigation): Promise<void>;
   get(id: string): Promise<Investigation | null>;
   list(): Promise<Investigation[]>;
   claim(id: string): Promise<Investigation>;
 };
 
-type TransportSource = {
-  save?: (investigation: Investigation) => Promise<unknown>;
+type ValidatedClient = {
+  start?: (domain: DomainIdentity, selectedCapabilities: StartInvestigationRequest['selectedCapabilities']) => Promise<unknown>;
   get: (id: string) => Promise<unknown>;
-  list?: () => Promise<unknown>;
-  claim?: (id: string) => Promise<unknown>;
+  list: () => Promise<unknown>;
+  save: (id: string, session: unknown) => Promise<unknown>;
+  claim?: (domain: DomainIdentity, anonymousRecord: unknown) => Promise<unknown>;
+  claimPayload?: (id: string) => { domain: DomainIdentity; anonymousRecord: unknown };
 };
 
-export const mapInvestigationRecord = (value: unknown): Investigation => {
+const defaultClient: ValidatedClient = {
+  start: startInvestigation,
+  get: fetchInvestigation,
+  list: fetchInvestigations,
+  save: saveInvestigationSession,
+  claim: claimAnonymousInvestigation,
+  claimPayload: () => {
+    const payload = createClaimPayload(loadAnonymousInvestigation());
+    if (!payload) throw new Error('No anonymous investigation available to claim.');
+    return payload;
+  },
+};
+
+export const createInvestigationTransport = (
+  client: Partial<ValidatedClient> = {},
+): InvestigationTransport => {
+  const source = { ...defaultClient, ...client };
+  return {
+  async start(domain, selectedCapabilities) {
+    const selected = capabilitySelectionSchema.array().safeParse(selectedCapabilities);
+    if (!selected.success) throw new ContractInvalidError('Invalid capability selection', selected.error);
+    if (!source.start) throw new Error('Investigation client cannot start.');
+    return mapRecord(await call(source.start(domain, selected.data), 'start'));
+  },
+  async save(investigation) {
+    const result = await call(
+      source.save(investigation.id, domainToSession(investigation)),
+      'save',
+    );
+    parseSession(result);
+  },
+  async get(id) {
+    try {
+      return mapRecord(await source.get(id));
+    } catch (error) {
+      if (isNotFound(error)) return null;
+      throw asContractError(error, 'get');
+    }
+  },
+  async list() {
+    return mapList(await call(source.list(), 'list'));
+  },
+  async claim(id) {
+    if (!source.claim || !source.claimPayload) throw new Error('Investigation client cannot claim.');
+    const payload = source.claimPayload(id);
+    return mapRecord(await call(source.claim(payload.domain, payload.anonymousRecord), 'claim'));
+  },
+  };
+};
+
+async function call<T>(promise: Promise<T>, operation: string): Promise<T> {
+  try {
+    return await promise;
+  } catch (error) {
+    throw asContractError(error, operation);
+  }
+}
+
+function asContractError(error: unknown, operation: string): Error {
+  if (error instanceof ContractInvalidError) return error;
+  if (error instanceof Error && /Invalid investigation response|Invalid .* response/.test(error.message)) {
+    return new ContractInvalidError(`Invalid investigation ${operation} response`, error);
+  }
+  return error instanceof Error ? error : new Error(`Investigation ${operation} failed`);
+}
+
+function isNotFound(error: unknown): boolean {
+  return error instanceof Error && /not found/i.test(error.message);
+}
+
+function mapRecord(value: unknown): Investigation {
   const parsed = investigationRecordSchema.safeParse(value);
   if (!parsed.success) throw new ContractInvalidError('Invalid investigation record', parsed.error);
   return recordToDomain(parsed.data);
-};
+}
 
-export const mapInvestigationList = (value: unknown): Investigation[] => {
+function mapList(value: unknown): Investigation[] {
   const parsed = investigationListSchema.safeParse(value);
   if (!parsed.success) throw new ContractInvalidError('Invalid investigation list', parsed.error);
   return parsed.data.investigations.map(summary => createInvestigation({
@@ -45,27 +139,13 @@ export const mapInvestigationList = (value: unknown): Investigation[] => {
     redirectChain: [],
     createdAt: summary.createdAt,
   }));
-};
+}
 
-export const createInvestigationTransport = (source: TransportSource): InvestigationTransport => ({
-  async save(investigation) {
-    if (!source.save) throw new Error('Investigation transport cannot save.');
-    const result = await source.save(investigation);
-    if (result !== undefined) mapInvestigationRecord(result);
-  },
-  async get(id) {
-    const result = await source.get(id);
-    return result === null ? null : mapInvestigationRecord(result);
-  },
-  async list() {
-    if (!source.list) throw new Error('Investigation transport cannot list.');
-    return mapInvestigationList(await source.list());
-  },
-  async claim(id) {
-    if (!source.claim) throw new Error('Investigation transport cannot claim.');
-    return mapInvestigationRecord(await source.claim(id));
-  },
-});
+function parseSession(value: unknown): SessionRecord {
+  const parsed = sessionRecordSchema.safeParse(value);
+  if (!parsed.success) throw new ContractInvalidError('Invalid investigation session response', parsed.error);
+  return parsed.data;
+}
 
 function recordToDomain(record: InvestigationRecord): Investigation {
   const session = record.latestSession;
@@ -75,25 +155,60 @@ function recordToDomain(record: InvestigationRecord): Investigation {
     normalizedUrl: record.investigation.domain.normalized,
     redirectChain: [],
     createdAt: record.createdAt,
-    capabilities: session?.selectedCapabilities.map(capability => (
-      mapCapabilityRun(capability.id, session.capabilityStates[capability.id])
-    )),
+    capabilities: session?.selectedCapabilities.map(capability => {
+      const state = session.capabilityStates[capability.id];
+      const outcome = state && 'outcome' in state ? state.outcome : undefined;
+      const error = outcome && typeof outcome === 'object' && 'error' in outcome
+        ? outcome.error as { code: string; message: string; retryable: boolean }
+        : undefined;
+      return {
+        name: capability.id,
+        status: state?.status === 'idle' ? 'queued' : state?.status ?? 'queued',
+        ...(error ? { error } : {}),
+      };
+    }),
   });
 }
 
-function mapCapabilityRun(name: string, state: SessionCapabilityState | undefined) {
-  const status = state?.status === 'idle' ? 'queued' : state?.status ?? 'queued';
-  const outcome = state && 'outcome' in state ? state.outcome : undefined;
-  const error = outcome && typeof outcome === 'object' && 'error' in outcome
-    ? outcome.error as { code: string; message: string; retryable: boolean }
-    : undefined;
+function domainToSession(investigation: Investigation) {
+  const hasFailure = investigation.capabilities.some(({ status }) => ['failed', 'unavailable'].includes(status));
+  const hasSuccess = investigation.capabilities.some(({ status }) => status === 'success');
+  const active = investigation.capabilities.some(({ status }) => ['queued', 'running'].includes(status));
+  const status = active ? 'running' : hasFailure && !hasSuccess ? 'failed' : 'completed';
+  const timestamp = investigation.createdAt;
 
   return {
-    name,
+    id: `${investigation.id}-session`,
+    investigationId: investigation.id,
     status,
-    ...(error && outcome && typeof outcome === 'object' && 'status' in outcome
-      && (outcome.status === 'failed' || outcome.status === 'unavailable')
-      ? { error: { code: error.code, message: error.message, retryable: error.retryable } }
-      : {}),
+    startedAt: timestamp,
+    completedAt: status === 'running' ? null : timestamp,
+    selectedCapabilities: investigation.capabilities.map(({ name }) => ({ id: name, dependencies: [] })),
+    capabilityStates: Object.fromEntries(investigation.capabilities.map(capability => [
+      capability.name,
+      capabilityState(capability),
+    ])),
+    overall: {
+      status: !investigation.capabilities.length || active
+        ? 'incomplete'
+        : hasSuccess && hasFailure ? 'partial' : hasSuccess ? 'complete' : 'failed',
+    },
   };
+}
+
+function capabilityState(capability: Investigation['capabilities'][number]) {
+  if (capability.status === 'failed') {
+    return { status: 'failed', outcome: { status: 'failed', result: null, error: capability.error }, retry: { status: 'not-retryable' } };
+  }
+  if (capability.status === 'unavailable') {
+    return {
+      status: 'unavailable',
+      outcome: { status: 'unavailable', result: null, error: capability.error ?? { code: 'unavailable', message: 'Unavailable', retryable: false } },
+      retry: { status: 'not-retryable' },
+    };
+  }
+  if (capability.status === 'success') {
+    return { status: 'success', outcome: { status: 'success', result: null, error: null }, retry: { status: 'not-retryable' } };
+  }
+  return { status: capability.status, retry: { status: 'not-retryable' } };
 }

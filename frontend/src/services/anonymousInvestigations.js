@@ -8,19 +8,31 @@ const STORAGE_VERSION = 1;
 const AUTHENTICATED_ID_KEY = 'wpjd:authenticated-investigation:v1';
 const TERMINAL_STATUSES = new Set(['failed', 'unavailable', 'completed', 'success']);
 
-export function loadAnonymousInvestigation() {
+export function loadAnonymousInvestigation(options = {}) {
+  let raw;
   try {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    const snapshot = validateSnapshot(stored);
-    if (!snapshot) {
-      localStorage.removeItem(STORAGE_KEY);
-      return null;
-    }
-    return snapshot;
+    raw = localStorage.getItem(STORAGE_KEY);
   } catch {
     removeAnonymousInvestigation();
     return null;
   }
+
+  let stored;
+  try {
+    stored = JSON.parse(raw);
+  } catch (cause) {
+    removeAnonymousInvestigation();
+    if (options.strict) throw Object.assign(new Error('Invalid anonymous investigation snapshot'), { cause });
+    return null;
+  }
+
+  const snapshot = validateSnapshot(stored);
+  if (!snapshot) {
+    removeAnonymousInvestigation();
+    if (options.strict) throw new Error('Invalid anonymous investigation snapshot');
+    return null;
+  }
+  return snapshot;
 }
 
 export function saveAnonymousInvestigation(snapshot) {
