@@ -69,6 +69,25 @@ describe('investigation transport', () => {
     await expect(transport.get('inv-1')).rejects.toMatchObject({ code: 'contract-invalid' });
   });
 
+  it('rejects start responses without full state instead of projecting empty fields', async () => {
+    const transport = createInvestigationTransport({
+      start: async () => ({
+        recordType: 'investigation',
+        investigation: { id: 'inv-1', ownerId: 'user-1', domain: { submitted: 'Example.com', normalized: 'https://example.com' } },
+        createdAt: '2026-09-23T12:00:00.000Z',
+        updatedAt: '2026-09-23T12:00:00.000Z',
+        sessionIds: ['session-1'],
+        latestSession: validSessionRecord().session,
+      }),
+      get: async () => null,
+      list: async () => ({ investigations: [] }),
+      save: async () => validSessionRecord(),
+    });
+
+    await expect(transport.start({ submitted: 'Example.com', normalized: 'https://example.com' }, []))
+      .rejects.toMatchObject({ code: 'contract-invalid' });
+  });
+
   it('validates start domain input before calling the API client', async () => {
     const start = vi.fn();
     const transport = createInvestigationTransport({ start, get: async () => null, list: async () => ({ investigations: [] }), save: async () => validSessionRecord() });

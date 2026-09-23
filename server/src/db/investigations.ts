@@ -7,6 +7,7 @@ import {
   sessionRecordSchema,
   startInvestigationRequestSchema,
 } from '@wp-json-discovery/contracts';
+import { ValidationError } from '../utils/errors.js';
 import { executeBatch, executeTransaction, queryAll, queryOne } from './client.js';
 
 function parse(schema, value) {
@@ -91,6 +92,24 @@ function sessionRecord(session, persistedAt) {
   return parse(sessionRecordSchema, { recordType: 'session', session, persistedAt });
 }
 
+function investigationState(id, domain, selectedCapabilities, createdAt) {
+  return {
+    id,
+    submittedUrl: domain.submitted,
+    normalizedUrl: domain.normalized,
+    redirectChain: [],
+    createdAt,
+    capabilities: selectedCapabilities.map(({ id: name, dependencies }) => ({
+      name,
+      status: 'queued',
+      ...(dependencies?.length ? { dependencies } : {}),
+    })),
+    observationTimeline: [],
+    evidence: [],
+    findings: [],
+  };
+}
+
 export async function createInvestigation(ownerId, request) {
   if (typeof ownerId !== 'string' || ownerId.length === 0) {
     throw new Error('Authenticated owner is required');
@@ -111,6 +130,7 @@ export async function createInvestigation(ownerId, request) {
       { status: 'idle', retry: { status: 'not-retryable' } },
     ])),
     overall: { status: 'incomplete' },
+    investigationState: investigationState(id, input.domain, input.selectedCapabilities, now),
   });
 
   await executeBatch([
@@ -192,12 +212,23 @@ export async function claimAnonymousInvestigation(userId, anonymousRecord) {
   const input = parse(claimInvestigationRequestSchema, anonymousRecord);
   const sourceSession = parse(sessionRecordSchema, input.anonymousRecord);
   const investigationId = randomUUID();
+  const sourceState = sourceSession.session.investigationState;
+  if (sourceState && (
+    sourceState.submittedUrl !== input.domain.submitted
+    || sourceState.normalizedUrl !== input.domain.normalized
+  )) {
+    throw new ValidationError('Anonymous investigation identity does not match embedded investigation state');
+  }
+  const state = sourceState ?? investigationState(
+    sourceSession.session.investigationId,
+    input.domain,
+    sourceSession.session.selectedCapabilities,
+    sourceSession.persistedAt
+  );
   const importedSession = parse(scanSessionSchema, {
     ...sourceSession.session,
     investigationId,
-    ...(sourceSession.session.investigationState
-      ? { investigationState: { ...sourceSession.session.investigationState, id: investigationId } }
-      : {}),
+    investigationState: { ...state, id: investigationId },
   });
   const now = new Date().toISOString();
 

@@ -152,6 +152,14 @@ describe('investigation routes', () => {
     expect(start.status).toBe(201);
     expect(start.body.status).toBe('success');
     const investigationId = start.body.data.investigation.id;
+    expect(start.body.data.latestSession.investigationState).toEqual(expect.objectContaining({
+      id: investigationId,
+      submittedUrl: 'example.com',
+      normalizedUrl: 'example.com',
+    }));
+    const initialRead = await request(app).get(`/api/investigations/${investigationId}`);
+    expect(initialRead.status).toBe(200);
+    expect(initialRead.body.data.latestSession.investigationState.id).toBe(investigationId);
     const session = {
       id: `${investigationId}-session`,
       investigationId,
@@ -270,6 +278,11 @@ describe('investigation routes', () => {
     expect(response.body.status).toBe('success');
     expect(response.body.data.investigation.ownerId).toBe('route-owner');
     expect(response.body.data.sessionIds).toEqual(['browser-session']);
+    expect(response.body.data.latestSession.investigationState).toEqual(expect.objectContaining({
+      id: response.body.data.investigation.id,
+      submittedUrl: 'claimed.example',
+      normalizedUrl: 'claimed.example',
+    }));
 
     const replay = await request(buildApp({ sub: 'route-other' }))
       .post('/api/investigations/claim')
@@ -295,6 +308,47 @@ describe('investigation routes', () => {
 
     expect(replay.status).toBe(404);
     expect(ownerRead.body.data.sessionIds).toEqual(['browser-session']);
+  });
+
+  it('rejects claim when envelope and embedded state identities differ', async () => {
+    const before = await queryOne('select count(1) as count from investigations');
+    const response = await request(buildApp({ sub: 'route-owner' }))
+      .post('/api/investigations/claim')
+      .send({
+        domain: { submitted: 'envelope-route.example', normalized: 'envelope-route.example' },
+        anonymousRecord: {
+          recordType: 'session',
+          session: {
+            id: 'mismatch-route-session',
+            investigationId: 'mismatch-route-investigation',
+            status: 'completed',
+            startedAt: '2026-09-10T12:00:00.000Z',
+            completedAt: '2026-09-10T12:00:00.000Z',
+            selectedCapabilities: [],
+            capabilityStates: {},
+            overall: { status: 'complete' },
+            investigationState: {
+              id: 'mismatch-route-investigation',
+              submittedUrl: 'embedded-route.example',
+              normalizedUrl: 'embedded-route.example',
+              redirectChain: [],
+              createdAt: '2026-09-10T12:00:00.000Z',
+              capabilities: [],
+              observationTimeline: [],
+              evidence: [],
+              findings: [],
+            },
+          },
+          persistedAt: '2026-09-10T12:00:00.000Z',
+        },
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual(expect.objectContaining({
+      status: 'error',
+      error: expect.objectContaining({ code: 'REQUEST_INVALID' }),
+    }));
+    expect(await queryOne('select count(1) as count from investigations')).toEqual(before);
   });
 
   it.each([

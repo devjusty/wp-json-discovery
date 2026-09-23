@@ -55,6 +55,23 @@ describe('investigation repository', () => {
     expect(loaded.sessionIds).toContain(saved.session.id);
   });
 
+  it('persists complete investigation state on initial authenticated sessions', async () => {
+    const record = await createInvestigation('user-mapping', {
+      domain: { submitted: 'Initial.example', normalized: 'https://initial.example' },
+      selectedCapabilities: [{ id: 'homepage', dependencies: [] }],
+    });
+
+    expect(record.latestSession.investigationState).toEqual(expect.objectContaining({
+      id: record.investigation.id,
+      submittedUrl: 'Initial.example',
+      normalizedUrl: 'https://initial.example',
+      capabilities: [{ name: 'homepage', status: 'queued' }],
+      observationTimeline: [],
+      evidence: [],
+      findings: [],
+    }));
+  });
+
   it('does not return another user investigation', async () => {
     const record = await createInvestigation('owner-a', {
       domain: { submitted: 'example.org', normalized: 'https://example.org' },
@@ -142,6 +159,55 @@ describe('investigation repository', () => {
 
     expect(claimed.latestSession.investigationState.id).toBe(claimed.investigation.id);
     expect(claimed.latestSession.investigationId).toBe(claimed.investigation.id);
+  });
+
+  it('materializes complete state when claiming a legacy session without embedded state', async () => {
+    const claimed = await claimAnonymousInvestigation('claimed-user', {
+      domain: { submitted: 'legacy.example', normalized: 'https://legacy.example' },
+      anonymousRecord: {
+        recordType: 'session',
+        session: session('legacy-browser-investigation', 'legacy-browser-session'),
+        persistedAt: timestamp,
+      },
+    });
+
+    expect(claimed.latestSession.investigationState).toEqual(expect.objectContaining({
+      id: claimed.investigation.id,
+      submittedUrl: 'legacy.example',
+      normalizedUrl: 'https://legacy.example',
+      observationTimeline: [],
+      evidence: [],
+      findings: [],
+    }));
+  });
+
+  it('rejects claim identity mismatches before persistence', async () => {
+    const before = await queryOne('select count(1) as count from investigations');
+    const sourceId = 'mismatched-browser-investigation';
+
+    await expect(claimAnonymousInvestigation('claimed-user', {
+      domain: { submitted: 'envelope.example', normalized: 'https://envelope.example' },
+      anonymousRecord: {
+        recordType: 'session',
+        session: {
+          ...session(sourceId, 'mismatched-browser-session'),
+          investigationState: {
+            id: sourceId,
+            submittedUrl: 'embedded.example',
+            normalizedUrl: 'https://embedded.example',
+            redirectChain: [],
+            createdAt: timestamp,
+            capabilities: [],
+            observationTimeline: [],
+            evidence: [],
+            findings: [],
+          },
+        },
+        persistedAt: timestamp,
+      },
+    })).rejects.toMatchObject({ statusCode: 400 });
+
+    expect(await queryOne('select count(1) as count from investigations')).toEqual(before);
   });
 
   it('returns one canonical investigation for concurrent claims by the same user', async () => {
