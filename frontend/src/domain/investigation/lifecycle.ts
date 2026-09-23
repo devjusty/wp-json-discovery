@@ -1,6 +1,8 @@
 import type { CapabilityError, CapabilityStatus } from './model';
 import { selectInvestigationStatus } from './selectors';
 
+export { canRetryCapability } from './retry';
+
 export type InvestigationLifecycleStatus = 'idle' | 'queued' | 'running' | 'completed' | 'invalid' | 'auth-required' | 'unusable';
 export type InvestigationOverallStatus = 'complete' | 'partial' | 'failed' | 'blocked' | 'incomplete';
 
@@ -119,15 +121,6 @@ export const applyInvestigationEvent = (
     next.completedAt = event.at ?? next.completedAt;
   }
   return next;
-};
-
-export const canRetryCapability = (state: InvestigationLifecycleState, capability: string): boolean => {
-  const capabilityState = state.capabilityStates[capability];
-  return Boolean(
-    capabilityState
-    && capabilityState.status === 'failed'
-    && capabilityState.outcome?.error?.retryable === true,
-  );
 };
 
 export type { InvestigationEvent };

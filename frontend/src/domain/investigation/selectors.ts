@@ -1,8 +1,5 @@
-import {
-  canRetryCapability,
-  type InvestigationLifecycleState,
-  type InvestigationOverallStatus,
-} from './lifecycle';
+import { canRetryCapability } from './retry';
+import type { InvestigationLifecycleState, InvestigationOverallStatus } from './lifecycle';
 
 export const selectInvestigationStatus = (state: InvestigationLifecycleState): InvestigationOverallStatus => {
   const selected = state.selectedCapabilities.map(({ id }) => state.capabilityStates[id]);
