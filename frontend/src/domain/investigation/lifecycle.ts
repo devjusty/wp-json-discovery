@@ -1,4 +1,5 @@
 import type { CapabilityError, CapabilityStatus } from './model';
+import { selectInvestigationStatus } from './selectors';
 
 export type InvestigationLifecycleStatus = 'idle' | 'queued' | 'running' | 'completed' | 'invalid' | 'auth-required' | 'unusable';
 export type InvestigationOverallStatus = 'complete' | 'partial' | 'failed' | 'blocked' | 'incomplete';
@@ -15,12 +16,12 @@ export type InvestigationCapabilityState = {
 };
 
 export type InvestigationLifecycleState = {
-  status: InvestigationLifecycleStatus | string;
+  status: InvestigationLifecycleStatus;
   startedAt: string | null;
   completedAt: string | null;
   selectedCapabilities: ReadonlyArray<{ id: string }>;
   capabilityStates: Record<string, InvestigationCapabilityState>;
-  overall: { status: InvestigationOverallStatus | string };
+  overall: { status: InvestigationOverallStatus };
   evidence?: ReadonlyArray<unknown>;
 };
 
@@ -68,21 +69,6 @@ const assertTransition = (state: InvestigationCapabilityState, capability: strin
   }
 };
 
-const terminalStatus = (state: InvestigationLifecycleState): InvestigationOverallStatus => {
-  const selected = state.selectedCapabilities.map(({ id }) => state.capabilityStates[id]);
-  if (state.status === 'invalid' || state.status === 'auth-required' || state.status === 'unusable' || selected.length === 0) return 'blocked';
-  if (selected.some((capabilityState) => !capabilityState)) return 'incomplete';
-  const available = selected.filter(Boolean);
-  const successes = available.filter(({ status }) => status === 'success').length;
-  const terminal = available.every(({ status }) => ['success', 'failed', 'unavailable'].includes(status));
-  if (!terminal) return 'incomplete';
-  const failures = available.some(({ status }) => status === 'failed' || status === 'unavailable');
-  if (successes === available.length) return 'complete';
-  if (successes > 0 && failures) return 'partial';
-  if (successes === 0 && failures) return 'failed';
-  return 'incomplete';
-};
-
 export const applyInvestigationEvent = (
   state: InvestigationLifecycleState,
   event: InvestigationEvent,
@@ -126,7 +112,7 @@ export const applyInvestigationEvent = (
     }
   }
 
-  const overall = terminalStatus(next);
+  const overall = selectInvestigationStatus(next);
   next.overall = { status: overall };
   if (['complete', 'partial', 'failed'].includes(overall)) {
     next.status = 'completed';

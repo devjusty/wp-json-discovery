@@ -216,6 +216,34 @@ describe('investigation session', () => {
     });
   });
 
+  it('marks capabilities unavailable when dependencies cannot become runnable', async () => {
+    const cyclicSession = createInvestigationSession({
+      investigationId: 'inv-cycle',
+      domain: sessionDomain(),
+      selection: { capabilityIds: ['wordpress', 'homepage'] }
+    });
+    cyclicSession.selectedCapabilities = [
+      { id: 'cycle-a', dependencies: ['cycle-b'] },
+      { id: 'cycle-b', dependencies: ['cycle-a'] }
+    ];
+    cyclicSession.capabilityStates = {
+      'cycle-a': { status: 'idle', retry: { status: 'not-retryable' } },
+      'cycle-b': { status: 'idle', retry: { status: 'not-retryable' } }
+    };
+
+    const result = await runInvestigationSession(cyclicSession, {});
+
+    expectValidSession(result);
+    expect(result.capabilityStates['cycle-a']).toMatchObject({
+      status: 'unavailable',
+      outcome: { status: 'unavailable', error: { code: 'dependency_failed', retryable: false } }
+    });
+    expect(result.capabilityStates['cycle-b']).toMatchObject({
+      status: 'unavailable',
+      outcome: { status: 'unavailable', error: { code: 'dependency_failed', retryable: false } }
+    });
+  });
+
   it('suppresses work and later callbacks after cancellation', async () => {
     const onChange = vi.fn();
     const token = { active: false };

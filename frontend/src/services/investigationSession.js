@@ -66,7 +66,14 @@ export async function runInvestigationSession(session, runners, onChange, token)
     }
 
     const runnableIds = getPendingIds(current).filter((id) => hasSuccessfulDependencies(current, id));
-    if (runnableIds.length === 0) continue;
+    if (runnableIds.length === 0) {
+      current.startedAt ??= new Date().toISOString();
+      for (const id of getPendingIds(current)) {
+        current = updateCapability(current, id, unavailableState(DEPENDENCY_ERROR));
+        notify(onChange, current, token);
+      }
+      continue;
+    }
 
     for (const id of runnableIds) {
       if (!isActive(token)) return current;
