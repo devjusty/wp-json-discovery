@@ -4,7 +4,7 @@ import {
 } from '@wp-json-discovery/contracts';
 import type { InvestigationStore } from '../../application/ports/investigation-store';
 import { createInvestigation } from '../../domain/investigation/model';
-import type { CapabilityRunInput, Investigation } from '../../domain/investigation/model';
+import type { CapabilityRunInput, Investigation, JsonValue } from '../../domain/investigation/model';
 import { ContractInvalidError } from '../http/investigationTransport';
 import {
   loadAnonymousInvestigation,
@@ -64,6 +64,7 @@ function createAnonymousStore(persistence: AnonymousPersistence): InvestigationS
           submitted: investigation.submittedUrl,
           normalized: investigation.normalizedUrl,
         },
+        investigation,
         record: {
           recordType: 'session',
           session: domainToSession(investigation),
@@ -93,7 +94,7 @@ function snapshotToDomain(value: unknown): Investigation {
   if (!value || typeof value !== 'object') {
     throw new ContractInvalidError('Invalid anonymous investigation payload');
   }
-  const snapshot = value as { domain?: unknown; record?: unknown };
+  const snapshot = value as { domain?: unknown; record?: unknown; investigation?: unknown };
   const domain = domainIdentitySchema.safeParse(snapshot.domain);
   const record = sessionRecordSchema.safeParse(snapshot.record);
   if (!domain.success || !record.success) {
@@ -103,13 +104,21 @@ function snapshotToDomain(value: unknown): Investigation {
     });
   }
 
+  if (snapshot.investigation !== undefined) {
+    const investigation = createInvestigation(snapshot.investigation as Investigation);
+    if (investigation.id !== record.data.session.investigationId) {
+      throw new ContractInvalidError('Anonymous investigation identity mismatch');
+    }
+    return investigation;
+  }
+
   return createInvestigation({
     id: record.data.session.investigationId,
     submittedUrl: domain.data.submitted,
     normalizedUrl: domain.data.normalized,
     redirectChain: [],
     createdAt: record.data.persistedAt,
-    capabilities: record.data.session.selectedCapabilities.map(({ id }) => {
+    capabilities: record.data.session.selectedCapabilities.map(({ id, dependencies }) => {
       const state = record.data.session.capabilityStates[id];
       const outcome = state && 'outcome' in state ? state.outcome : undefined;
       const error = outcome && typeof outcome === 'object' && 'error' in outcome
@@ -118,6 +127,10 @@ function snapshotToDomain(value: unknown): Investigation {
       return {
         name: id,
         status: state?.status === 'idle' ? 'queued' : state?.status ?? 'queued',
+        dependencies,
+        ...(outcome && outcome.status === 'success' ? { result: outcome.result as JsonValue } : {}),
+        startedAt: record.data.session.startedAt ?? undefined,
+        completedAt: record.data.session.completedAt ?? undefined,
         ...(error ? { error } : {}),
       };
     }),
@@ -126,6 +139,7 @@ function snapshotToDomain(value: unknown): Investigation {
 
 function domainToSession(investigation: Investigation) {
   const capabilities = investigation.capabilities;
+  const selectedIds = new Set(capabilities.map(({ name }) => name));
   const hasFailure = capabilities.some(({ status }) => ['failed', 'unavailable'].includes(status));
   const hasSuccess = capabilities.some(({ status }) => status === 'success');
   const active = capabilities.some(({ status }) => ['queued', 'running'].includes(status));
@@ -138,7 +152,10 @@ function domainToSession(investigation: Investigation) {
     status,
     startedAt: timestamp,
     completedAt: status === 'running' ? null : timestamp,
-    selectedCapabilities: capabilities.map(({ name }) => ({ id: name, dependencies: [] })),
+    selectedCapabilities: capabilities.map(({ name, dependencies = [] }) => ({
+      id: name,
+      dependencies: dependencies.filter(dependency => selectedIds.has(dependency)),
+    })),
     capabilityStates: Object.fromEntries(capabilities.map(capability => [
       capability.name,
       capabilityState(capability),
@@ -148,6 +165,7 @@ function domainToSession(investigation: Investigation) {
         ? 'incomplete'
         : hasSuccess && hasFailure ? 'partial' : hasSuccess ? 'complete' : 'failed',
     },
+    investigationState: investigation,
   };
 }
 
@@ -171,7 +189,11 @@ function capabilityState(capability: CapabilityRunInput) {
     };
   }
   if (capability.status === 'success') {
-    return { status: 'success', outcome: { status: 'success', result: null, error: null }, retry: { status: 'not-retryable' } };
+    return {
+      status: 'success',
+      outcome: { status: 'success', result: capability.result ?? null, error: null },
+      retry: { status: 'not-retryable' },
+    };
   }
   return { status: capability.status, retry: { status: 'not-retryable' } };
 }

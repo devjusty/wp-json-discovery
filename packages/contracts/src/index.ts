@@ -202,6 +202,8 @@ const scanSessionFields = {
   overall: z.object({
     status: z.enum(['complete', 'partial', 'failed', 'blocked', 'incomplete']),
   }).strict(),
+  // Optional adapter state preserves richer investigations without changing old sessions.
+  investigationState: z.unknown().optional(),
 };
 
 const scanSessionUnionSchema = z.discriminatedUnion('status', [

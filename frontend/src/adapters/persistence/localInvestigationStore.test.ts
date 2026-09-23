@@ -82,4 +82,28 @@ describe('investigation store port', () => {
 
     await expect(createLocalInvestigationStore().list()).rejects.toMatchObject({ code: 'contract-invalid' });
   });
+
+  it('round-trips full domain state through anonymous persistence', async () => {
+    const full = {
+      ...investigation,
+      redirectChain: ['https://redirect.example', 'https://example.com'],
+      capabilities: [{
+        name: 'wordpress',
+        status: 'success',
+        dependencies: ['homepage'],
+        metadata: { label: 'WordPress API', required: true },
+        result: { namespaces: ['wp/v2'] },
+        startedAt: '2026-09-23T12:01:00.000Z',
+        completedAt: '2026-09-23T12:02:00.000Z',
+      }],
+      observationTimeline: [{ id: 'obs-1', capability: 'wordpress', observedAt: '2026-09-23T12:02:00.000Z', value: { status: 200 } }],
+      evidence: [{ id: 'evidence-1', kind: 'observed', capability: 'wordpress', value: { source: 'api' }, source: { locator: '/wp-json' } }],
+      findings: [{ id: 'finding-1', capability: 'wordpress', summary: 'Public API', evidenceIds: ['evidence-1'], confidence: 'high' }],
+    } as Investigation;
+    const store = createLocalInvestigationStore();
+
+    await store.save(full);
+
+    await expect(store.get('inv-1')).resolves.toEqual(full);
+  });
 });

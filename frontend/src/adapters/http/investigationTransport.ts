@@ -22,7 +22,7 @@ import {
   loadAnonymousInvestigation,
 } from '../../services/anonymousInvestigations.js';
 import { createInvestigation } from '../../domain/investigation/model';
-import type { Investigation } from '../../domain/investigation/model';
+import type { Investigation, JsonValue } from '../../domain/investigation/model';
 
 export class ContractInvalidError extends Error {
   readonly code = 'contract-invalid';
@@ -59,8 +59,12 @@ const defaultClient: ValidatedClient = {
   list: fetchInvestigations,
   save: saveInvestigationSession,
   claim: claimAnonymousInvestigation,
-  claimPayload: () => {
-    const payload = createClaimPayload(loadAnonymousInvestigation());
+  claimPayload: (id) => {
+    const snapshot = loadAnonymousInvestigation();
+    if (snapshot?.record.session.investigationId !== id) {
+      throw Object.assign(new Error('Anonymous investigation does not match requested id.'), { code: 'claim-mismatch' });
+    }
+    const payload = createClaimPayload(snapshot);
     if (!payload) throw new Error('No anonymous investigation available to claim.');
     return payload;
   },
@@ -86,18 +90,30 @@ export const createInvestigationTransport = (
   },
   async get(id) {
     try {
-      return mapRecord(await source.get(id));
+      const value = await source.get(id);
+      return value === null ? null : mapRecord(value);
     } catch (error) {
       if (isNotFound(error)) return null;
       throw asContractError(error, 'get');
     }
   },
   async list() {
-    return mapList(await call(source.list(), 'list'));
+    const investigations = mapList(await call(source.list(), 'list'));
+    const hydrated = await Promise.all(investigations.map(async investigation => {
+      const value = await source.get(investigation.id);
+      return value === null ? investigation : mapRecord(value);
+    }));
+    return hydrated;
   },
   async claim(id) {
     if (!source.claim || !source.claimPayload) throw new Error('Investigation client cannot claim.');
     const payload = source.claimPayload(id);
+    const anonymous = parseSession(payload.anonymousRecord);
+    if (anonymous.session.investigationId !== id) {
+      throw Object.assign(new Error('Anonymous investigation does not match requested id.'), { code: 'claim-mismatch' });
+    }
+    // Claim endpoint allocates canonical authenticated ID; input snapshot ID is
+    // the identity that must match, not returned record ID.
     return mapRecord(await call(source.claim(payload.domain, payload.anonymousRecord), 'claim'));
   },
   };
@@ -149,6 +165,13 @@ function parseSession(value: unknown): SessionRecord {
 
 function recordToDomain(record: InvestigationRecord): Investigation {
   const session = record.latestSession;
+  if (session?.investigationState !== undefined) {
+    const state = createInvestigation(session.investigationState as Investigation);
+    if (state.id !== record.investigation.id) {
+      throw new ContractInvalidError('Investigation state identity mismatch');
+    }
+    return state;
+  }
   return createInvestigation({
     id: record.investigation.id,
     submittedUrl: record.investigation.domain.submitted,
@@ -164,6 +187,12 @@ function recordToDomain(record: InvestigationRecord): Investigation {
       return {
         name: capability.id,
         status: state?.status === 'idle' ? 'queued' : state?.status ?? 'queued',
+        dependencies: capability.dependencies,
+        ...(state && 'outcome' in state && state.outcome.status === 'success'
+          ? { result: state.outcome.result as JsonValue }
+          : {}),
+        startedAt: session.startedAt ?? undefined,
+        completedAt: session.completedAt ?? undefined,
         ...(error ? { error } : {}),
       };
     }),
@@ -174,6 +203,7 @@ function domainToSession(investigation: Investigation) {
   const hasFailure = investigation.capabilities.some(({ status }) => ['failed', 'unavailable'].includes(status));
   const hasSuccess = investigation.capabilities.some(({ status }) => status === 'success');
   const active = investigation.capabilities.some(({ status }) => ['queued', 'running'].includes(status));
+  const selectedIds = new Set(investigation.capabilities.map(({ name }) => name));
   const status = active ? 'running' : hasFailure && !hasSuccess ? 'failed' : 'completed';
   const timestamp = investigation.createdAt;
 
@@ -183,7 +213,10 @@ function domainToSession(investigation: Investigation) {
     status,
     startedAt: timestamp,
     completedAt: status === 'running' ? null : timestamp,
-    selectedCapabilities: investigation.capabilities.map(({ name }) => ({ id: name, dependencies: [] })),
+    selectedCapabilities: investigation.capabilities.map(({ name, dependencies = [] }) => ({
+      id: name,
+      dependencies: dependencies.filter(dependency => selectedIds.has(dependency)),
+    })),
     capabilityStates: Object.fromEntries(investigation.capabilities.map(capability => [
       capability.name,
       capabilityState(capability),
@@ -193,6 +226,7 @@ function domainToSession(investigation: Investigation) {
         ? 'incomplete'
         : hasSuccess && hasFailure ? 'partial' : hasSuccess ? 'complete' : 'failed',
     },
+    investigationState: investigation,
   };
 }
 

@@ -46,7 +46,8 @@ export function saveAnonymousInvestigation(snapshot) {
       version: STORAGE_VERSION,
       revision: next.revision,
       domain: next.domain,
-      record: next.record
+      record: next.record,
+      ...(next.investigation ? { investigation: next.investigation } : {})
     }));
   } catch {
     // Storage may be unavailable in private browsing or restricted contexts.
@@ -96,7 +97,12 @@ function normalizeSnapshot(snapshot, revisionFallback = 0) {
     persistedAt: snapshot.persistedAt
   });
   if (!domain.success || !record.success) return null;
-  const normalized = { domain: domain.data, record: record.data, revision };
+  const normalized = {
+    domain: domain.data,
+    record: record.data,
+    ...(snapshot.investigation ? { investigation: snapshot.investigation } : {}),
+    revision,
+  };
   Object.defineProperty(normalized, 'hasExplicitRevision', {
     value: Number.isSafeInteger(snapshot.revision),
     enumerable: false
@@ -153,7 +159,11 @@ function getStatusRank(status) {
 }
 
 function serializeSnapshot(snapshot) {
-  return JSON.stringify({ domain: snapshot.domain, record: snapshot.record });
+  return JSON.stringify({
+    domain: snapshot.domain,
+    record: snapshot.record,
+    ...(snapshot.investigation ? { investigation: snapshot.investigation } : {}),
+  });
 }
 
 export { AUTHENTICATED_ID_KEY, STORAGE_KEY };

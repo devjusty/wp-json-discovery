@@ -24,6 +24,40 @@ describe('remote investigation store', () => {
     expect(calls).toEqual(['save:inv-1', 'claim:inv-1']);
   });
 
+  it('round-trips complete domain state without projecting fields', async () => {
+    const full = {
+      id: 'inv-full',
+      submittedUrl: 'Example.com',
+      normalizedUrl: 'https://example.com',
+      redirectChain: ['https://redirect.example', 'https://example.com'],
+      createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [{
+        name: 'wordpress',
+        status: 'success',
+        dependencies: ['homepage'],
+        metadata: { required: true },
+        result: { namespaces: ['wp/v2'] },
+        startedAt: '2026-09-23T12:01:00.000Z',
+        completedAt: '2026-09-23T12:02:00.000Z',
+      }],
+      observationTimeline: [{ id: 'obs-1', capability: 'wordpress', observedAt: '2026-09-23T12:02:00.000Z', value: { status: 200 } }],
+      evidence: [{ id: 'evidence-1', kind: 'observed', capability: 'wordpress', value: { source: 'api' }, source: { locator: '/wp-json' } }],
+      findings: [{ id: 'finding-1', capability: 'wordpress', summary: 'Public API', evidenceIds: ['evidence-1'], confidence: 'high' }],
+    } as const;
+    let saved;
+    const store = createRemoteInvestigationStore({
+      save: async (value) => { saved = value; },
+      get: async () => saved,
+      list: async () => saved ? [saved] : [],
+      claim: async () => saved,
+    });
+
+    await store.save(full);
+
+    await expect(store.get('inv-full')).resolves.toEqual(full);
+    await expect(store.list()).resolves.toEqual([full]);
+  });
+
   describe('authenticated API transport', () => {
     beforeEach(() => {
       setTokenProvider(async () => 'remote-token');
