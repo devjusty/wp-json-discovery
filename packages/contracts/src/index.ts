@@ -34,6 +34,9 @@ const retryStatusIssues = (
   retry: RetryState,
 ): ValidationIssue[] => {
   const issues: ValidationIssue[] = [];
+  if (status === 'unavailable' && retry.status !== 'not-retryable') {
+    issues.push({ message: 'Unavailable capabilities cannot retry or exhaust retries', path: ['retry'] });
+  }
   if (retry.status === 'retrying' && !['failed', 'unavailable'].includes(status)) {
     issues.push({ message: 'Only failed or unavailable capabilities can be retried', path: ['retry'] });
   }

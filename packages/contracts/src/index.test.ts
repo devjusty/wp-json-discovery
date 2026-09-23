@@ -268,6 +268,25 @@ describe('scan sessions', () => {
     }).success).toBe(false);
   });
 
+  it('rejects retrying and exhausted retry states for unavailable capabilities', () => {
+    for (const retry of [
+      { status: 'retrying', attempt: 1, nextAttemptAt: timestamp },
+      { status: 'exhausted', attempts: 1 },
+    ] as const) {
+      const state = {
+        status: 'unavailable' as const,
+        outcome: {
+          status: 'unavailable' as const,
+          result: null,
+          error: { code: 'NOT_SUPPORTED', message: 'Not supported', retryable: false },
+        },
+        retry,
+      };
+      expect(capabilityStateSchema.safeParse(state).success).toBe(false);
+      expect(sessionCapabilityStateSchema.safeParse(state).success).toBe(false);
+    }
+  });
+
   it('preserves retryable failed capabilities in session state contract', () => {
     expect(sessionCapabilityStateSchema.safeParse({
       status: 'failed',
@@ -360,7 +379,11 @@ describe('capabilities, identity, findings, and auth', () => {
     expect(capabilityDefinitionSchema.safeParse({
       id: 'wp-json', availability: 'unavailable', status: 'unavailable',
       dependencies: [], retry: { status: 'retrying', attempt: 1, nextAttemptAt: timestamp },
-    }).success).toBe(true);
+    }).success).toBe(false);
+    expect(capabilityDefinitionSchema.safeParse({
+      id: 'wp-json', availability: 'unavailable', status: 'unavailable',
+      dependencies: [], retry: { status: 'exhausted', attempts: 1 },
+    }).success).toBe(false);
     expect(capabilityDefinitionSchema.safeParse({
       id: 'wp-json', availability: 'available', status: 'queued', dependencies: [],
       retry: { status: 'retrying', attempt: 1, nextAttemptAt: timestamp },
