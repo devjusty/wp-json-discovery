@@ -108,6 +108,54 @@ describe('investigation transport', () => {
     await expect(transport.get(full.id)).resolves.toEqual(full);
   });
 
+  it('preserves successful capability results when serializing a session', async () => {
+    const full = fullInvestigation();
+    let savedSession;
+    const transport = createInvestigationTransport({
+      get: async () => null,
+      list: async () => ({ investigations: [] }),
+      save: async (_id, session) => {
+        savedSession = session;
+        return { recordType: 'session', session, persistedAt: full.createdAt };
+      },
+    });
+
+    await transport.save(full);
+
+    expect(savedSession.capabilityStates.wordpress.outcome.result).toEqual(full.capabilities[0].result);
+    expect(savedSession.investigationState.findings).toHaveLength(1);
+  });
+
+  it('rejects get results whose record identity differs from requested id', async () => {
+    const state = { ...fullInvestigation(), id: 'other' };
+    const transport = createInvestigationTransport({
+      get: async () => investigationRecord('other', state),
+      list: async () => ({ investigations: [] }),
+      save: async () => validSessionRecord(),
+    });
+
+    await expect(transport.get('inv-1')).rejects.toMatchObject({ code: 'contract-invalid' });
+  });
+
+  it('rejects list hydration when a hydrated record identity differs from its summary', async () => {
+    const state = { ...fullInvestigation(), id: 'other' };
+    const transport = createInvestigationTransport({
+      get: async () => investigationRecord('other', state),
+      list: async () => ({ investigations: [{
+        id: 'inv-1',
+        domain: { submitted: 'Example.com', normalized: 'https://example.com' },
+        createdAt: '2026-09-23T12:00:00.000Z',
+        updatedAt: '2026-09-23T12:00:00.000Z',
+        selectedCapabilityCount: 1,
+        completedCapabilityCount: 1,
+        findingsCount: 1,
+      }] }),
+      save: async () => validSessionRecord(),
+    });
+
+    await expect(transport.list()).rejects.toMatchObject({ code: 'contract-invalid' });
+  });
+
   it('rejects claim when anonymous payload belongs to another investigation', async () => {
     const transport = createInvestigationTransport({
       get: async () => null,
@@ -144,6 +192,21 @@ function validSessionRecord() {
   };
 }
 
+function investigationRecord(id, state) {
+  return {
+    recordType: 'investigation',
+    investigation: {
+      id,
+      ownerId: 'user-1',
+      domain: { submitted: state.submittedUrl, normalized: state.normalizedUrl },
+    },
+    createdAt: state.createdAt,
+    updatedAt: state.createdAt,
+    sessionIds: ['session-1'],
+    latestSession: { ...validSessionRecord().session, investigationState: state },
+  };
+}
+
 function fullInvestigation() {
   return {
     id: 'inv-1',
@@ -163,5 +226,5 @@ function fullInvestigation() {
     observationTimeline: [{ id: 'obs-1', capability: 'wordpress', observedAt: '2026-09-23T12:02:00.000Z', value: { status: 200 } }],
     evidence: [{ id: 'evidence-1', kind: 'observed', capability: 'wordpress', value: { source: 'api' }, source: { locator: '/wp-json' } }],
     findings: [{ id: 'finding-1', capability: 'wordpress', summary: 'Public API', evidenceIds: ['evidence-1'], confidence: 'high' }],
-  };
+  } as const;
 }

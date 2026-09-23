@@ -101,7 +101,7 @@ export const createInvestigationTransport = (
     validateIdentifier(id, 'investigation id');
     try {
       const value = await source.get(id);
-      return value === null ? null : mapRecord(value);
+      return value === null ? null : mapRecord(value, true, id);
     } catch (error) {
       if (isNotFound(error)) return null;
       throw asContractError(error, 'get');
@@ -112,7 +112,7 @@ export const createInvestigationTransport = (
     const hydrated = await Promise.all(investigations.map(async investigation => {
       const value = await source.get(investigation.id);
       if (value === null) throw new ContractInvalidError('Investigation list item is missing full state');
-      return mapRecord(value);
+      return mapRecord(value, true, investigation.id);
     }));
     return hydrated;
   },
@@ -165,9 +165,12 @@ function validateIdentifier(value: string, label: string): void {
   }
 }
 
-function mapRecord(value: unknown, requireState = true): Investigation {
+function mapRecord(value: unknown, requireState = true, expectedId?: string): Investigation {
   const parsed = investigationRecordSchema.safeParse(value);
   if (!parsed.success) throw new ContractInvalidError('Invalid investigation record', parsed.error);
+  if (expectedId !== undefined && parsed.data.investigation.id !== expectedId) {
+    throw new ContractInvalidError('Investigation record identity mismatch');
+  }
   return recordToDomain(parsed.data, requireState);
 }
 
@@ -284,7 +287,7 @@ function capabilityState(capability: Investigation['capabilities'][number]) {
     };
   }
   if (capability.status === 'success') {
-    return { status: 'success', outcome: { status: 'success', result: null, error: null }, retry: { status: 'not-retryable' } };
+    return { status: 'success', outcome: { status: 'success', result: capability.result ?? null, error: null }, retry: { status: 'not-retryable' } };
   }
   return { status: capability.status, retry: { status: 'not-retryable' } };
 }
