@@ -225,7 +225,7 @@ function updateCapability(session, id, state) {
   const next = {
     ...transitioned,
     capabilityStates: transitioned.capabilityStates,
-    overall: { status: selectInvestigationStatus(transitioned) === 'complete' ? 'complete' : 'incomplete' }
+    overall: { status: selectInvestigationStatus(transitioned) }
   };
   if (state.status === 'queued' && session.status !== 'idle') {
     next.status = 'running';
@@ -237,12 +237,12 @@ function updateCapability(session, id, state) {
 }
 
 function finalize(session) {
-  const complete = selectInvestigationStatus(session) === 'complete';
+  const aggregateStatus = selectInvestigationStatus(session);
   const next = {
     ...session,
-    status: complete ? 'completed' : 'failed',
+    status: aggregateStatus === 'complete' ? 'completed' : 'failed',
     completedAt: new Date().toISOString(),
-    overall: { status: complete ? 'complete' : 'incomplete' }
+    overall: { status: aggregateStatus }
   };
   Object.defineProperty(next, 'domain', { value: cloneDomain(session.domain), enumerable: false });
   Object.defineProperty(next, 'selection', { value: cloneSelection(session.selection), enumerable: false, configurable: true });

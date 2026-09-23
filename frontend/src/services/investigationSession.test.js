@@ -85,7 +85,18 @@ describe('investigation session', () => {
     expectValidSession(result);
     expect(result.capabilityStates.wordpress.outcome.status).toBe('success');
     expect(result.capabilityStates.homepage.outcome.status).toBe('failed');
-    expect(result.overall.status).toBe('incomplete');
+    expect(result.overall.status).toBe('partial');
+  });
+
+  it('persists failed aggregate when no selected capability succeeds', async () => {
+    const result = await runInvestigationSession(session, {
+      wordpress: async () => { throw new Error('WordPress failed'); },
+      homepage: async () => { throw new Error('Homepage failed'); }
+    });
+
+    expectValidSession(result);
+    expect(result.status).toBe('failed');
+    expect(result.overall.status).toBe('failed');
   });
 
   it('maps missing runners to unavailable outcomes', async () => {
@@ -121,7 +132,7 @@ describe('investigation session', () => {
     expectValidSession(recovered);
     expect(recovered).not.toBe(interrupted);
     expect(recovered.status).toBe('failed');
-    expect(recovered.overall).toEqual({ status: 'incomplete' });
+    expect(recovered.overall).toEqual({ status: 'partial' });
     expect(recovered.capabilityStates.wordpress).toEqual(interrupted.capabilityStates.wordpress);
     expect(recovered.capabilityStates.homepage).toMatchObject({
       status: 'failed',

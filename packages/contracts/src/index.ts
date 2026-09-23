@@ -199,10 +199,9 @@ const scanSessionFields = {
   investigationId: identifierSchema,
   selectedCapabilities: z.array(capabilitySelectionSchema),
   capabilityStates: z.record(identifierSchema, sessionCapabilityStateSchema),
-  overall: z.discriminatedUnion('status', [
-    z.object({ status: z.literal('complete') }).strict(),
-    z.object({ status: z.literal('incomplete') }).strict(),
-  ]),
+  overall: z.object({
+    status: z.enum(['complete', 'partial', 'failed', 'blocked', 'incomplete']),
+  }).strict(),
 };
 
 const scanSessionUnionSchema = z.discriminatedUnion('status', [
@@ -262,6 +261,8 @@ const sessionOverallIssues = (session: ScanSessionValue): ValidationIssue[] => {
   const issues: ValidationIssue[] = [];
   const stateIds = Object.keys(session.capabilityStates);
   const allSuccessful = Object.values(session.capabilityStates).every((state) => state.status === 'success');
+  const hasSuccessful = Object.values(session.capabilityStates).some((state) => state.status === 'success');
+  const hasFailure = Object.values(session.capabilityStates).some((state) => ['failed', 'unavailable'].includes(state.status));
   if (session.status === 'failed' && allSuccessful) {
     issues.push({ message: 'Failed sessions cannot have all-success capability states', path: ['status'] });
   }
@@ -270,6 +271,15 @@ const sessionOverallIssues = (session: ScanSessionValue): ValidationIssue[] => {
   }
   if (session.overall.status === 'incomplete' && allSuccessful && stateIds.length > 0) {
     issues.push({ message: 'Incomplete sessions require a non-success capability state', path: ['overall'] });
+  }
+  if (session.overall.status === 'partial' && (!hasSuccessful || !hasFailure)) {
+    issues.push({ message: 'Partial sessions require successful and failed or unavailable capability states', path: ['overall'] });
+  }
+  if (session.overall.status === 'failed' && (hasSuccessful || !hasFailure)) {
+    issues.push({ message: 'Failed aggregates require no successful capability states and at least one failure', path: ['overall'] });
+  }
+  if (session.overall.status === 'blocked' && stateIds.length > 0) {
+    issues.push({ message: 'Blocked aggregates cannot contain capability states', path: ['overall'] });
   }
   return issues;
 };
