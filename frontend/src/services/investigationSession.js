@@ -4,6 +4,8 @@ import {
   normalizeSelection
 } from './scanCapabilities.js';
 import { normalizeScanError } from './scanSession.js';
+import { applyInvestigationEvent } from '../domain/investigation/lifecycle.ts';
+import { selectInvestigationStatus } from '../domain/investigation/selectors.ts';
 
 const DEPENDENCY_ERROR = {
   code: 'dependency_failed',
@@ -209,31 +211,36 @@ function unavailableState(error, dependencyId) {
 }
 
 function updateCapability(session, id, state) {
+  const event = state.status === 'success'
+    ? { type: 'capability-succeeded', capability: id, result: state.outcome?.result, at: new Date().toISOString() }
+    : state.status === 'failed'
+      ? { type: 'capability-failed', capability: id, error: state.outcome.error, at: new Date().toISOString() }
+      : state.status === 'unavailable'
+        ? {
+          type: 'capability-unavailable', capability: id, error: state.outcome?.error,
+          dependencyId: state.dependency?.dependencyId, at: new Date().toISOString()
+        }
+        : { type: `capability-${state.status}`, capability: id, at: new Date().toISOString() };
+  const transitioned = applyInvestigationEvent(session, event);
   const next = {
-    ...session,
-    capabilityStates: { ...session.capabilityStates, [id]: state }
+    ...transitioned,
+    capabilityStates: Object.fromEntries(Object.entries(transitioned.capabilityStates).map(([capabilityId, capabilityState]) => [
+      capabilityId,
+      { ...capabilityState, retry: { status: 'not-retryable' } }
+    ])),
+    overall: { status: selectInvestigationStatus(transitioned) === 'complete' ? 'complete' : 'incomplete' }
   };
-  Object.defineProperty(next, 'domain', { value: cloneDomain(session.domain), enumerable: false });
-  Object.defineProperty(next, 'selection', { value: cloneSelection(session.selection), enumerable: false, configurable: true });
-  if (state.status === 'queued' && session.status === 'idle') {
-    next.status = 'queued';
-    next.startedAt = null;
-    next.completedAt = null;
-  } else if (state.status === 'queued' || state.status === 'running') {
+  if (state.status === 'queued' && session.status !== 'idle') {
     next.status = 'running';
     next.startedAt ??= new Date().toISOString();
-    next.completedAt = null;
   }
-  if (Object.values(next.capabilityStates).every(({ status: capabilityStatus }) => capabilityStatus === 'success')) {
-    next.status = 'completed';
-    next.completedAt = new Date().toISOString();
-    next.overall = { status: 'complete' };
-  }
+  Object.defineProperty(next, 'domain', { value: cloneDomain(session.domain), enumerable: false });
+  Object.defineProperty(next, 'selection', { value: cloneSelection(session.selection), enumerable: false, configurable: true });
   return next;
 }
 
 function finalize(session) {
-  const complete = Object.values(session.capabilityStates).every(({ status }) => status === 'success');
+  const complete = selectInvestigationStatus(session) === 'complete';
   const next = {
     ...session,
     status: complete ? 'completed' : 'failed',
