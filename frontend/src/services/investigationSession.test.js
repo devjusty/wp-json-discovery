@@ -98,6 +98,33 @@ describe('investigation session', () => {
     }));
   });
 
+  it('preserves explicit dependency graph when cloning a session', async () => {
+    const homepage = vi.fn().mockResolvedValue({ title: 'Should not run' });
+    const explicit = createInvestigationSession({
+      investigationId: 'inv-explicit-dependency',
+      domain: sessionDomain(),
+      selection: { capabilityIds: ['wordpress', 'homepage'] }
+    });
+    explicit.selectedCapabilities.push({ id: 'deliberate-prerequisite', dependencies: [] });
+    explicit.capabilityStates['deliberate-prerequisite'] = {
+      status: 'idle',
+      retry: { status: 'not-retryable' },
+    };
+    explicit.selectedCapabilities.find(({ id }) => id === 'homepage').dependencies = ['deliberate-prerequisite'];
+
+    const result = await runInvestigationSession(explicit, {
+      wordpress: async () => { throw new Error('prerequisite failed'); },
+      homepage,
+    });
+
+    expect(homepage).not.toHaveBeenCalled();
+    expect(result.capabilityStates.wordpress.status).toBe('failed');
+    expect(result.capabilityStates.homepage).toMatchObject({
+      status: 'unavailable',
+      outcome: { error: { code: 'dependency_failed' } },
+    });
+  });
+
   it('keeps successful evidence while another capability fails', async () => {
     const result = await runInvestigationSession(session, {
       wordpress: async () => ({ exposure: { status: 'observed' } }),
@@ -427,7 +454,7 @@ describe('investigation session', () => {
     expect(retried.capabilityStates.sitemap.status).toBe('unavailable');
   });
 
-  it('repairs persisted sitemap dependency metadata before retry', async () => {
+  it('preserves persisted sitemap dependency metadata before retry', async () => {
     const persisted = addInvestigationCapability(
       createInvestigationSession({
         investigationId: 'inv-persisted-dependency',
@@ -452,7 +479,7 @@ describe('investigation session', () => {
       sitemap: vi.fn().mockResolvedValue({ pages: [] })
     });
 
-    expect(retried.selectedCapabilities).toContainEqual({ id: 'sitemap', dependencies: ['wordpress'] });
+    expect(retried.selectedCapabilities).toContainEqual({ id: 'sitemap', dependencies: [] });
   });
 });
 

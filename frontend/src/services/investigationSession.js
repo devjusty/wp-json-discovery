@@ -292,7 +292,12 @@ function cloneSession(session) {
     selectedCapabilities: session.selectedCapabilities.map((capability) => {
       const registered = getCapabilitySelection(capability.id);
       return registered
-        ? { ...registered, ...(capability.options ? { options: { ...capability.options } } : {}) }
+        ? {
+          ...registered,
+          ...capability,
+          dependencies: [...(capability.dependencies ?? registered.dependencies ?? [])],
+          ...(capability.options ? { options: { ...capability.options } } : {}),
+        }
         : { ...capability, dependencies: [...(capability.dependencies ?? [])] };
     }),
     capabilityStates: Object.fromEntries(Object.entries(session.capabilityStates).map(([id, state]) => {

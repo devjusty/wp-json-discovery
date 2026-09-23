@@ -6,6 +6,7 @@ import { createInvestigation, type CapabilityError, type CapabilityRunInput, typ
 import type { InvestigationLifecycleState } from '../../domain/investigation/state';
 import type { InvestigationStore } from '../ports/investigation-store';
 import type { CapabilityRunner } from '../ports/capability-runner';
+import type { AuthSession } from '../ports/auth-session';
 import {
   retryInvestigationCapability,
   runInvestigationSession,
@@ -29,6 +30,16 @@ export class InvestigationCommandError extends Error {
 export type CommandDependencies = {
   store: InvestigationStore;
   runner: CapabilityRunner;
+};
+
+export type PersistenceMetadata = {
+  remote?: { code: 'persistence-failed'; message: string };
+  local: 'saved' | 'not-needed';
+};
+
+export type InvestigationCommandResult = {
+  investigation: Investigation;
+  persistence: PersistenceMetadata;
 };
 
 export const toLifecycleState = (investigation: Investigation): InvestigationLifecycleState => ({
@@ -89,6 +100,41 @@ export const persist = async (store: InvestigationStore, investigation: Investig
   }
 };
 
+export const createPersistenceContext = (dependencies: {
+  auth?: AuthSession;
+  store: InvestigationStore;
+  localStore?: InvestigationStore;
+}) => {
+  const authenticated = Boolean(dependencies.auth?.getUserId?.());
+  let remoteFailure: PersistenceMetadata['remote'];
+  const store = authenticated && dependencies.localStore
+    ? {
+      ...dependencies.store,
+      async save(value: Investigation) {
+        try {
+          await dependencies.store.save(value);
+        } catch {
+          remoteFailure = { code: 'persistence-failed', message: 'Unable to save investigation.' };
+          await persist(dependencies.localStore, value);
+        }
+      },
+    }
+    : dependencies.store;
+
+  return {
+    store,
+    result(investigation: Investigation): InvestigationCommandResult {
+      return {
+        investigation,
+        persistence: {
+          ...(remoteFailure ? { remote: remoteFailure } : {}),
+          local: authenticated ? (remoteFailure ? 'saved' : 'not-needed') : 'saved',
+        },
+      };
+    },
+  };
+};
+
 export const runCapabilities = async (
   investigation: Investigation,
   { store, runner }: CommandDependencies,
@@ -97,7 +143,10 @@ export const runCapabilities = async (
     toCoordinatorSession(investigation),
     createCoordinatorRunners(investigation, runner),
   );
-  const current = fromCoordinatorSession(investigation, session);
+  const changed = investigation.capabilities
+    .filter(({ status }) => status === 'queued')
+    .map(({ name }) => name);
+  const current = fromCoordinatorSession(investigation, session, changed);
   await persist(store, current);
   return current;
 };
@@ -112,7 +161,7 @@ export const retryWithCoordinator = async (
     capability,
     createCoordinatorRunners(investigation, runner),
   );
-  const current = fromCoordinatorSession(investigation, session);
+  const current = fromCoordinatorSession(investigation, session, [capability]);
   await persist(store, current);
   return current;
 };
@@ -173,9 +222,10 @@ function createCoordinatorRunners(investigation: Investigation, runner: Capabili
   ]));
 }
 
-function fromCoordinatorSession(investigation: Investigation, session): Investigation {
+function fromCoordinatorSession(investigation: Investigation, session, changedCapabilities: string[]): Investigation {
   let current = investigation;
   for (const capability of investigation.capabilities) {
+    if (!changedCapabilities.includes(capability.name)) continue;
     const next = session.capabilityStates[capability.name];
     if (!next || next.status === 'idle' || next.status === 'queued') continue;
     const currentStatus = current.capabilities.find(({ name }) => name === capability.name)?.status;

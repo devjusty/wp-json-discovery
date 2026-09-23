@@ -14,7 +14,7 @@ describe('resumeInvestigation', () => {
       runner: { run: async () => ({ ok: true }) },
     });
 
-    expect(result.capabilities[0]).toEqual(expect.objectContaining({ status: 'success', result: { ok: true } }));
+    expect(result.investigation.capabilities[0]).toEqual(expect.objectContaining({ status: 'success', result: { ok: true } }));
   });
 
   it('returns typed not-found error', async () => {
@@ -22,5 +22,41 @@ describe('resumeInvestigation', () => {
       store: { get: async () => null, save: async () => {}, list: async () => [], claim: async () => { throw new Error(); } },
       runner: { run: async () => null },
     })).rejects.toMatchObject({ code: 'not-found' });
+  });
+
+  it('does not rerun or rewrite terminal capability outcomes', async () => {
+    const investigation = createInvestigation({
+      id: 'inv-complete', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: [], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [
+        { name: 'homepage', status: 'success', result: { title: 'Known' } },
+        { name: 'sitemap', status: 'unavailable', error: { code: 'blocked', message: 'Blocked', retryable: false } },
+      ],
+    });
+    const run = async () => { throw new Error('terminal capability was replayed'); };
+    const result = await resumeInvestigation('inv-complete', {
+      store: { get: async () => investigation, save: async () => {}, list: async () => [], claim: async () => investigation },
+      runner: { run },
+    });
+
+    expect(result.investigation).toEqual(investigation);
+  });
+
+  it('falls back to local persistence when authenticated remote save fails', async () => {
+    const investigation = createInvestigation({
+      id: 'inv-offline', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: [], createdAt: '2026-09-23T12:00:00.000Z', capabilities: [{ name: 'homepage', status: 'queued' }],
+    });
+    const localSaves = [];
+    const result = await resumeInvestigation('inv-offline', {
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      store: { get: async () => investigation, save: async () => { throw new Error('offline'); }, list: async () => [], claim: async () => investigation },
+      localStore: { save: async value => { localSaves.push(value); }, get: async () => investigation, list: async () => [], claim: async () => investigation },
+      runner: { run: async () => ({ ok: true }) },
+    });
+
+    expect(result.persistence.remote).toEqual({ code: 'persistence-failed', message: 'Unable to save investigation.' });
+    expect(result.persistence.local).toBe('saved');
+    expect(localSaves).toHaveLength(1);
   });
 });

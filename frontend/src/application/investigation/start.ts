@@ -1,8 +1,14 @@
-import { createInvestigation, type Investigation, type JsonValue } from '../../domain/investigation/model';
+import { createInvestigation, type JsonValue } from '../../domain/investigation/model';
 import type { AuthSession } from '../ports/auth-session';
 import type { CapabilityRunner } from '../ports/capability-runner';
 import type { InvestigationStore } from '../ports/investigation-store';
-import { InvestigationCommandError, persist, runCapabilities } from './shared';
+import {
+  createPersistenceContext,
+  InvestigationCommandError,
+  type InvestigationCommandResult,
+  persist,
+  runCapabilities,
+} from './shared';
 
 export type StartInvestigationInput = {
   domain: { submittedUrl: string; normalizedUrl: string };
@@ -18,13 +24,7 @@ export type InvestigationCommandDependencies = {
   now?: () => string;
 };
 
-export type StartInvestigationResult = {
-  investigation: Investigation;
-  persistence: {
-    remote?: { code: 'persistence-failed'; message: string };
-    local: 'saved' | 'not-needed';
-  };
-};
+export type StartInvestigationResult = InvestigationCommandResult;
 
 export async function startInvestigation(
   input: StartInvestigationInput,
@@ -45,28 +45,13 @@ export async function startInvestigation(
       status: 'queued',
     })),
   });
-  const remote = dependencies.auth.getUserId() ? dependencies.remoteStore : null;
-  let remoteFailure;
-  const store = remote
-    ? {
-      ...remote,
-      async save(value: Investigation) {
-        try {
-          await remote.save(value);
-        } catch {
-          remoteFailure = { code: 'persistence-failed' as const, message: 'Unable to save investigation.' };
-          await persist(dependencies.localStore, value);
-        }
-      },
-    }
-    : dependencies.localStore;
+  const persistence = createPersistenceContext({
+    auth: dependencies.auth,
+    store: dependencies.remoteStore,
+    localStore: dependencies.localStore,
+  });
+  const store = dependencies.auth.getUserId() ? persistence.store : dependencies.localStore;
   await persist(store, investigation);
   const result = await runCapabilities(investigation, { store, runner: dependencies.runner });
-  return {
-    investigation: result,
-    persistence: {
-      ...(remoteFailure ? { remote: remoteFailure } : {}),
-      local: remoteFailure ? 'saved' : 'not-needed',
-    },
-  };
+  return persistence.result(result);
 }
