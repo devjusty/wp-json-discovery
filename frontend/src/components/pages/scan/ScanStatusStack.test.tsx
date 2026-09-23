@@ -54,6 +54,11 @@ describe('ScanStatusStack', () => {
     expect(screen.getByText('Identity')).toBeInTheDocument();
   });
 
+  it('ignores malformed canonical capability state data', () => {
+    expect(() => render(<ScanStatusStack session={{ domain: { normalized: 'example.com' }, capabilityStates: { broken: null, invalid: 'state' } }} />)).not.toThrow();
+    expect(screen.getByRole('heading', { name: 'Scan progress' })).toBeInTheDocument();
+  });
+
   it('derives WordPress progress from capability state', () => {
     render(<ScanStatusStack session={{
       domain: { normalized: 'example.com' },

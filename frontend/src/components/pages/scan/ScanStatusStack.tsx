@@ -2,6 +2,7 @@ import PropTypes from 'prop-types';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent } from '@/components/ui/card.jsx';
 import ScanProgress from './ScanProgress';
+import { normalizeCapabilityStates, type SafeCapabilityState } from '../../../domain/investigation/capabilityStates';
 
 const CAPABILITY_LABELS = {
   wordpress: 'WordPress API',
@@ -31,11 +32,6 @@ function formatInvestigatorStatus(status) {
   }[status] ?? 'Queued';
 }
 
-type InvestigatorCapability = {
-  status: string;
-  outcome?: { result?: unknown; error?: { message?: string; retryable?: boolean } | null };
-};
-
 type RetryHandler = (id: string) => void;
 
 type ScanStatusStackProps = {
@@ -49,12 +45,13 @@ function ScanStatusStack({ session, onRetryCapability = () => {}, retryingCapabi
     return null;
   }
 
-  if (session.capabilityStates) {
-    const capabilities = Object.entries(session.capabilityStates) as [string, InvestigatorCapability][];
+  if (session.capabilityStates && typeof session.capabilityStates === 'object') {
+    const normalized = normalizeCapabilityStates(session.capabilityStates);
+    const capabilities = Object.entries(normalized) as [string, SafeCapabilityState][];
     const details = capabilities.filter(([, capability]) => ['failed', 'unavailable'].includes(capability.status));
     return (
       <>
-        <ScanProgress capabilityStates={session.capabilityStates as Record<string, { status?: string }>} />
+        <ScanProgress capabilityStates={normalized} />
         {details.map(([id, capability]) => (
           <Card key={id} className={`section-enter${capability.status === 'failed' ? ' card card--error' : ''}`} role={capability.status === 'failed' ? 'alert' : 'status'}>
             <CardContent className="">

@@ -866,6 +866,21 @@ describe('ScanPage', () => {
     })));
   });
 
+  it('does not crash when persisted investigator capability states are malformed', async () => {
+    const initial = { id: 'session-1', investigationId: 'inv-1', status: 'idle', domain: { submitted: 'Example.com', normalized: 'example.com' }, selectedCapabilities: [], capabilityStates: {}, overall: { status: 'incomplete' } };
+    const final = { ...initial, status: 'completed', capabilityStates: null, overall: { status: 'complete' } };
+    mocks.startInvestigation.mockResolvedValue({ investigation: { id: 'inv-1' }, sessionIds: ['session-1'] });
+    mocks.createInvestigationSession.mockReturnValue(initial);
+    mocks.runInvestigationSession.mockResolvedValue(final);
+
+    render(<QueryClientProvider client={new QueryClient()}><ScanPage /></QueryClientProvider>);
+    await userEvent.setup().click(screen.getByRole('button', { name: /scan site/i }));
+
+    await waitFor(() => expect(mocks.sidebar).toHaveBeenLastCalledWith(expect.objectContaining({
+      session: expect.objectContaining({ capabilities: {} })
+    })));
+  });
+
   it('resets the active section when the scan session domain changes', async () => {
     const user = userEvent.setup();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

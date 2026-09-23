@@ -247,7 +247,7 @@ function finalize(session) {
   const aggregateStatus = selectInvestigationStatus(session);
   const next = {
     ...session,
-    status: aggregateStatus === 'complete' ? 'completed' : 'failed',
+    status: ['complete', 'partial'].includes(aggregateStatus) ? 'completed' : 'failed',
     completedAt: new Date().toISOString(),
     overall: { status: aggregateStatus }
   };

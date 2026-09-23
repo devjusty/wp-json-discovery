@@ -43,6 +43,7 @@ import {
   removeAnonymousInvestigation,
   saveAnonymousInvestigation
 } from '../../services/anonymousInvestigations.js';
+import { normalizeCapabilityStates } from '../../domain/investigation/capabilityStates';
 import { normalizeDomain } from '../../utils/format.js';
 
 function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
@@ -460,11 +461,12 @@ function bridgeInvestigatorSession(session) {
     capabilityIds: session.selectedCapabilities?.map(({ id }) => id) ?? [],
     options: {}
   };
+  const capabilities = normalizeCapabilityStates(session.capabilityStates);
   return {
     domain: session.domain.normalized,
     selection,
     overallStatus: session.overall?.status ?? session.status,
-    capabilities: Object.fromEntries(Object.entries(session.capabilityStates as Record<string, { status: string; outcome?: { result?: unknown; error?: { message?: string; code?: string; retryable?: boolean } | null } }>).map(([id, state]) => [id, {
+    capabilities: Object.fromEntries(Object.entries(capabilities).map(([id, state]) => [id, {
       status: state.status,
       result: state.outcome?.result ?? null,
       error: state.outcome?.error ?? null

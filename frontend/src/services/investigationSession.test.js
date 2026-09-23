@@ -85,6 +85,7 @@ describe('investigation session', () => {
     expectValidSession(result);
     expect(result.capabilityStates.wordpress.outcome.status).toBe('success');
     expect(result.capabilityStates.homepage.outcome.status).toBe('failed');
+    expect(result.status).toBe('completed');
     expect(result.overall.status).toBe('partial');
   });
 
@@ -131,7 +132,7 @@ describe('investigation session', () => {
 
     expectValidSession(recovered);
     expect(recovered).not.toBe(interrupted);
-    expect(recovered.status).toBe('failed');
+    expect(recovered.status).toBe('completed');
     expect(recovered.overall).toEqual({ status: 'partial' });
     expect(recovered.capabilityStates.wordpress).toEqual(interrupted.capabilityStates.wordpress);
     expect(recovered.capabilityStates.homepage).toMatchObject({
