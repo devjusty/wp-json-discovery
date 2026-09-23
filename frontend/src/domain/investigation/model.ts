@@ -114,20 +114,33 @@ const assertOptionalTimestamp = (value: string | undefined, field: string): void
 };
 
 const assertCapabilityRun = (capability: CapabilityRunInput): void => {
+  if (!['queued', 'running', 'success', 'failed', 'unavailable'].includes(capability.status as CapabilityStatus)) {
+    throw new InvestigationModelError('invalid-capability-run', `${capability.name} has an invalid status`);
+  }
   assertOptionalTimestamp(capability.startedAt, `${capability.name}.startedAt`);
   assertOptionalTimestamp(capability.completedAt, `${capability.name}.completedAt`);
 
-  if (capability.error && (!capability.error.code || !capability.error.message)) {
+  const error = capability.error as unknown;
+  const hasError = error !== undefined;
+  if (hasError && (
+    !error
+    || typeof error !== 'object'
+    || typeof (error as CapabilityError).code !== 'string'
+    || typeof (error as CapabilityError).message !== 'string'
+    || typeof (error as CapabilityError).retryable !== 'boolean'
+    || !(error as CapabilityError).code
+    || !(error as CapabilityError).message
+  )) {
     throw new InvestigationModelError('invalid-capability-run', `${capability.name} has malformed error`);
   }
 
-  if (capability.status === 'success' && capability.error !== undefined) {
+  if (['queued', 'running', 'success'].includes(capability.status) && hasError) {
     throw new InvestigationModelError('invalid-capability-run', `${capability.name} success cannot have an error`);
   }
-  if (capability.status === 'failed' && capability.error === undefined) {
+  if (capability.status === 'failed' && !hasError) {
     throw new InvestigationModelError('invalid-capability-run', `${capability.name} failure requires an error`);
   }
-  if (capability.status === 'unavailable' && capability.error?.retryable) {
+  if (capability.status === 'unavailable' && hasError && (error as CapabilityError).retryable) {
     throw new InvestigationModelError('invalid-capability-run', `${capability.name} unavailable error cannot be retryable`);
   }
 };

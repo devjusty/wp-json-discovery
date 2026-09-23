@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  type CapabilityRunInput,
   createInvestigation,
   getCapabilityState,
   InvestigationModelError,
@@ -186,5 +187,29 @@ describe('investigation model', () => {
     }
 
     expect(() => createInvestigation({ ...base, createdAt: 'not-a-timestamp' })).toThrow(InvestigationModelError);
+  });
+
+  it('rejects runtime-invalid capability statuses and errors', () => {
+    const base = {
+      id: 'inv-1',
+      submittedUrl: 'https://example.com',
+      normalizedUrl: 'https://example.com',
+      redirectChain: [],
+      createdAt: '2026-09-23T12:00:00.000Z',
+    };
+    const invalidCapabilities: unknown[] = [
+      { name: 'html', status: 'queued', error: { code: 'bad', message: 'Bad', retryable: false } },
+      { name: 'html', status: 'running', error: { code: 'bad', message: 'Bad', retryable: false } },
+      { name: 'html', status: 'success', error: null },
+      { name: 'html', status: 'failed', error: {} },
+      { name: 'html', status: 'bogus' },
+    ];
+
+    for (const capability of invalidCapabilities) {
+      expect(() => createInvestigation({
+        ...base,
+        capabilities: [capability as CapabilityRunInput],
+      })).toThrow(InvestigationModelError);
+    }
   });
 });
