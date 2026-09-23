@@ -316,3 +316,11 @@ export async function claimAnonymousInvestigation(userId, anonymousRecord) {
 
   return canonicalInvestigationId ? readInvestigation(canonicalInvestigationId, userId) : null;
 }
+
+export const investigationRepository = {
+  create: createInvestigation,
+  list: listInvestigationsForUser,
+  get: getInvestigationForUser,
+  saveSession: saveInvestigationSession,
+  claim: claimAnonymousInvestigation,
+};
