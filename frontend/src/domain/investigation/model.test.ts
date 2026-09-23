@@ -254,4 +254,42 @@ describe('investigation model', () => {
       expect(() => createInvestigation(input as never)).toThrow(InvestigationModelError);
     }
   });
+
+  it('rejects unsupported and cyclic evidence values with typed errors', () => {
+    class CustomValue {
+      value = 'custom';
+    }
+    const cyclicValue: Record<string, unknown> = {};
+    cyclicValue.self = cyclicValue;
+    const base = {
+      id: 'inv-1',
+      submittedUrl: 'https://example.com',
+      normalizedUrl: 'https://example.com',
+      redirectChain: [],
+      createdAt: '2026-09-23T12:00:00.000Z',
+    };
+    const unsupportedValues: unknown[] = [
+      new Date(),
+      new Map([['key', 'value']]),
+      new Set(['value']),
+      new CustomValue(),
+      () => 'function',
+      cyclicValue,
+    ];
+
+    for (const value of unsupportedValues) {
+      expect(() => createInvestigation({
+        ...base,
+        evidence: [{
+          id: 'evidence-1', kind: 'observed', capability: 'html', value, source: {},
+        }],
+      } as never)).toThrow(InvestigationModelError);
+      expect(() => createInvestigation({
+        ...base,
+        observationTimeline: [{
+          id: 'observation-1', capability: 'html', observedAt: base.createdAt, value,
+        }],
+      } as never)).toThrow(InvestigationModelError);
+    }
+  });
 });

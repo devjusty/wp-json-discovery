@@ -2,6 +2,10 @@ export type CapabilityStatus = 'queued' | 'running' | 'success' | 'failed' | 'un
 
 export type EvidenceKind = 'observed' | 'inference' | 'request-trace' | 'absence';
 
+export type JsonValue = null | string | number | boolean | ReadonlyArray<JsonValue> | {
+  readonly [key: string]: JsonValue;
+};
+
 export type CapabilityError = Readonly<{
   code: string;
   message: string;
@@ -45,7 +49,7 @@ export type Evidence = Readonly<{
   id: string;
   kind: EvidenceKind;
   capability: string;
-  value: unknown;
+  value: JsonValue;
   source: EvidenceSource;
 }>;
 
@@ -61,7 +65,7 @@ export type Observation = Readonly<{
   id: string;
   capability: string;
   observedAt: string;
-  value: unknown;
+  value: JsonValue;
 }>;
 
 /** Domain read model. Adapters map transport `domainIdentity` fields into this richer URL identity. */
@@ -139,17 +143,43 @@ const assertStringArray = (value: unknown, field: string): void => {
   }
 };
 
+const assertJsonLike = (value: unknown, field: string, ancestors = new Set<object>()): void => {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return;
+  if (typeof value === 'number') {
+    if (Number.isFinite(value)) return;
+    throw new InvestigationModelError('invalid-investigation', `${field} must contain JSON-like values`);
+  }
+  if (typeof value !== 'object' || ancestors.has(value)) {
+    throw new InvestigationModelError('invalid-investigation', `${field} must contain JSON-like values`);
+  }
+  if (!Array.isArray(value) && ![Object.prototype, null].includes(Object.getPrototypeOf(value))) {
+    throw new InvestigationModelError('invalid-investigation', `${field} must contain JSON-like values`);
+  }
+
+  ancestors.add(value);
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => assertJsonLike(item, `${field}[${index}]`, ancestors));
+  } else {
+    Object.entries(value).forEach(([key, nestedValue]) => {
+      assertJsonLike(nestedValue, `${field}.${key}`, ancestors);
+    });
+  }
+  ancestors.delete(value);
+};
+
 const assertObservation = (value: unknown, index: number): void => {
   const observation = assertRecord(value, `observationTimeline[${index}]`);
   assertNonEmptyString(observation.id, `observationTimeline[${index}].id`);
   assertNonEmptyString(observation.capability, `observationTimeline[${index}].capability`);
   assertTimestamp(observation.observedAt, `observationTimeline[${index}].observedAt`);
+  assertJsonLike(observation.value, `observationTimeline[${index}].value`);
 };
 
 const assertEvidence = (value: unknown, index: number): void => {
   const evidence = assertRecord(value, `evidence[${index}]`);
   assertNonEmptyString(evidence.id, `evidence[${index}].id`);
   assertNonEmptyString(evidence.capability, `evidence[${index}].capability`);
+  assertJsonLike(evidence.value, `evidence[${index}].value`);
   if (!['observed', 'inference', 'request-trace', 'absence'].includes(evidence.kind as EvidenceKind)) {
     throw new InvestigationModelError('invalid-investigation', `evidence[${index}].kind is invalid`);
   }
