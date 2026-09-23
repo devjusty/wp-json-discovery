@@ -476,6 +476,7 @@ const apiErrorSchema = z.object({
   code: identifierSchema,
   message: z.string().min(1),
   retryable: z.boolean(),
+  details: jsonValueSchema.optional(),
 }).strict();
 
 export const apiEnvelopeSchema = z.discriminatedUnion('status', [

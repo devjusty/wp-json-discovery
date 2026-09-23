@@ -75,7 +75,9 @@ export const createInvestigationTransport = (
     const request = startInvestigationRequestSchema.safeParse({ domain, selectedCapabilities });
     if (!request.success) throw new ContractInvalidError('Invalid investigation start request', request.error);
     if (!source.start) throw new Error('Investigation client cannot start.');
-    return mapRecord(await call(source.start(request.data.domain, request.data.selectedCapabilities), 'start'));
+    const investigation = mapRecord(await call(source.start(request.data.domain, request.data.selectedCapabilities), 'start'));
+    assertDomainIdentity(investigation, request.data.domain);
+    return investigation;
   },
   async save(investigation) {
     const state = parseState(investigation, {
@@ -142,10 +144,14 @@ export const createInvestigationTransport = (
     if (anonymous.session.investigationId !== id) {
       throw new ContractInvalidError('Anonymous investigation does not match requested id.');
     }
-    parseState(anonymous.session.investigationState, { id, ...domain.data });
+    if (anonymous.session.investigationState) {
+      parseState(anonymous.session.investigationState, { id, ...domain.data });
+    }
     // Claim endpoint allocates canonical authenticated ID; input snapshot ID is
     // the identity that must match, not returned record ID.
-    return mapRecord(await call(source.claim(domain.data, anonymous), 'claim'));
+    const investigation = mapRecord(await call(source.claim(domain.data, anonymous), 'claim'));
+    assertDomainIdentity(investigation, domain.data);
+    return investigation;
   },
   };
 };
@@ -226,6 +232,13 @@ function parseState(value: unknown, identity: { id: string; submitted: string; n
     throw new ContractInvalidError('Investigation state identity mismatch');
   }
   return state;
+}
+
+function assertDomainIdentity(investigation: Investigation, domain: DomainIdentity): void {
+  if (investigation.submittedUrl !== domain.submitted
+    || investigation.normalizedUrl !== domain.normalized) {
+    throw new ContractInvalidError('Investigation domain identity mismatch');
+  }
 }
 
 function domainToSession(investigation: Investigation) {

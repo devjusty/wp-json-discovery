@@ -4,6 +4,7 @@ import {
   fetchInvestigation,
   fetchInvestigations,
   request,
+  ApiError,
   saveInvestigationSession,
   startInvestigation,
   setAuthUserProvider,
@@ -160,6 +161,25 @@ describe('request', () => {
 
     vi.stubGlobal('fetch', jsonResponse({ status: 'success', requestId: 'req-1', data: { nope: true } }));
     await expect(fetchInvestigation('invalid')).rejects.toThrow('Invalid investigation response');
+  });
+
+  it('preserves typed API error codes and details', async () => {
+    vi.stubGlobal('fetch', jsonResponse({ status: 'error', requestId: 'req-typed', error: {
+      code: 'CLAIM_MISMATCH',
+      message: 'Claim identity mismatch',
+      retryable: true,
+      details: { field: 'domain.normalized' },
+    } }, 409));
+
+    await expect(fetchInvestigation('mismatch')).rejects.toMatchObject({
+      name: 'ApiError',
+      code: 'CLAIM_MISMATCH',
+      details: { field: 'domain.normalized' },
+      retryable: true,
+      status: 409,
+      requestId: 'req-typed',
+    });
+    await expect(fetchInvestigation('mismatch')).rejects.toBeInstanceOf(ApiError);
   });
 
   it('claims an anonymous record only through explicit API call', async () => {

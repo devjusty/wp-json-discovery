@@ -88,6 +88,19 @@ describe('investigation transport', () => {
       .rejects.toMatchObject({ code: 'contract-invalid' });
   });
 
+  it('rejects start responses with a different requested domain', async () => {
+    const full = fullInvestigation();
+    const transport = createInvestigationTransport({
+      start: async () => investigationRecord('inv-1', { ...full, normalizedUrl: 'https://other.example' }),
+      get: async () => null,
+      list: async () => ({ investigations: [] }),
+      save: async () => validSessionRecord(),
+    });
+
+    await expect(transport.start({ submitted: full.submittedUrl, normalized: full.normalizedUrl }, []))
+      .rejects.toBeInstanceOf(ContractInvalidError);
+  });
+
   it('validates start domain input before calling the API client', async () => {
     const start = vi.fn();
     const transport = createInvestigationTransport({ start, get: async () => null, list: async () => ({ investigations: [] }), save: async () => validSessionRecord() });
@@ -363,6 +376,22 @@ describe('investigation transport', () => {
     await transport.claim('inv-1');
 
     expect(claimedRecord).toMatchObject({ recordType: 'session', session: { investigationState: full } });
+  });
+
+  it('rejects claim responses with a different requested domain', async () => {
+    const full = fullInvestigation();
+    const transport = createInvestigationTransport({
+      get: async () => null,
+      list: async () => ({ investigations: [] }),
+      save: async () => validSessionRecord(),
+      claimPayload: () => ({
+        domain: { submitted: full.submittedUrl, normalized: full.normalizedUrl },
+        anonymousRecord: { ...validSessionRecord(), session: { ...validSessionRecord().session, investigationState: full } },
+      }),
+      claim: async () => investigationRecord('claimed', { ...full, normalizedUrl: 'https://other.example' }),
+    });
+
+    await expect(transport.claim('inv-1')).rejects.toBeInstanceOf(ContractInvalidError);
   });
 });
 

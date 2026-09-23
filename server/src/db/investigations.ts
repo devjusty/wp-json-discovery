@@ -110,6 +110,28 @@ function investigationState(id, domain, selectedCapabilities, createdAt) {
   };
 }
 
+function reconstructedInvestigationState(id, domain, session, createdAt) {
+  return {
+    ...investigationState(id, domain, session.selectedCapabilities, createdAt),
+    capabilities: session.selectedCapabilities.map(({ id: name, dependencies }) => {
+      const capabilityState = session.capabilityStates[name];
+      const status = capabilityState.status === 'idle' ? 'queued' : capabilityState.status;
+      const capability = {
+        name,
+        status,
+        ...(dependencies?.length ? { dependencies } : {}),
+      };
+      if (status === 'success' && Object.prototype.hasOwnProperty.call(capabilityState.outcome ?? {}, 'result')) {
+        capability.result = capabilityState.outcome.result;
+      }
+      if (status === 'failed' || status === 'unavailable') {
+        capability.error = capabilityState.outcome.error;
+      }
+      return capability;
+    }),
+  };
+}
+
 export async function createInvestigation(ownerId, request) {
   if (typeof ownerId !== 'string' || ownerId.length === 0) {
     throw new Error('Authenticated owner is required');
@@ -158,10 +180,17 @@ export async function saveInvestigationSession(ownerId, investigationId, snapsho
   }
 
   const investigation = await queryOne(
-    'select id from investigations where id = ? and owner_id = ?',
+    'select id, submitted_domain, normalized_domain from investigations where id = ? and owner_id = ?',
     [investigationId, ownerId]
   );
   if (!investigation) return null;
+  if (session.investigationState && (
+    session.investigationState.id !== investigation.id
+    || session.investigationState.submittedUrl !== investigation.submitted_domain
+    || session.investigationState.normalizedUrl !== investigation.normalized_domain
+  )) {
+    throw new ValidationError('Investigation state identity does not match stored investigation');
+  }
 
   const persistedAt = new Date().toISOString();
   await executeTransaction(async (transaction) => {
@@ -219,10 +248,10 @@ export async function claimAnonymousInvestigation(userId, anonymousRecord) {
   )) {
     throw new ValidationError('Anonymous investigation identity does not match embedded investigation state');
   }
-  const state = sourceState ?? investigationState(
+  const state = sourceState ?? reconstructedInvestigationState(
     sourceSession.session.investigationId,
     input.domain,
-    sourceSession.session.selectedCapabilities,
+    sourceSession.session,
     sourceSession.persistedAt
   );
   const importedSession = parse(scanSessionSchema, {

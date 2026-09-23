@@ -91,6 +91,38 @@ describe('investigation repository', () => {
       .rejects.toThrow();
   });
 
+  it('rejects session state identity mismatches before persistence', async () => {
+    const record = await createInvestigation('snapshot-owner', {
+      domain: { submitted: 'state-check.example', normalized: 'https://state-check.example' },
+      selectedCapabilities: [],
+    });
+    const before = await queryOne(
+      'select count(1) as count from investigation_sessions where investigation_id = ?',
+      [record.investigation.id]
+    );
+    const invalid = {
+      ...session(record.investigation.id, 'mismatched-state-session'),
+      investigationState: {
+        id: record.investigation.id,
+        submittedUrl: 'other.example',
+        normalizedUrl: 'https://other.example',
+        redirectChain: [],
+        createdAt: timestamp,
+        capabilities: [],
+        observationTimeline: [],
+        evidence: [],
+        findings: [],
+      },
+    };
+
+    await expect(saveInvestigationSession('snapshot-owner', record.investigation.id, invalid))
+      .rejects.toMatchObject({ statusCode: 400 });
+    expect(await queryOne(
+      'select count(1) as count from investigation_sessions where investigation_id = ?',
+      [record.investigation.id]
+    )).toEqual(before);
+  });
+
   it('does not persist an anonymous start', async () => {
     await expect(createInvestigation(null, {
       domain: { submitted: 'anonymous.example', normalized: 'https://anonymous.example' },
@@ -179,6 +211,31 @@ describe('investigation repository', () => {
       evidence: [],
       findings: [],
     }));
+  });
+
+  it('reconstructs claimed state from legacy capability outcomes', async () => {
+    const claimed = await claimAnonymousInvestigation('claimed-user', {
+      domain: { submitted: 'legacy-results.example', normalized: 'https://legacy-results.example' },
+      anonymousRecord: {
+        recordType: 'session',
+        session: {
+          ...session('legacy-results-investigation', 'legacy-results-session'),
+          selectedCapabilities: [{ id: 'homepage', dependencies: [] }],
+          capabilityStates: {
+            homepage: {
+              status: 'success',
+              outcome: { status: 'success', result: { title: 'Recovered' }, error: null },
+              retry: { status: 'not-retryable' },
+            },
+          },
+        },
+        persistedAt: timestamp,
+      },
+    });
+
+    expect(claimed.latestSession.investigationState.capabilities).toEqual([{
+      name: 'homepage', status: 'success', result: { title: 'Recovered' },
+    }]);
   });
 
   it('rejects claim identity mismatches before persistence', async () => {

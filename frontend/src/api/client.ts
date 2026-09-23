@@ -28,6 +28,30 @@ type RequestResult = {
 let globalGetAccessToken: TokenProvider | null = null;
 let globalAuthUser: AuthUserProvider | null = null;
 
+export class ApiError extends Error {
+  readonly code: string;
+  readonly details: unknown;
+  readonly retryable: boolean;
+  readonly status: number;
+  readonly requestId?: string;
+
+  constructor(message: string, options: {
+    code: string;
+    details?: unknown;
+    retryable?: boolean;
+    status?: number;
+    requestId?: string;
+  }) {
+    super(message);
+    this.name = 'ApiError';
+    this.code = options.code;
+    this.details = options.details;
+    this.retryable = options.retryable ?? false;
+    this.status = options.status ?? 0;
+    this.requestId = options.requestId;
+  }
+}
+
 export function setTokenProvider(fn: TokenProvider | null) {
   globalGetAccessToken = fn;
 }
@@ -368,11 +392,29 @@ async function requestInvestigation<T>(
   const result = await request(path, options);
   const envelope = apiEnvelopeSchema.safeParse(result.data);
 
-  if (!envelope.success) throw new Error('Invalid investigation response');
-  if (!result.ok || envelope.data.status === 'error') {
-    throw new Error(envelope.data.status === 'error'
-      ? envelope.data.error.message
-      : 'Investigation request failed');
+  if (!envelope.success) {
+    throw new ApiError('Invalid investigation response', {
+      code: 'INVALID_RESPONSE',
+      details: result.data,
+      status: result.status,
+    });
+  }
+  if (envelope.data.status === 'error') {
+    throw new ApiError(envelope.data.error.message, {
+      code: envelope.data.error.code,
+      details: envelope.data.error.details,
+      retryable: envelope.data.error.retryable,
+      status: result.status,
+      requestId: envelope.data.requestId,
+    });
+  }
+  if (!result.ok) {
+    throw new ApiError('Investigation request failed', {
+      code: 'REQUEST_FAILED',
+      details: envelope.data,
+      status: result.status,
+      requestId: envelope.data.requestId,
+    });
   }
   if (envelope.data.status !== 'success') throw new Error('Investigation request incomplete');
 
