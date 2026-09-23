@@ -203,6 +203,9 @@ describe('investigation model', () => {
       { name: 'html', status: 'success', error: null },
       { name: 'html', status: 'failed', error: {} },
       { name: 'html', status: 'bogus' },
+      null,
+      42,
+      'html',
     ];
 
     for (const capability of invalidCapabilities) {

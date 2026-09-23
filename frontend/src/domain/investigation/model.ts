@@ -114,6 +114,9 @@ const assertOptionalTimestamp = (value: string | undefined, field: string): void
 };
 
 const assertCapabilityRun = (capability: CapabilityRunInput): void => {
+  if (!capability || typeof capability !== 'object' || Array.isArray(capability)) {
+    throw new InvestigationModelError('invalid-capability-run', 'Capability run must be an object');
+  }
   if (!['queued', 'running', 'success', 'failed', 'unavailable'].includes(capability.status as CapabilityStatus)) {
     throw new InvestigationModelError('invalid-capability-run', `${capability.name} has an invalid status`);
   }
