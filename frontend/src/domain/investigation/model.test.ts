@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createInvestigation,
   getCapabilityState,
+  InvestigationModelError,
   isPartialInvestigation,
 } from './model';
 
@@ -103,5 +104,73 @@ describe('investigation model', () => {
     });
 
     expect(isPartialInvestigation(investigation)).toBe(true);
+  });
+
+  it('does not expose mutable nested state', () => {
+    const input = {
+      id: 'inv-1',
+      submittedUrl: 'https://example.com',
+      normalizedUrl: 'https://example.com',
+      redirectChain: ['https://example.com'],
+      createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [{ name: 'html', status: 'success' as const }],
+      evidence: [{
+        id: 'evidence-1',
+        kind: 'observed' as const,
+        capability: 'html',
+        value: { title: 'Example' },
+        source: { evidenceIds: ['source-1'] },
+      }],
+      findings: [{
+        id: 'finding-1',
+        capability: 'html',
+        summary: 'Found title',
+        evidenceIds: ['evidence-1'],
+        confidence: 'high' as const,
+      }],
+    };
+    const investigation = createInvestigation(input);
+
+    input.redirectChain.push('https://example.com/changed');
+    input.evidence[0].source.evidenceIds?.push('source-2');
+    (input.evidence[0].value as { title: string }).title = 'Changed';
+
+    expect(investigation.redirectChain).toEqual(['https://example.com']);
+    expect(investigation.evidence[0].source.evidenceIds).toEqual(['source-1']);
+    expect(investigation.evidence[0].value).toEqual({ title: 'Example' });
+
+    expect(() => {
+      (investigation.redirectChain as string[]).push('https://example.com/changed');
+    }).toThrow();
+    expect(() => {
+      (investigation.evidence[0].source.evidenceIds as string[]).push('source-2');
+    }).toThrow();
+    expect(() => {
+      ((investigation.evidence[0].value as { title: string }).title = 'Changed');
+    }).toThrow();
+    expect(() => {
+      (getCapabilityState(investigation, 'html') as { status: string }).status = 'failed';
+    }).toThrow();
+  });
+
+  it('rejects invalid capability combinations and timestamps', () => {
+    const base = {
+      id: 'inv-1',
+      submittedUrl: 'https://example.com',
+      normalizedUrl: 'https://example.com',
+      redirectChain: [],
+      createdAt: '2026-09-23T12:00:00.000Z',
+    };
+
+    for (const capability of [
+      { name: 'html', status: 'success' as const, error: { code: 'bad', message: 'Bad', retryable: false } },
+      { name: 'html', status: 'failed' as const },
+      { name: 'html', status: 'unavailable' as const, error: { code: 'bad', message: 'Bad', retryable: true } },
+      { name: 'html', status: 'success' as const, completedAt: 'not-a-timestamp' },
+    ]) {
+      expect(() => createInvestigation({ ...base, capabilities: [capability] })).toThrow(InvestigationModelError);
+    }
+
+    expect(() => createInvestigation({ ...base, createdAt: 'not-a-timestamp' })).toThrow(InvestigationModelError);
   });
 });
