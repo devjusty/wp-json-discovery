@@ -9,13 +9,12 @@ const findings: Finding[] = [
 ];
 
 describe('InvestigatorFindings', () => {
-  it('renders ranked findings from domain read model', () => {
+  it('renders domain-ranked findings in provided order', () => {
     const investigation = { findings } as unknown as Investigation;
     render(<InvestigatorFindings investigation={investigation} onSelectEvidence={vi.fn()} />);
 
     const items = screen.getAllByRole('listitem');
-    expect(items[0]).toHaveTextContent('Admin endpoint is discoverable');
-    expect(items[0]).toHaveTextContent('high confidence');
-    expect(screen.getByText('Low signal')).toBeInTheDocument();
+    expect(items[0]).toHaveTextContent('Low signal');
+    expect(items[1]).toHaveTextContent('Admin endpoint is discoverable');
   });
 });

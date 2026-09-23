@@ -57,6 +57,9 @@ function AppContent() {
     staleTime: 5 * 60 * 1000
   });
   const isAdmin = userProfile?.user?.role === 'admin';
+  const handleInvestigatorSectionChange = (sectionId: string) => {
+    if (sectionId === 'history') setActivePage('history');
+  };
 
   useEffect(() => {
     setScanCapabilityContext({ isAdmin: Boolean(isAdmin) });
@@ -187,7 +190,7 @@ function AppContent() {
     }
 
     return (
-      <InvestigatorShell readModel={routeReadModel(currentScanDomain)} commands={{ onSectionChange: setActivePage }} activeSection={activePage}>
+      <InvestigatorShell readModel={routeReadModel(currentScanDomain)} commands={{ onSectionChange: handleInvestigatorSectionChange }} activeSection={activePage === 'history' ? 'history' : 'overview'}>
         <Suspense fallback={<PageLoadingState label="Loading scan history..." />}>
           <HistoryPage
             headerActions={headerActions}
@@ -209,7 +212,7 @@ function AppContent() {
 
   if (activePage === 'investigations') {
     return (
-      <InvestigatorShell readModel={routeReadModel(currentScanDomain)} commands={{ onSectionChange: setActivePage }} activeSection={activePage}>
+      <InvestigatorShell readModel={routeReadModel(currentScanDomain)} commands={{ onSectionChange: handleInvestigatorSectionChange }} activeSection="overview">
         <Suspense fallback={<PageLoadingState label="Loading investigations..." />}>
           <InvestigationsPage
             headerActions={headerActions}
@@ -230,7 +233,7 @@ function AppContent() {
   }
 
     return (
-      <InvestigatorShell readModel={routeReadModel(currentScanDomain)} commands={{ onSectionChange: setActivePage }} activeSection={activePage}>
+      <InvestigatorShell readModel={routeReadModel(currentScanDomain)} commands={{ onSectionChange: handleInvestigatorSectionChange }} activeSection="overview">
         <Suspense fallback={<PageLoadingState label="Loading scanner..." />}>
           <ScanPage headerActions={headerActions} onNavigate={setActivePage} isAdmin={isAdmin} isAuthenticated={isAuthenticated} />
         </Suspense>
@@ -242,10 +245,14 @@ function routeReadModel(currentScanDomain: string) {
   return {
     title: currentScanDomain || 'Investigation workspace',
     status: 'incomplete' as const,
+    capabilities: [],
     sections: [
-      { id: 'scan', label: 'Current scan' },
-      { id: 'investigations', label: 'Investigations' },
+      { id: 'overview', label: 'Overview' },
+      { id: 'findings', label: 'Findings' },
+      { id: 'evidence', label: 'Evidence' },
+      { id: 'assets', label: 'Assets' },
       { id: 'history', label: 'History' },
+      { id: 'tools', label: 'Tools' },
     ].map((section) => ({ ...section, disabled: section.id === 'history' && !currentScanDomain })),
   };
 }

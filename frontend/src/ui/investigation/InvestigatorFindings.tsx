@@ -5,10 +5,8 @@ type InvestigatorFindingsProps = Readonly<{
   onSelectEvidence: (evidenceIds: ReadonlyArray<string>) => void;
 }>;
 
-const RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
-
 export function InvestigatorFindings({ investigation, onSelectEvidence }: InvestigatorFindingsProps) {
-  const findings = [...investigation.findings].sort((left, right) => RANK[left.confidence] - RANK[right.confidence]);
+  const findings = investigation.findings;
 
   return (
     <section className="investigator-findings" aria-labelledby="investigator-findings-title">
