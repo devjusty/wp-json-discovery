@@ -253,6 +253,25 @@ describe('investigation transport', () => {
     await expect(transport.list()).rejects.toMatchObject({ code: 'contract-invalid' });
   });
 
+  it('rejects list hydration when hydrated URL identity differs from its summary', async () => {
+    const state = { ...fullInvestigation(), normalizedUrl: 'https://other.example' };
+    const transport = createInvestigationTransport({
+      get: async () => investigationRecord('inv-1', state),
+      list: async () => ({ investigations: [{
+        id: 'inv-1',
+        domain: { submitted: 'Example.com', normalized: 'https://example.com' },
+        createdAt: '2026-09-23T12:00:00.000Z',
+        updatedAt: '2026-09-23T12:00:00.000Z',
+        selectedCapabilityCount: 1,
+        completedCapabilityCount: 1,
+        findingsCount: 1,
+      }] }),
+      save: async () => validSessionRecord(),
+    });
+
+    await expect(transport.list()).rejects.toMatchObject({ code: 'contract-invalid' });
+  });
+
   it('rejects claim when anonymous payload belongs to another investigation', async () => {
     const transport = createInvestigationTransport({
       get: async () => null,

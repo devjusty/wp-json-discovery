@@ -108,7 +108,12 @@ export const createInvestigationTransport = (
       try {
         const value = await source.get(investigation.id);
         if (value === null) throw new ContractInvalidError('Investigation list item is missing full state');
-        return mapRecord(value, true, investigation.id);
+        const hydrated = mapRecord(value, true, investigation.id);
+        if (hydrated.submittedUrl !== investigation.submittedUrl
+          || hydrated.normalizedUrl !== investigation.normalizedUrl) {
+          throw new ContractInvalidError('Investigation list item identity mismatch');
+        }
+        return hydrated;
       } catch (error) {
         if (error instanceof ContractInvalidError) throw error;
         throw new ContractInvalidError('Invalid investigation list item', error);

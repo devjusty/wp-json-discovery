@@ -224,6 +224,9 @@ const assertCapabilityRun = (capability: CapabilityRunInput): void => {
   if (capability.reason !== undefined && typeof capability.reason !== 'string') {
     throw new InvestigationModelError('invalid-capability-run', `${capability.name} reason must be a string`);
   }
+  if (capability.status !== 'success' && capability.result !== undefined) {
+    throw new InvestigationModelError('invalid-capability-run', `${capability.name} non-success cannot have a result`);
+  }
   if (capability.dependencies !== undefined) assertStringArray(capability.dependencies, `${capability.name}.dependencies`);
   if (capability.metadata !== undefined) assertJsonLike(capability.metadata, `${capability.name}.metadata`);
   if (capability.result !== undefined) assertJsonLike(capability.result, `${capability.name}.result`);

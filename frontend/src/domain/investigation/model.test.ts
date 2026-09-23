@@ -179,6 +179,10 @@ describe('investigation model', () => {
 
     for (const capability of [
       { name: 'html', status: 'success' as const, error: { code: 'bad', message: 'Bad', retryable: false } },
+      { name: 'html', status: 'queued' as const, result: { stale: true } },
+      { name: 'html', status: 'running' as const, result: { stale: true } },
+      { name: 'html', status: 'failed' as const, result: { stale: true }, error: { code: 'bad', message: 'Bad', retryable: false } },
+      { name: 'html', status: 'unavailable' as const, result: { stale: true } },
       { name: 'html', status: 'failed' as const },
       { name: 'html', status: 'unavailable' as const, error: { code: 'bad', message: 'Bad', retryable: true } },
       { name: 'sitemap', status: 'unavailable' as const, reason: 42 as unknown as string },
