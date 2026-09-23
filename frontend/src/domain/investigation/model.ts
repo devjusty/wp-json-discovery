@@ -291,6 +291,10 @@ export const createInvestigation = (input: CreateInvestigationInput): Investigat
     if (!Array.isArray(input.capabilities)) {
       throw new InvestigationModelError('invalid-investigation', 'capabilities must be an array');
     }
+    const names = input.capabilities.map((capability) => capability?.name);
+    if (new Set(names).size !== names.length) {
+      throw new InvestigationModelError('invalid-capability-run', 'Capability names must be unique');
+    }
     input.capabilities.forEach(assertCapabilityRun);
   }
   if (input.observationTimeline !== undefined) {

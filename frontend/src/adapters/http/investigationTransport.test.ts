@@ -106,6 +106,36 @@ describe('investigation transport', () => {
     await expect(transport.save(full)).rejects.toMatchObject({ code: 'contract-invalid' });
   });
 
+  it('rejects save responses for a different session', async () => {
+    const full = fullInvestigation();
+    const transport = createInvestigationTransport({
+      get: async () => null,
+      list: async () => ({ investigations: [] }),
+      save: async () => ({
+        ...validSessionRecord(),
+        session: { ...validSessionRecord().session, id: 'other-session' },
+      }),
+    });
+
+    await expect(transport.save(full)).rejects.toMatchObject({ code: 'contract-invalid' });
+  });
+
+  it('validates outbound session state before calling save client', async () => {
+    const save = vi.fn(async () => validSessionRecord());
+    const transport = createInvestigationTransport({
+      get: async () => null,
+      list: async () => ({ investigations: [] }),
+      save,
+    });
+    const invalid = { ...fullInvestigation(), capabilities: [{
+      name: 'wordpress', status: 'failed', result: { stale: true },
+      error: { code: 'FAILED', message: 'Failed', retryable: false },
+    }] } as const;
+
+    await expect(transport.save(invalid)).rejects.toMatchObject({ code: 'contract-invalid' });
+    expect(save).not.toHaveBeenCalled();
+  });
+
   it('wraps list hydration failures as contract-invalid errors', async () => {
     const transport = createInvestigationTransport({
       get: async () => { throw new Error('malformed response'); },
@@ -190,7 +220,7 @@ describe('investigation transport', () => {
     expect(savedSession.capabilityStates.wordpress.outcome).not.toHaveProperty('result');
   });
 
-  it('omits absent successful results when mapping legacy session state', async () => {
+  it('omits absent successful results when mapping full session state', async () => {
     const transport = createInvestigationTransport({
       start: async () => ({
         recordType: 'investigation',
@@ -212,6 +242,10 @@ describe('investigation transport', () => {
             },
           },
           overall: { status: 'complete' },
+          investigationState: {
+            ...fullInvestigation(),
+            capabilities: [{ name: 'wordpress', status: 'success' }],
+          },
         },
       }),
       get: async () => null,
@@ -289,6 +323,28 @@ describe('investigation transport', () => {
 
     await expect(transport.claim('requested-investigation')).rejects.toBeInstanceOf(ContractInvalidError);
   });
+
+  it('sends the validated anonymous session payload when claiming', async () => {
+    const full = fullInvestigation();
+    let claimedRecord;
+    const transport = createInvestigationTransport({
+      get: async () => null,
+      list: async () => ({ investigations: [] }),
+      save: async () => validSessionRecord(),
+      claimPayload: () => ({
+        domain: { submitted: full.submittedUrl, normalized: full.normalizedUrl },
+        anonymousRecord: { ...validSessionRecord(), session: { ...validSessionRecord().session, investigationState: full } },
+      }),
+      claim: async (_domain, record) => {
+        claimedRecord = record;
+        return investigationRecord('claimed', { ...full, id: 'claimed' });
+      },
+    });
+
+    await transport.claim('inv-1');
+
+    expect(claimedRecord).toMatchObject({ recordType: 'session', session: { investigationState: full } });
+  });
 });
 
 function validSessionRecord() {
@@ -319,7 +375,11 @@ function investigationRecord(id, state) {
     createdAt: state.createdAt,
     updatedAt: state.createdAt,
     sessionIds: ['session-1'],
-    latestSession: { ...validSessionRecord().session, investigationState: state },
+    latestSession: {
+      ...validSessionRecord().session,
+      investigationId: id,
+      investigationState: state,
+    },
   };
 }
 

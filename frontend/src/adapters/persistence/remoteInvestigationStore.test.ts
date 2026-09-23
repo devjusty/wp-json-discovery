@@ -2,6 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setTokenProvider } from '../../api/client';
 import { createRemoteInvestigationStore } from './remoteInvestigationStore';
 
+const authenticatedSession = (token = 'remote-token') => ({
+  getUserId: () => 'user-1',
+  getAccessToken: async () => token,
+});
+
 describe('remote investigation store', () => {
   it('delegates domain operations to transport and returns domain values', async () => {
     const investigation = {
@@ -11,10 +16,13 @@ describe('remote investigation store', () => {
     } as const;
     const calls: string[] = [];
     const store = createRemoteInvestigationStore({
-      save: async (value) => { calls.push(`save:${value.id}`); },
-      get: async () => investigation,
-      list: async () => [investigation],
-      claim: async (id) => { calls.push(`claim:${id}`); return investigation; },
+      authSession: authenticatedSession(),
+      transport: {
+        save: async (value) => { calls.push(`save:${value.id}`); },
+        get: async () => investigation,
+        list: async () => [investigation],
+        claim: async (id) => { calls.push(`claim:${id}`); return investigation; },
+      },
     });
 
     await store.save(investigation);
@@ -46,10 +54,13 @@ describe('remote investigation store', () => {
     } as const;
     let saved;
     const store = createRemoteInvestigationStore({
-      save: async (value) => { saved = value; },
-      get: async () => saved,
-      list: async () => saved ? [saved] : [],
-      claim: async () => saved,
+      authSession: authenticatedSession(),
+      transport: {
+        save: async (value) => { saved = value; },
+        get: async () => saved,
+        list: async () => saved ? [saved] : [],
+        claim: async () => saved,
+      },
     });
 
     await store.save(full);
@@ -111,7 +122,7 @@ describe('remote investigation store', () => {
     });
 
     it('preserves authenticated request headers and maps API data to domain', async () => {
-      const store = createRemoteInvestigationStore();
+      const store = createRemoteInvestigationStore({ authSession: authenticatedSession() });
 
       await expect(store.get('inv-1')).resolves.toMatchObject({ id: 'inv-1' });
       expect(vi.mocked(fetch).mock.calls[0][1].headers).toBeInstanceOf(Headers);
@@ -128,8 +139,19 @@ describe('remote investigation store', () => {
         text: async () => '',
       })));
 
-      await expect(createRemoteInvestigationStore().get('inv-1'))
-        .rejects.toMatchObject({ code: 'contract-invalid' });
+       await expect(createRemoteInvestigationStore({ authSession: authenticatedSession() }).get('inv-1'))
+         .rejects.toMatchObject({ code: 'contract-invalid' });
+    });
+
+    it('refuses operations without an access token before calling transport', async () => {
+      const get = vi.fn(async () => null);
+      const store = createRemoteInvestigationStore({
+        authSession: authenticatedSession(''),
+        transport: { save: async () => {}, get, list: async () => [], claim: async () => { throw new Error('must not claim'); } },
+      });
+
+      await expect(store.get('inv-1')).rejects.toMatchObject({ code: 'auth-required' });
+      expect(get).not.toHaveBeenCalled();
     });
   });
 });

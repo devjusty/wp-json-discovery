@@ -103,7 +103,12 @@ export const investigationStateSchema = z.object({
   observationTimeline: z.array(investigationObservationSchema),
   evidence: z.array(investigationEvidenceSchema),
   findings: z.array(investigationFindingSchema),
-}).strict();
+}).strict().superRefine((state, context) => {
+  const names = state.capabilities.map((capability) => capability.name);
+  if (new Set(names).size !== names.length) {
+    context.addIssue({ code: 'custom', message: 'Capability names must be unique', path: ['capabilities'] });
+  }
+});
 export type InvestigationState = z.infer<typeof investigationStateSchema>;
 
 type ValidationIssue = { message: string; path: (string | number)[] };
@@ -157,7 +162,7 @@ const addValidationIssues = (
 };
 
 const successOutcomeSchema = z.object({
-  status: z.literal('success'), result: z.unknown().optional(), error: z.null(),
+  status: z.literal('success'), result: jsonValueSchema.optional(), error: z.null(),
 }).strict();
 const failedOutcomeSchema = z.object({
   status: z.literal('failed'), result: z.null(), error: capabilityErrorSchema,

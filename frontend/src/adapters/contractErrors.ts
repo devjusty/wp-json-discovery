@@ -6,3 +6,12 @@ export class ContractInvalidError extends Error {
     this.name = 'ContractInvalidError';
   }
 }
+
+export class AuthenticationRequiredError extends Error {
+  readonly code = 'auth-required';
+
+  constructor(message = 'Authenticated session required', readonly cause?: unknown) {
+    super(message);
+    this.name = 'AuthenticationRequiredError';
+  }
+}

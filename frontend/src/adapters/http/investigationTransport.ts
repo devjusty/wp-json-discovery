@@ -24,7 +24,7 @@ import {
   loadAnonymousInvestigation,
 } from '../../services/anonymousInvestigations.js';
 import { createInvestigation } from '../../domain/investigation/model';
-import type { Investigation, JsonValue } from '../../domain/investigation/model';
+import type { Investigation } from '../../domain/investigation/model';
 import { ContractInvalidError } from '../contractErrors';
 
 export { ContractInvalidError } from '../contractErrors';
@@ -75,7 +75,7 @@ export const createInvestigationTransport = (
     const request = startInvestigationRequestSchema.safeParse({ domain, selectedCapabilities });
     if (!request.success) throw new ContractInvalidError('Invalid investigation start request', request.error);
     if (!source.start) throw new Error('Investigation client cannot start.');
-    return mapRecord(await call(source.start(request.data.domain, request.data.selectedCapabilities), 'start'), false);
+    return mapRecord(await call(source.start(request.data.domain, request.data.selectedCapabilities), 'start'));
   },
   async save(investigation) {
     const state = parseState(investigation, {
@@ -83,12 +83,18 @@ export const createInvestigationTransport = (
       submitted: investigation.submittedUrl,
       normalized: investigation.normalizedUrl,
     });
+    const outbound = parseSession({
+      recordType: 'session',
+      session: domainToSession(state),
+      persistedAt: state.createdAt,
+    });
     const result = await call(
-      source.save(investigation.id, domainToSession(state)),
+      source.save(investigation.id, outbound.session),
       'save',
     );
     const session = parseSession(result);
-    if (session.session.investigationId !== state.id) {
+    if (session.session.id !== outbound.session.id
+      || session.session.investigationId !== state.id) {
       throw new ContractInvalidError('Investigation save response identity mismatch');
     }
   },
@@ -96,7 +102,7 @@ export const createInvestigationTransport = (
     validateIdentifier(id, 'investigation id');
     try {
       const value = await source.get(id);
-      return value === null ? null : mapRecord(value, true, id);
+      return value === null ? null : mapRecord(value, id);
     } catch (error) {
       if (isNotFound(error)) return null;
       throw asContractError(error, 'get');
@@ -108,7 +114,7 @@ export const createInvestigationTransport = (
       try {
         const value = await source.get(investigation.id);
         if (value === null) throw new ContractInvalidError('Investigation list item is missing full state');
-        const hydrated = mapRecord(value, true, investigation.id);
+        const hydrated = mapRecord(value, investigation.id);
         if (hydrated.submittedUrl !== investigation.submittedUrl
           || hydrated.normalizedUrl !== investigation.normalizedUrl) {
           throw new ContractInvalidError('Investigation list item identity mismatch');
@@ -139,7 +145,7 @@ export const createInvestigationTransport = (
     parseState(anonymous.session.investigationState, { id, ...domain.data });
     // Claim endpoint allocates canonical authenticated ID; input snapshot ID is
     // the identity that must match, not returned record ID.
-    return mapRecord(await call(source.claim(domain.data, payload.anonymousRecord), 'claim'));
+    return mapRecord(await call(source.claim(domain.data, anonymous), 'claim'));
   },
   };
 };
@@ -170,13 +176,13 @@ function validateIdentifier(value: string, label: string): void {
   }
 }
 
-function mapRecord(value: unknown, requireState = true, expectedId?: string): Investigation {
+function mapRecord(value: unknown, expectedId?: string): Investigation {
   const parsed = investigationRecordSchema.safeParse(value);
   if (!parsed.success) throw new ContractInvalidError('Invalid investigation record', parsed.error);
   if (expectedId !== undefined && parsed.data.investigation.id !== expectedId) {
     throw new ContractInvalidError('Investigation record identity mismatch');
   }
-  return recordToDomain(parsed.data, requireState);
+  return recordToDomain(parsed.data);
 }
 
 function mapList(value: unknown): Investigation[] {
@@ -197,39 +203,12 @@ function parseSession(value: unknown): SessionRecord {
   return parsed.data;
 }
 
-function recordToDomain(record: InvestigationRecord, requireState: boolean): Investigation {
+function recordToDomain(record: InvestigationRecord): Investigation {
   const session = record.latestSession;
   if (session?.investigationState !== undefined) {
     return parseState(session.investigationState, { id: record.investigation.id, ...record.investigation.domain });
   }
-  if (requireState) {
-    throw new ContractInvalidError('Investigation response is missing validated full state');
-  }
-  return createInvestigation({
-    id: record.investigation.id,
-    submittedUrl: record.investigation.domain.submitted,
-    normalizedUrl: record.investigation.domain.normalized,
-    redirectChain: [],
-    createdAt: record.createdAt,
-    capabilities: session?.selectedCapabilities.map(capability => {
-      const state = session.capabilityStates[capability.id];
-      const outcome = state && 'outcome' in state ? state.outcome : undefined;
-      const error = outcome && typeof outcome === 'object' && 'error' in outcome
-        ? outcome.error as { code: string; message: string; retryable: boolean }
-        : undefined;
-      return {
-        name: capability.id,
-        status: state?.status === 'idle' ? 'queued' : state?.status ?? 'queued',
-        dependencies: capability.dependencies,
-        ...(state && 'outcome' in state && state.outcome.status === 'success' && 'result' in state.outcome
-          ? { result: state.outcome.result as JsonValue }
-          : {}),
-        startedAt: session.startedAt ?? undefined,
-        completedAt: session.completedAt ?? undefined,
-        ...(error ? { error } : {}),
-      };
-    }),
-  });
+  throw new ContractInvalidError('Investigation response is missing validated full state');
 }
 
 function parseState(value: unknown, identity: { id: string; submitted: string; normalized: string }): Investigation {

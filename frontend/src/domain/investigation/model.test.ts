@@ -226,6 +226,17 @@ describe('investigation model', () => {
     }
   });
 
+  it('rejects duplicate capability names', () => {
+    expect(() => createInvestigation({
+      id: 'inv-1', submittedUrl: 'https://example.com', normalizedUrl: 'https://example.com',
+      redirectChain: [], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [
+        { name: 'html', status: 'success' },
+        { name: 'html', status: 'queued' },
+      ],
+    })).toThrow(InvestigationModelError);
+  });
+
   it('rejects malformed investigation input with typed errors', () => {
     const base = {
       id: 'inv-1',

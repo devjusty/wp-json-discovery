@@ -392,6 +392,25 @@ describe('capabilities, identity, findings, and auth', () => {
     }).success).toBe(true);
   });
 
+  it('rejects duplicate investigation capability names', () => {
+    expect(investigationStateSchema.safeParse({
+      id: 'investigation-1', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: [], createdAt: timestamp, observationTimeline: [], evidence: [], findings: [],
+      capabilities: [
+        { name: 'html', status: 'success' },
+        { name: 'html', status: 'queued' },
+      ],
+    }).success).toBe(false);
+  });
+
+  it('rejects non-JSON capability results', () => {
+    expect(capabilityStateSchema.safeParse({
+      status: 'success',
+      outcome: { status: 'success', result: BigInt(1), error: null },
+      retry: { status: 'not-retryable' },
+    }).success).toBe(false);
+  });
+
   it('accepts investigation identity with ownership', () => {
     expect(investigationIdentitySchema.safeParse({
       id: 'investigation-1', ownerId: 'user-1',
