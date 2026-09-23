@@ -116,6 +116,34 @@ describe('investigation repository', () => {
     expect(claimed.sessionIds).toEqual(['browser-local-session']);
   });
 
+  it('rewrites claimed full-state identity with canonical investigation ID', async () => {
+    const sourceId = 'full-state-browser-investigation';
+    const claimed = await claimAnonymousInvestigation('claimed-user', {
+      domain: { submitted: 'full-state.example', normalized: 'https://full-state.example' },
+      anonymousRecord: {
+        recordType: 'session',
+        session: {
+          ...session(sourceId, 'full-state-browser-session'),
+          investigationState: {
+            id: sourceId,
+            submittedUrl: 'full-state.example',
+            normalizedUrl: 'https://full-state.example',
+            redirectChain: [],
+            createdAt: timestamp,
+            capabilities: [],
+            observationTimeline: [],
+            evidence: [],
+            findings: [],
+          },
+        },
+        persistedAt: timestamp,
+      },
+    });
+
+    expect(claimed.latestSession.investigationState.id).toBe(claimed.investigation.id);
+    expect(claimed.latestSession.investigationId).toBe(claimed.investigation.id);
+  });
+
   it('returns one canonical investigation for concurrent claims by the same user', async () => {
     const anonymousSession = session('raced-browser-investigation', 'raced-browser-session');
     const claim = {

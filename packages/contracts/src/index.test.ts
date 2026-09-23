@@ -52,6 +52,17 @@ describe('domain identity', () => {
     expect(domainIdentitySchema.safeParse({ submitted: 'example.com' }).success).toBe(false);
   });
 
+  it('rejects whitespace-only identity strings without trimming meaningful whitespace', () => {
+    expect(domainIdentitySchema.safeParse({ submitted: '   ', normalized: 'https://example.com' }).success).toBe(false);
+    expect(domainIdentitySchema.parse({ submitted: ' Example.com ', normalized: ' https://example.com ' })).toEqual({
+      submitted: ' Example.com ', normalized: ' https://example.com ',
+    });
+    expect(startInvestigationRequestSchema.safeParse({
+      domain: { submitted: 'example.com', normalized: 'https://example.com' },
+      selectedCapabilities: [{ id: '   ', dependencies: [] }],
+    }).success).toBe(false);
+  });
+
   it('parses valid identities and throws for invalid identities', () => {
     expect(parseDomainIdentity({ submitted: 'example.com', normalized: 'https://example.com' }))
       .toEqual({ submitted: 'example.com', normalized: 'https://example.com' });

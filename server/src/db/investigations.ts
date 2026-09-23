@@ -195,6 +195,9 @@ export async function claimAnonymousInvestigation(userId, anonymousRecord) {
   const importedSession = parse(scanSessionSchema, {
     ...sourceSession.session,
     investigationId,
+    ...(sourceSession.session.investigationState
+      ? { investigationState: { ...sourceSession.session.investigationState, id: investigationId } }
+      : {}),
   });
   const now = new Date().toISOString();
 

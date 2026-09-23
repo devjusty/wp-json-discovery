@@ -2,12 +2,15 @@ import { z } from 'zod';
 
 export const CONTRACTS_PACKAGE_VERSION = '0.0.0';
 
-const identifierSchema = z.string().min(1);
+const nonBlankStringSchema = z.string().refine((value) => value.trim().length > 0, {
+  message: 'String must contain a non-whitespace character',
+});
+const identifierSchema = nonBlankStringSchema;
 const timestampSchema = z.iso.datetime({ offset: true });
 
 export const domainIdentitySchema = z.object({
-  submitted: z.string().min(1),
-  normalized: z.string().min(1),
+  submitted: nonBlankStringSchema,
+  normalized: nonBlankStringSchema,
 }).strict();
 export type DomainIdentity = z.infer<typeof domainIdentitySchema>;
 
@@ -95,8 +98,8 @@ const investigationFindingSchema = z.object({
 
 export const investigationStateSchema = z.object({
   id: identifierSchema,
-  submittedUrl: z.string().min(1),
-  normalizedUrl: z.string().min(1),
+  submittedUrl: nonBlankStringSchema,
+  normalizedUrl: nonBlankStringSchema,
   redirectChain: z.array(z.string().min(1)),
   createdAt: timestampSchema,
   capabilities: z.array(investigationCapabilitySchema),
