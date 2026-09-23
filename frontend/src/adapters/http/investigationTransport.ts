@@ -1,7 +1,9 @@
 import {
   capabilitySelectionSchema,
+  domainIdentitySchema,
   investigationListSchema,
   investigationRecordSchema,
+  investigationStateSchema,
   sessionRecordSchema,
 } from '@wp-json-discovery/contracts';
 import type {
@@ -60,7 +62,7 @@ const defaultClient: ValidatedClient = {
   save: saveInvestigationSession,
   claim: claimAnonymousInvestigation,
   claimPayload: (id) => {
-    const snapshot = loadAnonymousInvestigation();
+    const snapshot = loadAnonymousInvestigation({ strict: true });
     if (snapshot?.record.session.investigationId !== id) {
       throw Object.assign(new Error('Anonymous investigation does not match requested id.'), { code: 'claim-mismatch' });
     }
@@ -76,19 +78,27 @@ export const createInvestigationTransport = (
   const source = { ...defaultClient, ...client };
   return {
   async start(domain, selectedCapabilities) {
+    const parsedDomain = domainIdentitySchema.safeParse(domain);
+    if (!parsedDomain.success) throw new ContractInvalidError('Invalid investigation domain', parsedDomain.error);
     const selected = capabilitySelectionSchema.array().safeParse(selectedCapabilities);
     if (!selected.success) throw new ContractInvalidError('Invalid capability selection', selected.error);
     if (!source.start) throw new Error('Investigation client cannot start.');
-    return mapRecord(await call(source.start(domain, selected.data), 'start'));
+    return mapRecord(await call(source.start(parsedDomain.data, selected.data), 'start'), false);
   },
   async save(investigation) {
+    const state = parseState(investigation, {
+      id: investigation.id,
+      submitted: investigation.submittedUrl,
+      normalized: investigation.normalizedUrl,
+    });
     const result = await call(
-      source.save(investigation.id, domainToSession(investigation)),
+      source.save(investigation.id, domainToSession(state)),
       'save',
     );
     parseSession(result);
   },
   async get(id) {
+    validateIdentifier(id, 'investigation id');
     try {
       const value = await source.get(id);
       return value === null ? null : mapRecord(value);
@@ -101,20 +111,30 @@ export const createInvestigationTransport = (
     const investigations = mapList(await call(source.list(), 'list'));
     const hydrated = await Promise.all(investigations.map(async investigation => {
       const value = await source.get(investigation.id);
-      return value === null ? investigation : mapRecord(value);
+      if (value === null) throw new ContractInvalidError('Investigation list item is missing full state');
+      return mapRecord(value);
     }));
     return hydrated;
   },
   async claim(id) {
+    validateIdentifier(id, 'investigation id');
     if (!source.claim || !source.claimPayload) throw new Error('Investigation client cannot claim.');
-    const payload = source.claimPayload(id);
+    let payload: { domain: DomainIdentity; anonymousRecord: unknown };
+    try {
+      payload = source.claimPayload(id);
+    } catch (cause) {
+      throw new ContractInvalidError('Invalid anonymous investigation claim payload', cause);
+    }
+    const domain = domainIdentitySchema.safeParse(payload.domain);
+    if (!domain.success) throw new ContractInvalidError('Invalid claim domain', domain.error);
     const anonymous = parseSession(payload.anonymousRecord);
     if (anonymous.session.investigationId !== id) {
-      throw Object.assign(new Error('Anonymous investigation does not match requested id.'), { code: 'claim-mismatch' });
+      throw new ContractInvalidError('Anonymous investigation does not match requested id.');
     }
+    parseState(anonymous.session.investigationState, { id, ...domain.data });
     // Claim endpoint allocates canonical authenticated ID; input snapshot ID is
     // the identity that must match, not returned record ID.
-    return mapRecord(await call(source.claim(payload.domain, payload.anonymousRecord), 'claim'));
+    return mapRecord(await call(source.claim(domain.data, payload.anonymousRecord), 'claim'));
   },
   };
 };
@@ -139,10 +159,16 @@ function isNotFound(error: unknown): boolean {
   return error instanceof Error && /not found/i.test(error.message);
 }
 
-function mapRecord(value: unknown): Investigation {
+function validateIdentifier(value: string, label: string): void {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new ContractInvalidError(`Invalid ${label}`);
+  }
+}
+
+function mapRecord(value: unknown, requireState = true): Investigation {
   const parsed = investigationRecordSchema.safeParse(value);
   if (!parsed.success) throw new ContractInvalidError('Invalid investigation record', parsed.error);
-  return recordToDomain(parsed.data);
+  return recordToDomain(parsed.data, requireState);
 }
 
 function mapList(value: unknown): Investigation[] {
@@ -163,14 +189,13 @@ function parseSession(value: unknown): SessionRecord {
   return parsed.data;
 }
 
-function recordToDomain(record: InvestigationRecord): Investigation {
+function recordToDomain(record: InvestigationRecord, requireState: boolean): Investigation {
   const session = record.latestSession;
   if (session?.investigationState !== undefined) {
-    const state = createInvestigation(session.investigationState as Investigation);
-    if (state.id !== record.investigation.id) {
-      throw new ContractInvalidError('Investigation state identity mismatch');
-    }
-    return state;
+    return parseState(session.investigationState, { id: record.investigation.id, ...record.investigation.domain });
+  }
+  if (requireState) {
+    throw new ContractInvalidError('Investigation response is missing validated full state');
   }
   return createInvestigation({
     id: record.investigation.id,
@@ -197,6 +222,23 @@ function recordToDomain(record: InvestigationRecord): Investigation {
       };
     }),
   });
+}
+
+function parseState(value: unknown, identity: { id: string; submitted: string; normalized: string }): Investigation {
+  const parsed = investigationStateSchema.safeParse(value);
+  if (!parsed.success) throw new ContractInvalidError('Invalid investigation state', parsed.error);
+  let state: Investigation;
+  try {
+    state = createInvestigation(parsed.data as Investigation);
+  } catch (cause) {
+    throw new ContractInvalidError('Invalid investigation state', cause);
+  }
+  if (state.id !== identity.id
+    || state.submittedUrl !== identity.submitted
+    || state.normalizedUrl !== identity.normalized) {
+    throw new ContractInvalidError('Investigation state identity mismatch');
+  }
+  return state;
 }
 
 function domainToSession(investigation: Investigation) {

@@ -27,6 +27,82 @@ const capabilityErrorSchema = z.object({
   retryable: z.boolean(),
 }).strict();
 
+const jsonValueSchema: z.ZodType = z.lazy(() => z.union([
+  z.null(),
+  z.string(),
+  z.number().finite(),
+  z.boolean(),
+  z.array(jsonValueSchema),
+  z.record(z.string(), jsonValueSchema),
+]));
+
+const investigationCapabilitySchema = z.object({
+  name: identifierSchema,
+  status: z.enum(['queued', 'running', 'success', 'failed', 'unavailable']),
+  dependencies: z.array(identifierSchema).optional(),
+  metadata: jsonValueSchema.optional(),
+  result: jsonValueSchema.optional(),
+  reason: z.string().optional(),
+  startedAt: timestampSchema.optional(),
+  completedAt: timestampSchema.optional(),
+  error: capabilityErrorSchema.optional(),
+}).strict().superRefine((capability, context) => {
+  if (capability.status === 'failed' && !capability.error) {
+    context.addIssue({ code: 'custom', message: 'Failed capabilities require an error', path: ['error'] });
+  }
+  if (['queued', 'running', 'success'].includes(capability.status) && capability.error) {
+    context.addIssue({ code: 'custom', message: 'Active and successful capabilities cannot have an error', path: ['error'] });
+  }
+  if (capability.status === 'unavailable' && capability.error?.retryable) {
+    context.addIssue({ code: 'custom', message: 'Unavailable capability errors cannot be retryable', path: ['error', 'retryable'] });
+  }
+});
+
+const investigationEvidenceSchema = z.object({
+  id: identifierSchema,
+  kind: z.enum(['observed', 'inference', 'request-trace', 'absence']),
+  capability: identifierSchema,
+  value: jsonValueSchema,
+  source: z.object({
+    locator: z.string().min(1).optional(),
+    observedAt: timestampSchema.optional(),
+    evidenceIds: z.array(identifierSchema).optional(),
+    request: z.object({
+      method: z.string().min(1),
+      url: z.string().min(1),
+      status: z.number().finite().optional(),
+    }).strict().optional(),
+  }).strict(),
+}).strict();
+
+const investigationObservationSchema = z.object({
+  id: identifierSchema,
+  capability: identifierSchema,
+  observedAt: timestampSchema,
+  value: jsonValueSchema,
+}).strict();
+
+const investigationFindingSchema = z.object({
+  id: identifierSchema,
+  capability: identifierSchema,
+  summary: z.string().min(1),
+  evidenceIds: z.array(identifierSchema),
+  confidence: z.enum(['low', 'medium', 'high']),
+}).strict();
+
+export const investigationStateSchema = z.object({
+  id: identifierSchema,
+  submittedUrl: z.string().min(1),
+  normalizedUrl: z.string().min(1),
+  redirectChain: z.array(z.string().min(1)),
+  createdAt: timestampSchema,
+  capabilities: z.array(investigationCapabilitySchema),
+  observationTimeline: z.array(investigationObservationSchema),
+  evidence: z.array(investigationEvidenceSchema),
+  findings: z.array(investigationFindingSchema),
+}).strict();
+export type InvestigationState = z.infer<typeof investigationStateSchema>;
+
 type ValidationIssue = { message: string; path: (string | number)[] };
 
 const retryStatusIssues = (
@@ -202,8 +278,7 @@ const scanSessionFields = {
   overall: z.object({
     status: z.enum(['complete', 'partial', 'failed', 'blocked', 'incomplete']),
   }).strict(),
-  // Optional adapter state preserves richer investigations without changing old sessions.
-  investigationState: z.unknown().optional(),
+  investigationState: investigationStateSchema.optional(),
 };
 
 const scanSessionUnionSchema = z.discriminatedUnion('status', [

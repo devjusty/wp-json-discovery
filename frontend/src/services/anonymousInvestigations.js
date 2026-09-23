@@ -1,5 +1,6 @@
 import {
   domainIdentitySchema,
+  investigationStateSchema,
   sessionRecordSchema
 } from '@wp-json-discovery/contracts';
 
@@ -96,11 +97,14 @@ function normalizeSnapshot(snapshot, revisionFallback = 0) {
     session: snapshot.session,
     persistedAt: snapshot.persistedAt
   });
-  if (!domain.success || !record.success) return null;
+  const investigation = snapshot.investigation === undefined
+    ? { success: true, data: undefined }
+    : investigationStateSchema.safeParse(snapshot.investigation);
+  if (!domain.success || !record.success || !investigation.success) return null;
   const normalized = {
     domain: domain.data,
     record: record.data,
-    ...(snapshot.investigation ? { investigation: snapshot.investigation } : {}),
+    ...(investigation.data ? { investigation: investigation.data } : {}),
     revision,
   };
   Object.defineProperty(normalized, 'hasExplicitRevision', {

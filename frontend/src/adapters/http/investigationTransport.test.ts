@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ContractInvalidError, createInvestigationTransport } from './investigationTransport';
 
 describe('investigation transport', () => {
   it('maps validated records into domain investigations', async () => {
+    const state = fullInvestigation();
     const transport = createInvestigationTransport({
       get: async () => ({
         recordType: 'investigation',
@@ -10,6 +11,7 @@ describe('investigation transport', () => {
         createdAt: '2026-09-23T12:00:00.000Z',
         updatedAt: '2026-09-23T12:00:00.000Z',
         sessionIds: ['session-1'],
+        latestSession: { ...validSessionRecord().session, investigationState: state },
       }),
       list: async () => ({ investigations: [] }),
       save: async () => validSessionRecord(),
@@ -32,6 +34,47 @@ describe('investigation transport', () => {
     await expect(transport.get('inv-1')).rejects.toSatisfy((error) => {
       return error instanceof ContractInvalidError && error.code === 'contract-invalid';
     });
+  });
+
+  it('rejects a validly shaped state with mismatched envelope identity', async () => {
+    const transport = createInvestigationTransport({
+      get: async () => ({
+        recordType: 'investigation',
+        investigation: { id: 'inv-1', ownerId: 'user-1', domain: { submitted: 'Example.com', normalized: 'https://example.com' } },
+        createdAt: '2026-09-23T12:00:00.000Z',
+        updatedAt: '2026-09-23T12:00:00.000Z',
+        sessionIds: ['session-1'],
+        latestSession: { ...validSessionRecord().session, investigationState: { ...fullInvestigation(), id: 'other' } },
+      }),
+      list: async () => ({ investigations: [] }),
+      save: async () => validSessionRecord(),
+    });
+
+    await expect(transport.get('inv-1')).rejects.toMatchObject({ code: 'contract-invalid' });
+  });
+
+  it('rejects a record without full state instead of projecting empty fields', async () => {
+    const transport = createInvestigationTransport({
+      get: async () => ({
+        recordType: 'investigation',
+        investigation: { id: 'inv-1', ownerId: 'user-1', domain: { submitted: 'Example.com', normalized: 'https://example.com' } },
+        createdAt: '2026-09-23T12:00:00.000Z',
+        updatedAt: '2026-09-23T12:00:00.000Z',
+        sessionIds: ['session-1'],
+      }),
+      list: async () => ({ investigations: [] }),
+      save: async () => validSessionRecord(),
+    });
+
+    await expect(transport.get('inv-1')).rejects.toMatchObject({ code: 'contract-invalid' });
+  });
+
+  it('validates start domain input before calling the API client', async () => {
+    const start = vi.fn();
+    const transport = createInvestigationTransport({ start, get: async () => null, list: async () => ({ investigations: [] }), save: async () => validSessionRecord() });
+
+    await expect(transport.start({ submitted: '', normalized: 'https://example.com' }, [])).rejects.toMatchObject({ code: 'contract-invalid' });
+    expect(start).not.toHaveBeenCalled();
   });
 
   it('preserves a valid not-found null from the HTTP client', async () => {
@@ -80,7 +123,7 @@ describe('investigation transport', () => {
       }),
     });
 
-    await expect(transport.claim('requested-investigation')).rejects.toMatchObject({ code: 'claim-mismatch' });
+    await expect(transport.claim('requested-investigation')).rejects.toBeInstanceOf(ContractInvalidError);
   });
 });
 

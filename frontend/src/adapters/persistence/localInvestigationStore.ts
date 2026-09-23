@@ -1,10 +1,11 @@
 import {
   domainIdentitySchema,
+  investigationStateSchema,
   sessionRecordSchema,
 } from '@wp-json-discovery/contracts';
 import type { InvestigationStore } from '../../application/ports/investigation-store';
 import { createInvestigation } from '../../domain/investigation/model';
-import type { CapabilityRunInput, Investigation, JsonValue } from '../../domain/investigation/model';
+import type { CapabilityRunInput, Investigation } from '../../domain/investigation/model';
 import { ContractInvalidError } from '../http/investigationTransport';
 import {
   loadAnonymousInvestigation,
@@ -59,16 +60,21 @@ function createAnonymousStore(persistence: AnonymousPersistence): InvestigationS
 
   return {
     async save(investigation) {
+      const state = parseState(investigation, {
+        id: investigation.id,
+        submitted: investigation.submittedUrl,
+        normalized: investigation.normalizedUrl,
+      });
       persistence.save({
         domain: {
-          submitted: investigation.submittedUrl,
-          normalized: investigation.normalizedUrl,
+          submitted: state.submittedUrl,
+          normalized: state.normalizedUrl,
         },
-        investigation,
+        investigation: state,
         record: {
           recordType: 'session',
-          session: domainToSession(investigation),
-          persistedAt: investigation.createdAt,
+          session: domainToSession(state),
+          persistedAt: state.createdAt,
         },
       });
     },
@@ -104,37 +110,32 @@ function snapshotToDomain(value: unknown): Investigation {
     });
   }
 
-  if (snapshot.investigation !== undefined) {
-    const investigation = createInvestigation(snapshot.investigation as Investigation);
-    if (investigation.id !== record.data.session.investigationId) {
-      throw new ContractInvalidError('Anonymous investigation identity mismatch');
-    }
-    return investigation;
+  if (snapshot.investigation === undefined) {
+    throw new ContractInvalidError('Anonymous investigation is missing validated full state');
   }
-
-  return createInvestigation({
+  const investigation = parseState(snapshot.investigation, {
     id: record.data.session.investigationId,
-    submittedUrl: domain.data.submitted,
-    normalizedUrl: domain.data.normalized,
-    redirectChain: [],
-    createdAt: record.data.persistedAt,
-    capabilities: record.data.session.selectedCapabilities.map(({ id, dependencies }) => {
-      const state = record.data.session.capabilityStates[id];
-      const outcome = state && 'outcome' in state ? state.outcome : undefined;
-      const error = outcome && typeof outcome === 'object' && 'error' in outcome
-        ? outcome.error as CapabilityRunInput['error']
-        : undefined;
-      return {
-        name: id,
-        status: state?.status === 'idle' ? 'queued' : state?.status ?? 'queued',
-        dependencies,
-        ...(outcome && outcome.status === 'success' ? { result: outcome.result as JsonValue } : {}),
-        startedAt: record.data.session.startedAt ?? undefined,
-        completedAt: record.data.session.completedAt ?? undefined,
-        ...(error ? { error } : {}),
-      };
-    }),
+    submitted: domain.data.submitted,
+    normalized: domain.data.normalized,
   });
+  return investigation;
+}
+
+function parseState(value: unknown, identity: { id: string; submitted: string; normalized: string }): Investigation {
+  const state = investigationStateSchema.safeParse(value);
+  if (!state.success) throw new ContractInvalidError('Invalid anonymous investigation state', state.error);
+  let investigation: Investigation;
+  try {
+    investigation = createInvestigation(state.data as Investigation);
+  } catch (cause) {
+    throw new ContractInvalidError('Invalid anonymous investigation state', cause);
+  }
+  if (investigation.id !== identity.id
+    || investigation.submittedUrl !== identity.submitted
+    || investigation.normalizedUrl !== identity.normalized) {
+    throw new ContractInvalidError('Anonymous investigation identity mismatch');
+  }
+  return investigation;
 }
 
 function domainToSession(investigation: Investigation) {

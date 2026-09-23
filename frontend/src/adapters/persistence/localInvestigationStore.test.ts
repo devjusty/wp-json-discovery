@@ -83,6 +83,24 @@ describe('investigation store port', () => {
     await expect(createLocalInvestigationStore().list()).rejects.toMatchObject({ code: 'contract-invalid' });
   });
 
+  it('rejects legacy snapshots missing validated full state', async () => {
+    const store = createLocalInvestigationStore({
+      anonymous: {
+        load: () => ({
+          domain: { submitted: 'Example.com', normalized: 'https://example.com' },
+          record: {
+            recordType: 'session',
+            session: { id: 'session-1', investigationId: 'inv-1', status: 'idle', startedAt: null, completedAt: null, selectedCapabilities: [], capabilityStates: {}, overall: { status: 'incomplete' } },
+            persistedAt: '2026-09-23T12:00:00.000Z',
+          },
+        }),
+        save: () => {},
+      },
+    });
+
+    await expect(store.get('inv-1')).rejects.toMatchObject({ code: 'contract-invalid' });
+  });
+
   it('round-trips full domain state through anonymous persistence', async () => {
     const full = {
       ...investigation,
