@@ -44,6 +44,8 @@ import {
   saveAnonymousInvestigation
 } from '../../services/anonymousInvestigations.js';
 import { normalizeCapabilityStates } from '../../domain/investigation/capabilityStates';
+
+const noopSetInvestigatorRetryCapability = () => undefined;
 import { normalizeDomain } from '../../utils/format.js';
 import { createPersistableSession } from '../../adapters/persistence/sessionMapping';
 
@@ -69,6 +71,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeS
     session,
     investigatorSession: contextInvestigatorSession,
     setInvestigatorSession: contextSetInvestigatorSession,
+    setInvestigatorRetryCapability: contextSetInvestigatorRetryCapability,
     isScanning,
     scanSettings,
     updateScanSettings,
@@ -81,6 +84,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeS
   const [fallbackInvestigatorSession, setFallbackInvestigatorSession] = useState(null);
   const investigatorSession = contextInvestigatorSession ?? fallbackInvestigatorSession;
   const setInvestigatorSession = contextSetInvestigatorSession ?? setFallbackInvestigatorSession;
+  const setInvestigatorRetryCapability = contextSetInvestigatorRetryCapability ?? noopSetInvestigatorRetryCapability;
 
   const [sitemapFilter, setSitemapFilter] = useState('all');
   const [localActiveSection, setLocalActiveSection] = useState('overview');
@@ -263,6 +267,11 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeS
       setRetryingCapabilityId(null);
     }
   }, [investigatorSession, persistInvestigatorSession, retryingCapabilityId]);
+
+  useEffect(() => {
+    setInvestigatorRetryCapability(() => handleRetryInvestigatorCapability);
+    return () => setInvestigatorRetryCapability(() => () => undefined);
+  }, [handleRetryInvestigatorCapability, setInvestigatorRetryCapability]);
 
   const handleClaim = useCallback(async () => {
     if (!anonymousSnapshot) return;

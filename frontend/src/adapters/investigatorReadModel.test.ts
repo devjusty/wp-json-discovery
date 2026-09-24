@@ -51,4 +51,14 @@ describe('createInvestigatorReadModel', () => {
       expect.objectContaining({ id: 'evidence-1', capability: 'wordpress', kind: 'observed' }),
     ]);
   });
+
+  it('keeps History reachable in investigator shell for non-admin users', () => {
+    const readModel = createInvestigatorReadModel({
+      domain: { submitted: 'https://example.com', normalized: 'https://example.com' },
+      overall: { status: 'complete' },
+      capabilityStates: {},
+    }, false);
+
+    expect(readModel.sections.find(({ id }) => id === 'history')?.disabled).toBe(false);
+  });
 });

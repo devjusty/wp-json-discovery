@@ -111,6 +111,18 @@ describe('InvestigatorShell', () => {
     await user.click(screen.getByRole('button', { name: 'Retry wordpress' }));
     expect(screen.getByText('retry wordpress')).toBeInTheDocument();
   });
+
+  it('updates displayed capability status when retry command changes session model', async () => {
+    const user = userEvent.setup();
+    render(<RetryingReportShell />);
+
+    await user.click(within(screen.getByRole('navigation', { name: 'Investigation sections' })).getByRole('button', { name: 'Tools' }));
+    expect(screen.getByRole('listitem')).toHaveTextContent('wordpress failed');
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+
+    expect(screen.getByRole('listitem')).toHaveTextContent('wordpress success');
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+  });
 });
 
 function createInvestigationReadModel(): Investigation {
@@ -154,5 +166,26 @@ function StatefulReportShell() {
         <p>{retryMessage}</p>
       </InvestigatorShell>
     </>
+  );
+}
+
+function RetryingReportShell() {
+  const [activeSection, setActiveSection] = useState('overview');
+  const [status, setStatus] = useState<'failed' | 'success'>('failed');
+  const sections = ['overview', 'tools'].map((id) => ({ id, label: id[0].toUpperCase() + id.slice(1) }));
+  return (
+    <InvestigatorShell
+      readModel={{
+        title: 'example.com',
+        status: status === 'failed' ? 'partial' : 'complete',
+        sections,
+        capabilities: [{ name: 'wordpress', status, retryable: status === 'failed' }],
+        investigation: createInvestigationReadModel(),
+      }}
+      activeSection={activeSection}
+      commands={{ onSectionChange: setActiveSection, onRetry: () => setStatus('success') }}
+    >
+      <p>{status}</p>
+    </InvestigatorShell>
   );
 }

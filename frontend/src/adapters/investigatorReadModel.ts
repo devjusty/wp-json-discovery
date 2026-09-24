@@ -68,7 +68,7 @@ export function createInvestigatorReadModel(
       { id: 'findings', label: 'Findings', description: 'Ranked signals requiring investigator attention.' },
       { id: 'evidence', label: 'Evidence', description: 'Observed evidence and provenance.' },
       { id: 'assets', label: 'Assets', description: 'Discovered site assets and their sources.' },
-      { id: 'history', label: 'History', description: 'Previous investigation activity.', disabled: !domain || !isAdmin },
+      { id: 'history', label: 'History', description: 'Previous investigation activity.', disabled: !domain },
       { id: 'tools', label: 'Tools', description: 'Investigation actions and capability controls.' },
     ],
   };

@@ -52,6 +52,9 @@
   --status-warning: #b45309;
   --status-danger: #c2415b;
   --status-info: #16709c;
+  --status-neutral: var(--status-info);
+  --status-attention: var(--status-warning);
+  --status-risk: var(--status-danger);
   --focus-ring: #16709c;
   --content-width: 76rem;
   --navigation-width: 15rem;
@@ -108,6 +111,9 @@
   --status-warning: #fb923c;
   --status-danger: #fb7185;
   --status-info: #7dd3fc;
+  --status-neutral: var(--status-info);
+  --status-attention: var(--status-warning);
+  --status-risk: var(--status-danger);
   --focus-ring: #7dd3fc;
   --content-width: 76rem;
   --navigation-width: 15rem;

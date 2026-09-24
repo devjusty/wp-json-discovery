@@ -10,6 +10,7 @@ import { setTokenProvider, setAuthUserProvider, fetchUserProfile } from './api/c
 import { setScanCapabilityContext } from './services/scanCapabilities.js';
 import { AdminShell } from './ui/shell/AdminShell';
 import { InvestigatorShell } from './ui/shell/InvestigatorShell';
+import { resolveInvestigatorSectionPage } from './ui/shell/investigatorNavigation';
 import { createInvestigatorReadModel } from './adapters/investigatorReadModel';
 import { loadAdminPage, loadHistoryPage, loadInvestigationsPage, loadScanPage } from './adapters/legacyPageAdapters';
 
@@ -45,7 +46,7 @@ function AppContent() {
     currentScanDomain,
     setSelectedInvestigationId
   } = useScanShellContext();
-  const { retryCapability, investigatorSession } = useScanResultsContext();
+  const { retryInvestigatorCapability, investigatorSession } = useScanResultsContext();
   const { isRotatingLogs, rotateLogs } = useActivityLog();
   const { isAuthenticated } = useAuth0();
   const { data: userProfile } = useQuery({
@@ -58,7 +59,7 @@ function AppContent() {
   const [activeInvestigatorSection, setActiveInvestigatorSection] = useState('overview');
   const handleInvestigatorSectionChange = (sectionId: string) => {
     setActiveInvestigatorSection(sectionId);
-    setActivePage(sectionId === 'history' ? 'history' : 'scan');
+    setActivePage(resolveInvestigatorSectionPage(sectionId, isAdmin));
   };
   const investigatorReadModel = useMemo(
     () => createInvestigatorReadModel(investigatorSession, isAdmin, currentScanDomain),
@@ -194,7 +195,7 @@ function AppContent() {
     }
 
     return (
-      <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryCapability }} activeSection={activePage === 'history' ? 'history' : activeInvestigatorSection} contentLandmark="div">
+         <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryInvestigatorCapability }} activeSection={activePage === 'history' ? 'history' : activeInvestigatorSection} contentLandmark="div">
         <Suspense fallback={<PageLoadingState label="Loading scan history..." />}>
           <HistoryPage
             headerActions={headerActions}
@@ -216,7 +217,7 @@ function AppContent() {
 
   if (activePage === 'investigations') {
     return (
-      <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryCapability }} activeSection={activeInvestigatorSection} contentLandmark="div">
+      <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryInvestigatorCapability }} activeSection={activeInvestigatorSection} contentLandmark="div">
         <Suspense fallback={<PageLoadingState label="Loading investigations..." />}>
           <InvestigationsPage
             headerActions={headerActions}
@@ -237,7 +238,7 @@ function AppContent() {
   }
 
     return (
-      <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryCapability }} activeSection={activeInvestigatorSection} contentLandmark="div">
+      <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryInvestigatorCapability }} activeSection={activeInvestigatorSection} contentLandmark="div">
         <Suspense fallback={<PageLoadingState label="Loading scanner..." />}>
           <ScanPage headerActions={headerActions} onNavigate={setActivePage} isAdmin={isAdmin} isAuthenticated={isAuthenticated} activeSection={activeInvestigatorSection} onSectionChange={handleInvestigatorSectionChange} />
         </Suspense>
