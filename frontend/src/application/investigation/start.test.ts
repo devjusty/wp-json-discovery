@@ -101,6 +101,38 @@ describe('startInvestigation', () => {
     expect(deps.saved).toHaveLength(1);
   });
 
+  it.each([
+    { name: 'remote validation failure', error: Object.assign(new Error('Unsafe domain'), { status: 400, code: 'invalid-domain' }) },
+    { name: 'remote contract failure', error: Object.assign(new Error('Invalid investigation response'), { code: 'contract-invalid' }) },
+  ])('propagates $name without local fallback', async ({ error }) => {
+    const deps = makeDeps();
+    deps.auth.getUserId = () => 'user-1';
+    deps.remoteStart = async () => { throw error; };
+
+    await expect(startInvestigation({
+      domain: { submittedUrl: 'example.com', normalizedUrl: 'https://example.com' },
+      capabilities: [],
+    }, deps)).rejects.toBe(error);
+
+    expect(deps.saved).toHaveLength(0);
+  });
+
+  it('falls back locally for retryable remote allocation errors', async () => {
+    const deps = makeDeps();
+    deps.auth.getUserId = () => 'user-1';
+    deps.remoteStart = async () => {
+      throw Object.assign(new Error('temporary failure'), { status: 503 });
+    };
+
+    const result = await startInvestigation({
+      domain: { submittedUrl: 'example.com', normalizedUrl: 'https://example.com' },
+      capabilities: [],
+    }, deps);
+
+    expect(result.persistence.local).toBe('saved');
+    expect(deps.saved).toHaveLength(1);
+  });
+
   it('does not classify an authenticated local store failure as a remote failure', async () => {
     const deps = makeDeps();
     deps.auth.getUserId = () => 'user-1';

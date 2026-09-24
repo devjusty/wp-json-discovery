@@ -185,9 +185,14 @@ function normalizeInvestigationIdentity(input, normalize) {
   const trimmed = typeof input === 'string' ? input.trim() : input;
   if (typeof trimmed === 'string' && /^https?:\/\//i.test(trimmed)) {
     try {
-      return normalize(new URL(trimmed).hostname);
-    } catch {
-      // Keep existing normalization behavior for malformed URL-shaped input.
+      const url = new URL(trimmed);
+      if (url.username || url.password || url.port || !url.hostname) {
+        throw new InvestigationCommandError('invalid-command', 'Investigation domain URL is invalid.');
+      }
+      return normalize(url.hostname);
+    } catch (error) {
+      if (error instanceof InvestigationCommandError) throw error;
+      throw new InvestigationCommandError('invalid-command', 'Investigation domain URL is invalid.', error);
     }
   }
   return normalize(input);

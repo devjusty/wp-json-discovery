@@ -107,6 +107,20 @@ describe('investigation session', () => {
     });
   });
 
+  it('rejects malformed URL-shaped authenticated input before remote allocation', async () => {
+    const remoteStart = vi.fn();
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => ({ findings: [] }) },
+      localStore: memoryStore(),
+      remoteStore: memoryStore(),
+      remoteStart,
+    });
+
+    await expect(workflow.start('https://[malformed')).rejects.toMatchObject({ code: 'invalid-command' });
+    expect(remoteStart).not.toHaveBeenCalled();
+  });
+
   it('exposes command callbacks and read model without leaking persistence details', async () => {
     const workflow = createInvestigatorWorkflow({
       auth: { getUserId: () => null, getAccessToken: async () => null },
