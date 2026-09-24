@@ -165,6 +165,16 @@ describe('InvestigationsPage', () => {
     expect(screen.getByRole('button', { name: /retry/i })).toBeEnabled();
   });
 
+  it('loads anonymous state strictly and renders recovery guidance for corrupt storage', () => {
+    const error = new Error('Invalid anonymous investigation snapshot');
+    mockedLoadAnonymousInvestigation.mockImplementation(() => { throw error; });
+
+    renderPage();
+
+    expect(mockedLoadAnonymousInvestigation).toHaveBeenCalledWith({ strict: true });
+    expect(screen.getByRole('alert')).toHaveTextContent(/saved investigation data could not be read/i);
+  });
+
   it('renders explicit status and hides resume for terminal non-retryable states', async () => {
     const terminalInvestigation = {
       ...remoteInvestigation,

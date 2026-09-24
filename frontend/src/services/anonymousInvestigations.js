@@ -3,6 +3,7 @@ import {
   investigationStateSchema,
   sessionRecordSchema
 } from '@wp-json-discovery/contracts';
+import { ContractInvalidError } from '../adapters/contractErrors.ts';
 
 const STORAGE_KEY = 'wpjd:anonymous-investigation:v1';
 const STORAGE_VERSION = 1;
@@ -17,27 +18,28 @@ export function loadAnonymousInvestigation(options = {}) {
     removeAnonymousInvestigation();
     return null;
   }
+  if (raw === null) return null;
 
   let stored;
   try {
     stored = JSON.parse(raw);
   } catch (cause) {
+    if (options.strict) throw new ContractInvalidError('Invalid anonymous investigation snapshot', cause);
     removeAnonymousInvestigation();
-    if (options.strict) throw Object.assign(new Error('Invalid anonymous investigation snapshot'), { cause });
     return null;
   }
 
   const snapshot = validateSnapshot(stored);
   if (!snapshot) {
+    if (options.strict) throw new ContractInvalidError('Invalid anonymous investigation snapshot');
     removeAnonymousInvestigation();
-    if (options.strict) throw new Error('Invalid anonymous investigation snapshot');
     return null;
   }
   return snapshot;
 }
 
 export function saveAnonymousInvestigation(snapshot) {
-  const current = loadAnonymousInvestigation();
+  const current = loadAnonymousInvestigation({ strict: true });
   const next = normalizeSnapshot(snapshot, current ? getNextRevision(current.revision) : 1);
   if (!next) return;
   if (current && !shouldReplace(current, next)) return;

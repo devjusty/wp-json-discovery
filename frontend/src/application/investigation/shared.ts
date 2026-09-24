@@ -206,15 +206,31 @@ async function runDomainCapabilities(
     const runnable = current.capabilities.filter(({ status, dependencies = [] }) => (
       status === 'queued' && dependencies.every((dependency) => current.capabilities.find(({ name }) => name === dependency)?.status === 'success')
     ));
-    if (runnable.length === 0) break;
+    if (runnable.length === 0) {
+      const stuck = current.capabilities.filter(({ status }) => status === 'queued');
+      for (const { name, dependencies = [] } of stuck) {
+        current = transition(current, { type: 'capability-running', capability: name });
+        current = transition(current, {
+          type: 'capability-unavailable', capability: name, dependencyId: dependencies[0],
+          error: { code: 'dependency_failed', message: 'Required capability did not complete.', retryable: false },
+        });
+        current = await publishProgress(current, store, onProgress);
+      }
+      break;
+    }
     runnable.forEach(({ name }) => { current = transition(current, { type: 'capability-running', capability: name }); });
     current = await publishProgress(current, store, onProgress);
     const settled = await Promise.allSettled(runnable.map(({ name, options }) => runner.run({ investigation: current, capability: name, options })));
     for (const [index, outcome] of settled.entries()) {
       const name = runnable[index].name;
-      current = outcome.status === 'fulfilled'
-        ? transition(current, { type: 'capability-succeeded', capability: name, result: outcome.value })
-        : transition(current, { type: 'capability-failed', capability: name, error: normalizeRunnerError(outcome.reason) });
+      if (outcome.status === 'fulfilled') {
+        current = transition(current, { type: 'capability-succeeded', capability: name, result: outcome.value });
+      } else {
+        const error = normalizeRunnerError(outcome.reason);
+        current = transition(current, error.code === 'runner_unavailable'
+          ? { type: 'capability-unavailable', capability: name, error }
+          : { type: 'capability-failed', capability: name, error });
+      }
       current = await publishProgress(current, store, onProgress);
     }
   }

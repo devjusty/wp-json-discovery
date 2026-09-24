@@ -5,6 +5,7 @@ import {
   removeAnonymousInvestigation,
   saveAnonymousInvestigation
 } from './anonymousInvestigations.js';
+import { ContractInvalidError } from '../adapters/contractErrors';
 
 const session = {
   id: 'session-1',
@@ -52,6 +53,21 @@ describe('anonymous investigation continuity', () => {
     }));
     expect(loadAnonymousInvestigation()).toBeNull();
     expect(localStorage.getItem('wpjd:anonymous-investigation:v1')).toBeNull();
+  });
+
+  it('strictly preserves malformed storage for recovery and throws a contract error', () => {
+    localStorage.setItem('wpjd:anonymous-investigation:v1', '{bad json');
+
+    expect(() => loadAnonymousInvestigation({ strict: true })).toThrow(ContractInvalidError);
+    expect(localStorage.getItem('wpjd:anonymous-investigation:v1')).toBe('{bad json');
+  });
+
+  it('does not overwrite malformed storage during save', () => {
+    localStorage.setItem('wpjd:anonymous-investigation:v1', '{bad json');
+
+    expect(() => saveAnonymousInvestigation({ domain, session, persistedAt: '2026-09-10T12:00:00.000Z' }))
+      .toThrow(ContractInvalidError);
+    expect(localStorage.getItem('wpjd:anonymous-investigation:v1')).toBe('{bad json');
   });
 
   it('only replaces a newer snapshot', () => {

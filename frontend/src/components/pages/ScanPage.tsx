@@ -84,6 +84,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, authSes
   }, [onSectionChange]);
   const [recentDomainsExpanded, setRecentDomainsExpanded] = useState(false);
   const [anonymousSnapshot, setAnonymousSnapshot] = useState(null);
+  const [anonymousStorageError, setAnonymousStorageError] = useState('');
   const [retryingCapabilityId, setRetryingCapabilityId] = useState(null);
   const [claimError, setClaimError] = useState('');
   const [investigatorError, setInvestigatorError] = useState('');
@@ -100,7 +101,13 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, authSes
     : null, [authSession, setInvestigatorSession]);
 
   useEffect(() => {
-    const snapshot = loadAnonymousInvestigation();
+    let snapshot;
+    try {
+      snapshot = loadAnonymousInvestigation({ strict: true });
+    } catch (error) {
+      setAnonymousStorageError(error.message ?? 'Saved investigation data could not be read.');
+      return;
+    }
     if (!snapshot) return;
     setAnonymousSnapshot(snapshot);
     if (isAuthenticated || !investigatorWorkflow) return;
@@ -349,6 +356,16 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, authSes
         onScanSettingsChange={updateScanSettings}
         onSaveDefaults={saveScanDefaults}
       />
+
+      {anonymousStorageError ? (
+        <section role="alert" aria-label="Saved investigation recovery">
+          <p>Saved investigation data could not be read. Clear it to recover local scanning.</p>
+          <button type="button" onClick={() => {
+            removeAnonymousInvestigation();
+            setAnonymousStorageError('');
+          }}>Clear saved investigation</button>
+        </section>
+      ) : null}
 
       {investigatorError ? <p role="alert">{investigatorError}</p> : null}
       {isResumingInvestigation ? <p role="status">Resuming saved investigation…</p> : null}

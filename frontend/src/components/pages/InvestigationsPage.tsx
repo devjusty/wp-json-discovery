@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { loadAnonymousInvestigation } from '../../services/anonymousInvestigations.js';
+import { loadAnonymousInvestigation, removeAnonymousInvestigation } from '../../services/anonymousInvestigations.js';
 import { formatDate } from '../../utils/format.js';
 import type { Investigation } from '../../domain/investigation/model';
 import type { InvestigationStore } from '../../application/ports/investigation-store';
@@ -72,7 +72,13 @@ function InvestigationsPage({
   investigationStore,
   authSession,
 }: InvestigationsPageProps) {
-  const [localSnapshot] = useState(() => loadAnonymousInvestigation() as LocalSnapshot | null);
+  const [{ localSnapshot, localStorageError }, setLocalState] = useState(() => {
+    try {
+      return { localSnapshot: loadAnonymousInvestigation({ strict: true }) as LocalSnapshot | null, localStorageError: '' };
+    } catch (error) {
+      return { localSnapshot: null, localStorageError: error.message ?? 'Saved investigation data could not be read.' };
+    }
+  });
   const stores = useMemo(() => {
     if (investigationStore) return { active: investigationStore, local: investigationStore };
     if (isAuthenticated && !authSession) return { active: createLocalInvestigationStore(), local: createLocalInvestigationStore() };
@@ -110,6 +116,15 @@ function InvestigationsPage({
             <div role="alert">
               <p>Could not load investigations</p>
               <Button className="" type="button" variant="secondary" size="sm" onClick={() => investigationsQuery.refetch()}>Retry</Button>
+            </div>
+          ) : null}
+          {localStorageError ? (
+            <div role="alert" aria-label="Saved investigation recovery">
+              <p>Saved investigation data could not be read. Clear it to recover local scanning.</p>
+              <Button className="" type="button" variant="secondary" size="sm" onClick={() => {
+                removeAnonymousInvestigation();
+                setLocalState({ localSnapshot: null, localStorageError: '' });
+              }}>Clear saved investigation</Button>
             </div>
           ) : null}
           {!investigationsQuery.isLoading && !investigationsQuery.isError && rows.length === 0 ? (

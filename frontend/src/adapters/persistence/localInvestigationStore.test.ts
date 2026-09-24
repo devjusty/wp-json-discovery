@@ -1,6 +1,7 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import type { Investigation } from '../../domain/investigation/model';
 import { createLocalInvestigationStore } from './localInvestigationStore';
+import { ContractInvalidError } from '../contractErrors';
 
 const investigation = {
   id: 'inv-1',
@@ -115,6 +116,15 @@ describe('investigation store port', () => {
     });
 
     await expect(store.list()).rejects.toMatchObject({ code: 'contract-invalid' });
+  });
+
+  it('preserves an existing contract-invalid error from anonymous persistence', async () => {
+    const error = new ContractInvalidError('Invalid anonymous investigation snapshot');
+    const store = createLocalInvestigationStore({
+      anonymous: { load: () => { throw error; }, save: () => {} },
+    });
+
+    await expect(store.list()).rejects.toBe(error);
   });
 
   it('uses existing anonymous storage revision and contract behavior', async () => {

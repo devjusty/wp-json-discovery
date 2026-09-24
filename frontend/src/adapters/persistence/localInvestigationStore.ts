@@ -85,6 +85,7 @@ function createAnonymousStore(persistence: AnonymousPersistence): InvestigationS
     try {
       snapshot = persistence.load({ strict: true });
     } catch (cause) {
+      if (cause instanceof ContractInvalidError) throw cause;
       throw new ContractInvalidError('Invalid anonymous investigation payload', cause);
     }
     if (snapshot === null || snapshot === undefined) return null;

@@ -264,4 +264,15 @@ describe('ScanPage workflow boundary', () => {
     expect(mocks.workflow.resume).toHaveBeenCalledTimes(1);
     expect(mocks.setSelectedInvestigationId).not.toHaveBeenCalledWith('');
   });
+
+  it('loads anonymous state strictly and renders recovery guidance for corrupt storage', async () => {
+    vi.mocked(loadAnonymousInvestigation).mockImplementation(() => {
+      throw new Error('Invalid anonymous investigation snapshot');
+    });
+
+    renderPage();
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/saved investigation data could not be read/i));
+    expect(loadAnonymousInvestigation).toHaveBeenCalledWith({ strict: true });
+  });
 });

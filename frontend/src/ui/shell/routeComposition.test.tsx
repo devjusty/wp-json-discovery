@@ -12,6 +12,7 @@ describe('production route landmark composition', () => {
         commands={{ onSectionChange: vi.fn() }}
         contentLandmark="main"
         contentMode="legacy"
+        headerActions={<button type="button">New scan</button>}
       >
         <AppLayout title={route} embedded>
           <p>{route} content</p>
@@ -20,6 +21,7 @@ describe('production route landmark composition', () => {
     );
 
     expect(screen.getAllByRole('main')).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'New scan' })).toHaveLength(1);
   });
 
   it('renders exactly one main landmark for admin route', () => {

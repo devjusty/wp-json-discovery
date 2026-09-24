@@ -27,10 +27,11 @@ type InvestigatorShellProps = Readonly<{
   activeSection?: string;
   contentLandmark?: 'main' | 'div';
   contentMode?: 'report' | 'legacy';
+  headerActions?: ReactNode;
   children?: ReactNode;
 }>;
 
-export function InvestigatorShell({ readModel, commands, activeSection = readModel.sections[0]?.id ?? '', contentLandmark, contentMode = 'report', children }: InvestigatorShellProps) {
+export function InvestigatorShell({ readModel, commands, activeSection = readModel.sections[0]?.id ?? '', contentLandmark, contentMode = 'report', headerActions, children }: InvestigatorShellProps) {
   const [selectedEvidenceIds, setSelectedEvidenceIds] = useState<ReadonlyArray<string> | null>(null);
   const navigation: ShellNavigation = { items: readModel.sections, activeId: activeSection };
   const isPartial = readModel.status === 'partial' || readModel.status === 'failed';
@@ -51,7 +52,7 @@ export function InvestigatorShell({ readModel, commands, activeSection = readMod
   };
 
   return (
-    <AppShell navigation={navigation} commands={{ onNavigate: handleSectionChange }} title={readModel.title} navigationLabel="Investigator navigation" contentLandmark={contentLandmark}>
+    <AppShell navigation={navigation} commands={{ onNavigate: handleSectionChange }} title={readModel.title} navigationLabel="Investigator navigation" contentLandmark={contentLandmark} headerActions={headerActions}>
       <div className="investigator-shell__section-selector"><InvestigatorSectionSelector sections={readModel.sections} activeSection={activeSection} onChange={handleSectionChange} /></div>
       {isPartial || isBlocked ? <div className={isBlocked ? 'investigator-blocked' : 'investigator-partial'} role={isBlocked ? 'alert' : 'status'}>
         <strong>{isBlocked ? 'Investigation blocked' : readModel.status === 'failed' ? 'Investigation failed' : 'Partial investigation'}</strong>

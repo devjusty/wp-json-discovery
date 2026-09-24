@@ -4,10 +4,9 @@ import {
   normalizeSelection
 } from './scanCapabilities.js';
 import { normalizeScanError } from './scanSession.js';
-import { applyInvestigationEvent, canRetryCapability } from '../domain/investigation/lifecycle.ts';
-import { selectInvestigationStatus } from '../domain/investigation/selectors.ts';
+import { canRetryCapability } from '../domain/investigation/lifecycle.ts';
 import { createInvestigatorReadModel } from '../adapters/investigatorReadModel.ts';
-import { domainToSession } from '../adapters/persistence/sessionMapping.ts';
+import { createPersistableSession, domainToSession } from '../adapters/persistence/sessionMapping.ts';
 import { createLegacyCapabilityRunner } from '../adapters/capabilities/legacyCapabilityRunner.ts';
 import { createLocalInvestigationStore } from '../adapters/persistence/localInvestigationStore.ts';
 import { createRemoteInvestigationStore } from '../adapters/persistence/remoteInvestigationStore.ts';
@@ -16,13 +15,9 @@ import { createInvestigationApiClient } from '../api/client.ts';
 import { normalizeDomain } from '../utils/format.js';
 import { saveAuthenticatedInvestigationId } from './anonymousInvestigations.js';
 import { InvestigationCommandError } from '../application/investigation/shared.ts';
+import { retryWithCoordinator, runCapabilities } from '../application/investigation/shared.ts';
+import { createInvestigation } from '../domain/investigation/model.ts';
 export { recoverInvestigationSession } from '../application/investigation/recovery.js';
-
-const DEPENDENCY_ERROR = {
-  code: 'dependency_failed',
-  message: 'Required capability did not complete.',
-  retryable: false
-};
 
 const RUNNER_UNAVAILABLE = {
   code: 'runner_unavailable',
@@ -77,83 +72,109 @@ export function createInvestigationSession({ investigationId, domain, selection 
 }
 
 export async function runInvestigationSession(session, runners, onChange, token) {
-  let current = cloneSession(session);
+  const current = cloneSession(session);
   if (!isActive(token)) return current;
-
-  while (hasPendingCapabilities(current)) {
-    if (!isActive(token)) return current;
-
-    const pendingIds = getPendingIds(current);
-    const blockedIds = pendingIds.filter((id) => hasFailedDependency(current, id));
-    for (const id of blockedIds) {
-      current = updateCapability(current, id, unavailableState(DEPENDENCY_ERROR, getFailedDependency(current, id)));
-      notify(onChange, current, token);
-    }
-
-    const runnableIds = getPendingIds(current).filter((id) => hasSuccessfulDependencies(current, id));
-    if (runnableIds.length === 0) {
-      current.startedAt ??= new Date().toISOString();
-      for (const id of getPendingIds(current)) {
-        current = updateCapability(current, id, unavailableState(DEPENDENCY_ERROR));
-        notify(onChange, current, token);
-      }
-      continue;
-    }
-
-    for (const id of runnableIds) {
-      if (!isActive(token)) return current;
-      current = updateCapability(current, id, { status: 'queued', retry: { status: 'not-retryable' } });
-      notify(onChange, current, token);
-    }
-
-    for (const id of runnableIds) {
-      if (!isActive(token)) return current;
-      current = updateCapability(current, id, {
-        status: 'running',
-        retry: { status: 'not-retryable' }
-      });
-      notify(onChange, current, token);
-    }
-
-    const settled = await Promise.allSettled(
-      runnableIds.map((id) => Promise.resolve().then(() => runCapability(current, id, runners)))
-    );
-
-    settled.forEach((outcome, index) => {
-      const id = runnableIds[index];
-      current = outcome.status === 'fulfilled'
-        ? updateCapability(current, id, successState(outcome.value))
-        : updateCapability(current, id, errorState(outcome.reason));
-      if (isActive(token)) notify(onChange, current, token);
-    });
-  }
-
-  return finalize(current);
+  notify(onChange, queuedProgress(current), token);
+  const investigation = toInvestigation(current);
+  const result = await runCapabilities(investigation, {
+    store: compatibilityStore,
+    runner: createCompatibilityRunner(current, runners),
+    onProgress: (next) => notify(onChange, toLegacySession(next, current), token),
+  });
+  return toLegacySession(result, current);
 }
 
 export async function retryInvestigationCapability(session, capabilityId, runners, onChange, token) {
-  let current = cloneSession(session);
-  const state = current.capabilityStates[capabilityId];
-  if (!state || !canRetryCapability(current, capabilityId) || !isActive(token)) return current;
-  if (!hasSuccessfulDependencies(current, capabilityId)) {
-    current = updateCapability(current, capabilityId, unavailableState(DEPENDENCY_ERROR, getFailedDependency(current, capabilityId)));
-    notify(onChange, current, token);
-    return current;
+  const current = cloneSession(session);
+  if (!current.capabilityStates[capabilityId] || !canRetryCapability(current, capabilityId) || !isActive(token)) return current;
+  try {
+    const result = await retryWithCoordinator(toInvestigation(current), capabilityId, {
+      store: compatibilityStore,
+      runner: createCompatibilityRunner(current, runners),
+      onProgress: (next) => notify(onChange, toLegacySession(next, current), token),
+    });
+    return toLegacySession(result, current);
+  } catch (error) {
+    if (error instanceof InvestigationCommandError && error.code === 'invalid-command') return current;
+    throw error;
   }
+}
 
-  current = updateCapability(current, capabilityId, { status: 'queued', retry: { status: 'not-retryable' } });
-  notify(onChange, current, token);
-  if (!isActive(token)) return current;
-  current = updateCapability(current, capabilityId, { status: 'running', retry: { status: 'not-retryable' } });
-  notify(onChange, current, token);
+// Compatibility adapter for legacy scan callers. State transitions and execution live in application/investigation/shared.ts.
+const compatibilityStore = {
+  kind: 'local',
+  async save() {},
+  async get() { return null; },
+  async list() { return []; },
+};
 
-  const outcome = await Promise.allSettled([
-    Promise.resolve().then(() => runCapability(current, capabilityId, runners))
-  ]);
-  current = updateCapability(current, capabilityId,
-    outcome[0].status === 'fulfilled' ? successState(outcome[0].value) : errorState(outcome[0].reason));
-  if (isActive(token)) notify(onChange, current, token);
-  return finalize(current);
+function toInvestigation(session) {
+  const persistable = createPersistableSession(session, session.domain);
+  const state = {
+    ...persistable.investigationState,
+    capabilities: persistable.investigationState.capabilities.map((capability) => {
+      const selected = session.selectedCapabilities.find(({ id }) => id === capability.name);
+      if (selected?.dependencies?.length) return capability;
+      const { dependencies: _dependencies, ...withoutDependencies } = capability;
+      return withoutDependencies;
+    }),
+  };
+  return createInvestigation(state);
+}
+
+function createCompatibilityRunner(session, runners) {
+  return {
+    run: async ({ investigation, capability, options }) => {
+      const runner = runners?.[capability];
+      if (typeof runner !== 'function') {
+        throw Object.assign(new Error(RUNNER_UNAVAILABLE.message), RUNNER_UNAVAILABLE);
+      }
+      try {
+        return await runner({
+          domain: investigation.normalizedUrl,
+          domainIdentity: session.domain,
+          options: options ?? {},
+        });
+      } catch (cause) {
+        const normalized = normalizeScanError(cause);
+        throw Object.assign(new Error(normalized.message), normalized);
+      }
+    },
+  };
+}
+
+function queuedProgress(session) {
+  const next = cloneSession(session);
+  next.status = 'queued';
+  next.selectedCapabilities.forEach(({ id }) => {
+    if (next.capabilityStates[id]?.status === 'idle') next.capabilityStates[id] = { status: 'queued', retry: { status: 'not-retryable' } };
+  });
+  return next;
+}
+
+function toLegacySession(investigation, source) {
+  const next = domainToSession(investigation);
+  next.id = source.id;
+  next.selectedCapabilities = next.selectedCapabilities.map((capability) => {
+    const sourceCapability = source.selectedCapabilities.find(({ id }) => id === capability.id);
+    return sourceCapability ? { ...capability, dependencies: [...(sourceCapability.dependencies ?? capability.dependencies ?? [])] } : capability;
+  });
+  next.capabilityStates = Object.fromEntries(Object.entries(next.capabilityStates).map(([id, state]) => {
+    const sourceState = source.capabilityStates[id];
+    if (sourceState?.dependency) return [id, { ...state, dependency: sourceState.dependency }];
+    if (state.status === 'unavailable' && state.outcome?.error?.code === 'dependency_failed') {
+      const dependencies = next.selectedCapabilities.find(({ id: candidate }) => candidate === id)?.dependencies ?? [];
+      const dependencyId = dependencies.find((dependency) => ['failed', 'unavailable'].includes(next.capabilityStates[dependency]?.status)) ?? dependencies[0];
+      if (dependencyId) {
+        return [id, {
+          ...state,
+          dependency: { status: 'failed', dependencyId, error: state.outcome.error },
+        }];
+      }
+    }
+    return [id, state];
+  }));
+  return next;
 }
 
 export function getInvestigatorSelection() {
@@ -386,102 +407,6 @@ export function addInvestigationCapability(session, capabilityId, options = {}) 
 
 function createCapabilityState() {
   return { status: 'idle', retry: { status: 'not-retryable' } };
-}
-
-function runCapability(session, id, runners) {
-  if (typeof runners?.[id] !== 'function') throw Object.assign(new Error(RUNNER_UNAVAILABLE.message), RUNNER_UNAVAILABLE);
-  return runners[id]({
-    domain: session.domain.normalized,
-    domainIdentity: session.domain,
-    options: session.selection.options[id]
-  });
-}
-
-function successState(result) {
-  return { status: 'success', outcome: { status: 'success', result, error: null }, retry: { status: 'not-retryable' } };
-}
-
-function errorState(error) {
-  const normalized = normalizeScanError(error);
-  return normalized.code === 'runner_unavailable'
-    ? unavailableState(normalized)
-    : { status: 'failed', outcome: { status: 'failed', result: null, error: normalized }, retry: { status: 'not-retryable' } };
-}
-
-function unavailableState(error, dependencyId) {
-  const normalizedError = { ...error, retryable: false };
-  const state = {
-    status: 'unavailable',
-    outcome: { status: 'unavailable', result: null, error: normalizedError },
-    retry: { status: 'not-retryable' }
-  };
-  if (dependencyId) state.dependency = { status: 'failed', dependencyId, error: normalizedError };
-  return state;
-}
-
-function updateCapability(session, id, state) {
-  const event = state.status === 'success'
-    ? { type: 'capability-succeeded', capability: id, result: state.outcome?.result, at: new Date().toISOString() }
-    : state.status === 'failed'
-      ? { type: 'capability-failed', capability: id, error: state.outcome.error, at: new Date().toISOString() }
-      : state.status === 'unavailable'
-        ? {
-          type: 'capability-unavailable', capability: id, error: state.outcome?.error,
-          dependencyId: state.dependency?.dependencyId, at: new Date().toISOString()
-        }
-        : { type: `capability-${state.status}`, capability: id, at: new Date().toISOString() };
-  const transitioned = applyInvestigationEvent(session, event);
-  const next = {
-    ...transitioned,
-    capabilityStates: transitioned.capabilityStates,
-    overall: { status: selectInvestigationStatus(transitioned) }
-  };
-  if (state.status === 'queued' && session.status !== 'idle') {
-    next.status = 'running';
-    next.startedAt ??= new Date().toISOString();
-  }
-  Object.defineProperty(next, 'domain', { value: cloneDomain(session.domain), enumerable: false });
-  Object.defineProperty(next, 'selection', { value: cloneSelection(session.selection), enumerable: false, configurable: true });
-  return next;
-}
-
-function finalize(session) {
-  const aggregateStatus = selectInvestigationStatus(session);
-  const next = {
-    ...session,
-    status: ['complete', 'partial'].includes(aggregateStatus) ? 'completed' : 'failed',
-    completedAt: new Date().toISOString(),
-    overall: { status: aggregateStatus }
-  };
-  Object.defineProperty(next, 'domain', { value: cloneDomain(session.domain), enumerable: false });
-  Object.defineProperty(next, 'selection', { value: cloneSelection(session.selection), enumerable: false, configurable: true });
-  return next;
-}
-
-function getPendingIds(session) {
-  return session.selectedCapabilities
-    .map(({ id }) => id)
-    .filter((id) => session.capabilityStates[id].status === 'idle');
-}
-
-function hasPendingCapabilities(session) {
-  return getPendingIds(session).length > 0;
-}
-
-function getDependencies(session, id) {
-  return session.selectedCapabilities.find((capability) => capability.id === id)?.dependencies ?? [];
-}
-
-function hasFailedDependency(session, id) {
-  return getDependencies(session, id).some((dependencyId) => ['failed', 'unavailable'].includes(session.capabilityStates[dependencyId]?.status));
-}
-
-function hasSuccessfulDependencies(session, id) {
-  return getDependencies(session, id).every((dependencyId) => session.capabilityStates[dependencyId]?.status === 'success');
-}
-
-function getFailedDependency(session, id) {
-  return getDependencies(session, id).find((dependencyId) => ['failed', 'unavailable'].includes(session.capabilityStates[dependencyId]?.status));
 }
 
 function cloneSession(session) {
