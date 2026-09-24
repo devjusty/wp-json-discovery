@@ -96,9 +96,9 @@ const investigationFindingSchema = z.object({
   summary: z.string().min(1),
   evidenceIds: z.array(identifierSchema),
   confidence: z.enum(['low', 'medium', 'high']),
-  consequence: z.enum(['low', 'medium', 'high']).optional(),
+  consequence: z.enum(['low', 'medium', 'high', 'critical']).optional(),
   evidenceQuality: z.enum(['low', 'medium', 'high']).optional(),
-  novelty: z.enum(['low', 'medium', 'high']).optional(),
+  novelty: z.enum(['low', 'medium', 'high', 'new']).optional(),
 }).strict();
 
 export const investigationStateSchema = z.object({

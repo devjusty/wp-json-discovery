@@ -100,9 +100,9 @@ function mapResults(capabilityStates: InvestigatorSession['capabilityStates']) {
           summary: finding.summary,
           evidenceIds,
           confidence: finding.evidenceLevel === 'observed' || evidenceIds.length > 0 ? 'high' : 'medium',
-          ...(isFindingDimension(finding.consequence) ? { consequence: finding.consequence } : {}),
-          ...(isFindingDimension(finding.evidenceQuality) ? { evidenceQuality: finding.evidenceQuality } : {}),
-          ...(isFindingDimension(finding.novelty) ? { novelty: finding.novelty } : {}),
+          ...(isConsequence(finding.consequence) ? { consequence: finding.consequence } : {}),
+          ...(isEvidenceQuality(finding.evidenceQuality) ? { evidenceQuality: finding.evidenceQuality } : {}),
+          ...(isNovelty(finding.novelty) ? { novelty: finding.novelty } : {}),
         });
       }
     });
@@ -281,8 +281,16 @@ function isEvidenceKind(value: unknown): value is EvidenceKind {
   return ['observed', 'inference', 'request-trace', 'absence'].includes(value as string);
 }
 
-function isFindingDimension(value: unknown): value is 'low' | 'medium' | 'high' {
+function isEvidenceQuality(value: unknown): value is 'low' | 'medium' | 'high' {
   return value === 'low' || value === 'medium' || value === 'high';
+}
+
+function isConsequence(value: unknown): value is 'low' | 'medium' | 'high' | 'critical' {
+  return isEvidenceQuality(value) || value === 'critical';
+}
+
+function isNovelty(value: unknown): value is 'low' | 'medium' | 'high' | 'new' {
+  return isEvidenceQuality(value) || value === 'new';
 }
 
 function asJsonValue(value: unknown): JsonValue | undefined {

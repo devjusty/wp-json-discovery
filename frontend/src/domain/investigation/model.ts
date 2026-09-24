@@ -67,9 +67,9 @@ export type Finding = Readonly<{
   summary: string;
   evidenceIds: ReadonlyArray<string>;
   confidence: 'low' | 'medium' | 'high';
-  consequence?: 'low' | 'medium' | 'high';
+  consequence?: 'low' | 'medium' | 'high' | 'critical';
   evidenceQuality?: 'low' | 'medium' | 'high';
-  novelty?: 'low' | 'medium' | 'high';
+  novelty?: 'low' | 'medium' | 'high' | 'new';
 }>;
 
 export type Observation = Readonly<{
@@ -221,8 +221,13 @@ const assertFinding = (value: unknown, index: number): void => {
   if (!['low', 'medium', 'high'].includes(finding.confidence as Finding['confidence'])) {
     throw new InvestigationModelError('invalid-investigation', `findings[${index}].confidence is invalid`);
   }
+  const validFindingDimensions = {
+    consequence: ['low', 'medium', 'high', 'critical'],
+    evidenceQuality: ['low', 'medium', 'high'],
+    novelty: ['low', 'medium', 'high', 'new'],
+  } as const;
   for (const field of ['consequence', 'evidenceQuality', 'novelty'] as const) {
-    if (finding[field] !== undefined && !['low', 'medium', 'high'].includes(finding[field] as string)) {
+    if (finding[field] !== undefined && !validFindingDimensions[field].includes(finding[field] as never)) {
       throw new InvestigationModelError('invalid-investigation', `findings[${index}].${field} is invalid`);
     }
   }

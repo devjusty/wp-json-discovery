@@ -20,10 +20,11 @@ describe('rankFindings', () => {
       { id: 'breadth-low', capability: 'x', summary: 'Low breadth', evidenceIds: ['a'], confidence: 'high', consequence: 'high', evidenceQuality: 'high', novelty: 'high' },
       { id: 'novelty-low', capability: 'x', summary: 'Low novelty', evidenceIds: ['a', 'b'], confidence: 'high', consequence: 'high', evidenceQuality: 'high', novelty: 'low' },
       { id: 'top', capability: 'x', summary: 'Top', evidenceIds: ['a', 'b'], confidence: 'high', consequence: 'high', evidenceQuality: 'high', novelty: 'high' },
+      { id: 'critical-new', capability: 'x', summary: 'Critical new', evidenceIds: [], confidence: 'low', consequence: 'critical', evidenceQuality: 'low', novelty: 'new' },
     ];
 
     expect(rankFindings(findings).map(({ id }) => id)).toEqual([
-      'top', 'novelty-low', 'breadth-low', 'quality-low', 'consequence-low',
+      'critical-new', 'top', 'novelty-low', 'breadth-low', 'quality-low', 'consequence-low',
     ]);
   });
 });

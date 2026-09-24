@@ -10,6 +10,7 @@ import { setTokenProvider, setAuthUserProvider, fetchUserProfile } from './api/c
 import { setScanCapabilityContext } from './services/scanCapabilities.js';
 import { AdminShell } from './ui/shell/AdminShell';
 import { InvestigatorShell } from './ui/shell/InvestigatorShell';
+import { PageLoadingState } from './ui/shell/PageLoadingState';
 import { resolveInvestigatorSectionPage } from './ui/shell/investigatorNavigation';
 import { createInvestigatorReadModel } from './adapters/investigatorReadModel';
 import { loadAdminPage, loadHistoryPage, loadInvestigationsPage, loadScanPage } from './adapters/legacyPageAdapters';
@@ -195,7 +196,7 @@ function AppContent() {
     }
 
     return (
-         <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryInvestigatorCapability }} activeSection={activePage === 'history' ? 'history' : activeInvestigatorSection} contentLandmark="main">
+         <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryInvestigatorCapability }} activeSection={activePage === 'history' ? 'history' : activeInvestigatorSection} contentLandmark="div">
         <Suspense fallback={<PageLoadingState label="Loading scan history..." />}>
           <HistoryPage
             headerActions={headerActions}
@@ -217,7 +218,7 @@ function AppContent() {
 
   if (activePage === 'investigations') {
     return (
-      <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryInvestigatorCapability }} activeSection={activeInvestigatorSection} contentLandmark="main">
+      <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryInvestigatorCapability }} activeSection={activeInvestigatorSection} contentLandmark="div">
         <Suspense fallback={<PageLoadingState label="Loading investigations..." />}>
           <InvestigationsPage
             headerActions={headerActions}
@@ -238,7 +239,7 @@ function AppContent() {
   }
 
     return (
-      <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryInvestigatorCapability }} activeSection={activeInvestigatorSection} contentLandmark="main">
+      <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryInvestigatorCapability }} activeSection={activeInvestigatorSection} contentLandmark="div">
         <Suspense fallback={<PageLoadingState label="Loading scanner..." />}>
           <ScanPage headerActions={headerActions} onNavigate={setActivePage} isAdmin={isAdmin} isAuthenticated={isAuthenticated} activeSection={activeInvestigatorSection} onSectionChange={handleInvestigatorSectionChange} />
         </Suspense>
@@ -279,11 +280,3 @@ function App() {
 }
 
 export default App;
-
-function PageLoadingState({ label }) {
-  return (
-    <div className="app__page-loading" role="status" aria-live="polite">
-      <p>{label}</p>
-    </div>
-  );
-}

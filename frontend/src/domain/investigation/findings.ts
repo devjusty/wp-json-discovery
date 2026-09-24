@@ -6,13 +6,15 @@ const confidenceRank: Readonly<Record<Finding['confidence'], number>> = {
   low: 1,
 };
 
-const dimensionRank: Readonly<Record<'low' | 'medium' | 'high', number>> = {
+const dimensionRank: Readonly<Record<'low' | 'medium' | 'high' | 'critical' | 'new', number>> = {
   high: 3,
   medium: 2,
   low: 1,
+  critical: 4,
+  new: 4,
 };
 
-const rankDimension = (value: 'low' | 'medium' | 'high' | undefined, fallback: number) => (
+const rankDimension = (value: 'low' | 'medium' | 'high' | 'critical' | 'new' | undefined, fallback: number) => (
   value ? dimensionRank[value] : fallback
 );
 

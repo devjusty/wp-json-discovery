@@ -4,6 +4,9 @@ import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { AppShell } from './AppShell';
 import { InvestigatorShell } from './InvestigatorShell';
+import { AdminShell } from './AdminShell';
+import AppLayout from '../../components/templates/AppLayout';
+import { PageLoadingState } from './PageLoadingState';
 import type { Investigation } from '../../domain/investigation/model';
 
 describe('InvestigatorShell', () => {
@@ -157,6 +160,38 @@ describe('InvestigatorShell', () => {
     expect(screen.queryByText('{"secret":false}')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Show raw body' }));
     expect(screen.getByText('{"secret":false}')).toBeInTheDocument();
+  });
+
+  it.each(['Scan', 'Investigator'])('keeps one main landmark for %s legacy page composition', (route) => {
+    render(<InvestigatorShell
+      readModel={{ title: `${route.toLowerCase()}.example.com`, status: 'complete', sections: [], capabilities: [] }}
+      contentLandmark="div"
+      commands={{ onSectionChange: vi.fn() }}
+    >
+      <AppLayout title={`${route} page`}><p>{route} content</p></AppLayout>
+    </InvestigatorShell>);
+
+    expect(screen.getAllByRole('main')).toHaveLength(1);
+  });
+
+  it('keeps one main landmark for admin legacy page composition', () => {
+    render(<AdminShell navigation={{ items: [{ id: 'admin', label: 'Admin' }], activeId: 'admin' }} commands={{ onNavigate: vi.fn() }}>
+      <AppLayout title="Admin page"><p>Admin content</p></AppLayout>
+    </AdminShell>);
+
+    expect(screen.getAllByRole('main')).toHaveLength(1);
+  });
+
+  it('uses loading main as sole landmark while legacy route page is suspended', () => {
+    render(<InvestigatorShell
+      readModel={{ title: 'example.com', status: undefined, sections: [], capabilities: [] }}
+      contentLandmark="div"
+      commands={{ onSectionChange: vi.fn() }}
+    >
+      <PageLoadingState label="Loading scanner..." />
+    </InvestigatorShell>);
+
+    expect(screen.getAllByRole('main')).toHaveLength(1);
   });
 });
 

@@ -396,9 +396,9 @@ describe('createInvestigatorReadModel', () => {
               findings: [{
                 id: 'finding-1',
                 summary: 'Endpoint exposed',
-                consequence: 'high',
+                consequence: 'critical',
                 evidenceQuality: 'high',
-                novelty: 'medium',
+                novelty: 'new',
                 evidence: [{ id: 'evidence-1', kind: 'observed', value: 'payload', rawBody: '{"ok":true}', source: { locator: '/wp-json' } }],
               }],
             },
@@ -408,9 +408,9 @@ describe('createInvestigatorReadModel', () => {
     }, false);
 
     expect(readModel.investigation?.findings[0]).toMatchObject({
-      consequence: 'high',
+      consequence: 'critical',
       evidenceQuality: 'high',
-      novelty: 'medium',
+      novelty: 'new',
       evidenceIds: ['evidence-1'],
     });
     expect(readModel.investigation?.evidence[0].source.rawBody).toBe('{"ok":true}');
