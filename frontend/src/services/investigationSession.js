@@ -14,6 +14,7 @@ import { createRemoteInvestigationStore } from '../adapters/persistence/remoteIn
 import { createInvestigationTransport } from '../adapters/http/investigationTransport.ts';
 import { createInvestigationApiClient } from '../api/client.ts';
 import { normalizeDomain } from '../utils/format.js';
+import { saveAuthenticatedInvestigationId } from './anonymousInvestigations.js';
 
 const DEPENDENCY_ERROR = {
   code: 'dependency_failed',
@@ -236,15 +237,22 @@ export function createInvestigatorWorkflow({
         options: selection.options[name],
         dependencies: getCapabilityDependencies()[name] ?? [],
       })),
-       remoteStart: auth.getUserId?.()
-          ? (remoteStart ?? ((identity, capabilities, chain) => authenticatedTransport.start(
-           identity,
-           capabilities.map(({ name, dependencies = [], options }) => ({ id: name, dependencies, ...(options ? { options } : {}) })),
-           chain,
-         )))
-         : undefined,
        onProgress,
-    }, dependencies);
+    }, {
+      ...dependencies,
+      remoteStart: auth.getUserId?.()
+        ? (remoteStart ?? ((identity, selectedCapabilities, chain) => authenticatedTransport.start(
+          identity,
+          selectedCapabilities.map(({ name, dependencies = [], options }) => ({
+            id: name,
+            dependencies,
+            ...(options ? { options } : {}),
+          })),
+          chain,
+        )))
+        : undefined,
+    });
+    rememberAuthenticatedInvestigation(result.investigation);
     return present(result);
   };
 
@@ -272,7 +280,13 @@ export function createInvestigatorWorkflow({
 
   const claim = async (id) => {
     const { claimInvestigation: claimCommand } = await import('../application/investigation/claim.ts');
-    return present(await claimCommand(id, { auth, localStore, remoteStore }));
+    const result = await claimCommand(id, { auth, localStore, remoteStore });
+    rememberAuthenticatedInvestigation(result.investigation);
+    return present(result);
+  };
+
+  const rememberAuthenticatedInvestigation = (investigation) => {
+    if (auth.getUserId?.()) saveAuthenticatedInvestigationId(investigation.id);
   };
 
   const run = async (investigation) => {

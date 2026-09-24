@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ScanPage from './ScanPage';
+import { loadAnonymousInvestigation } from '../../services/anonymousInvestigations.js';
 
 const mocks = vi.hoisted(() => {
   const workflow = {
@@ -12,7 +13,8 @@ const mocks = vi.hoisted(() => {
     resume: vi.fn(),
     claim: vi.fn(),
   };
-  return { workflow, createWorkflow: vi.fn(() => workflow) };
+  const setInvestigatorSession = vi.fn();
+  return { workflow, createWorkflow: vi.fn(() => workflow), setInvestigatorSession };
 });
 
 vi.mock('../../services/investigationSession.js', () => ({
@@ -33,7 +35,7 @@ vi.mock('../../context/ScanContext', () => ({
   useScanResultsContext: () => ({
     session: null,
     investigatorSession: null,
-    setInvestigatorSession: vi.fn(),
+    setInvestigatorSession: mocks.setInvestigatorSession,
     setInvestigatorRetryCapability: vi.fn(),
     isScanning: false,
     scanSettings: { capabilityIds: ['homepage'], options: { homepage: {} } },
@@ -116,5 +118,29 @@ describe('ScanPage workflow boundary', () => {
 
     expect(mocks.workflow.run).not.toHaveBeenCalled();
     expect(mocks.workflow.retry).not.toHaveBeenCalled();
+  });
+
+  it('keeps authenticated claim flow at workflow boundary', async () => {
+    const anonymousSnapshot = {
+      domain: { submitted: 'Example.com', normalized: 'https://example.com' },
+      record: { session: { investigationId: 'anonymous-inv' } },
+    };
+    const claimed = { ...investigation, id: 'authenticated-inv' };
+    vi.mocked(loadAnonymousInvestigation).mockReturnValue(anonymousSnapshot as never);
+    mocks.workflow.claim.mockResolvedValue({ investigation: claimed, session: { selectedCapabilities: [], capabilityStates: {}, overall: { status: 'complete' } } });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ScanPage
+          authSession={{ getUserId: () => 'user-1', getAccessToken: async () => 'token' }}
+          isAuthenticated
+        />
+      </QueryClientProvider>,
+    );
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Import this investigation' }));
+
+    expect(mocks.workflow.claim).toHaveBeenCalledWith('anonymous-inv');
+    expect(mocks.setInvestigatorSession).toHaveBeenCalled();
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { scanSessionSchema } from '@wp-json-discovery/contracts';
 import { createInvestigation } from '../domain/investigation/model.ts';
+import { loadAuthenticatedInvestigationId } from './anonymousInvestigations.js';
 
 import {
   createInvestigationSession,
@@ -63,6 +64,7 @@ describe('investigation session', () => {
   });
 
   it('persists authenticated workflow results remotely and claims local work after sign-in', async () => {
+    localStorage.clear();
     const local = memoryStore();
     const remote = memoryStore();
     const investigation = createInvestigation({
@@ -83,6 +85,7 @@ describe('investigation session', () => {
 
     await workflow.start('example.com');
     expect(remoteSaves).toBeGreaterThan(0);
+    expect(loadAuthenticatedInvestigationId()).toBe('remote-inv');
     expect(await local.list()).toHaveLength(0);
 
     const claimed = createInvestigation({ ...investigation, id: 'claim-inv', capabilities: [] });
@@ -93,6 +96,7 @@ describe('investigation session', () => {
       remoteStore: { ...remote, claim: async () => claimed },
     });
     await expect(claimWorkflow.claim('claim-inv')).resolves.toMatchObject({ investigation: claimed });
+    expect(loadAuthenticatedInvestigationId()).toBe('claim-inv');
   });
 
   it('emits identity and capability progress before final completion', async () => {
