@@ -38,6 +38,9 @@ export async function resumeInvestigation(
       return resumableCapability;
     }),
   };
+  if (investigation.capabilities.some(({ status }) => status === 'running')) {
+    await persistence.store.save(resumable);
+  }
   const result = await runCapabilities(resumable, { store: persistence.store, runner: dependencies.runner, onProgress: dependencies.onProgress });
   return persistence.result(result);
 }

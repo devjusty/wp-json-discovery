@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
     claim: vi.fn(),
   };
   const setInvestigatorSession = vi.fn();
+  const setSelectedInvestigationId = vi.fn();
   const shellContext = {
     domain: '',
     handleDomainChange: vi.fn(),
@@ -21,8 +22,9 @@ const mocks = vi.hoisted(() => {
     activeDomain: '',
     setInvestigatorDomain: vi.fn(),
     selectedInvestigationId: null,
+    setSelectedInvestigationId,
   };
-  return { workflow, createWorkflow: vi.fn(() => workflow), setInvestigatorSession, shellContext };
+  return { workflow, createWorkflow: vi.fn(() => workflow), setInvestigatorSession, setSelectedInvestigationId, shellContext };
 });
 
 vi.mock('../../services/investigationSession.js', () => ({
@@ -162,5 +164,21 @@ describe('ScanPage workflow boundary', () => {
     );
 
     await waitFor(() => expect(mocks.workflow.resume).toHaveBeenCalledWith('selected-investigation'));
+  });
+
+  it('clears selected investigation before starting authenticated submission', async () => {
+    mocks.shellContext.selectedInvestigationId = 'previous-investigation';
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ScanPage
+          authSession={{ getUserId: () => 'user-1', getAccessToken: async () => 'token' }}
+          isAuthenticated
+        />
+      </QueryClientProvider>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Scan site' }));
+
+    expect(mocks.setSelectedInvestigationId).toHaveBeenCalledWith('');
   });
 });

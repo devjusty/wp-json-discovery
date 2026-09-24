@@ -52,7 +52,8 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, authSes
     setActivePage,
     activeDomain,
     setInvestigatorDomain,
-    selectedInvestigationId
+    selectedInvestigationId,
+    setSelectedInvestigationId,
   } = useScanShellContext();
   const {
     session,
@@ -144,6 +145,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, authSes
     startInFlightRef.current = true;
     setIsStartingInvestigation(true);
     setInvestigatorError('');
+    setSelectedInvestigationId('');
     try {
       if (!investigatorWorkflow) throw new Error('Investigation authentication context is unavailable.');
       const result = await investigatorWorkflow.start(submittedValue, scanSettings);
@@ -156,7 +158,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, authSes
       startInFlightRef.current = false;
       setIsStartingInvestigation(false);
     }
-  }, [investigatorWorkflow, onDomainChange, scanSettings, setInvestigatorDomain, setInvestigatorSession]);
+  }, [investigatorWorkflow, onDomainChange, scanSettings, setInvestigatorDomain, setInvestigatorSession, setSelectedInvestigationId]);
 
   const handleRecentDomainRescan = useCallback((value) => {
     return handleInvestigatorSubmit(value, value);

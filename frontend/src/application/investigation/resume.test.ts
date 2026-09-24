@@ -52,12 +52,20 @@ describe('resumeInvestigation', () => {
     });
     let runnerCalls = 0;
 
+    let persisted = investigation;
+    const store = {
+      get: async () => persisted,
+      save: async value => { persisted = value; },
+      list: async () => [],
+      claim: async () => persisted,
+    };
     const result = await resumeInvestigation('inv-interrupted', {
-      store: { get: async () => investigation, save: async () => {}, list: async () => [], claim: async () => investigation },
+      store,
       runner: { run: async () => { runnerCalls += 1; return { ok: true }; } },
     });
 
     expect(runnerCalls).toBe(0);
+    expect((await store.get()).capabilities[0]).toEqual(expect.objectContaining({ status: 'failed' }));
     expect(result.investigation.capabilities[0]).toEqual(expect.objectContaining({
       status: 'failed',
       error: expect.objectContaining({ code: 'interrupted', retryable: true }),

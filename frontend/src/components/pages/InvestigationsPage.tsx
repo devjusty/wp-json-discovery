@@ -107,8 +107,8 @@ function InvestigationsPage({
       <Card className="" role="region" aria-label="Investigations">
         <CardHeader className=""><CardTitle className="">Investigations</CardTitle></CardHeader>
         <CardContent className="">
-          {isAuthenticated && investigationsQuery.isLoading ? <p role="status">Loading investigations</p> : null}
-          {isAuthenticated && investigationsQuery.isError ? (
+          {investigationsQuery.isLoading ? <p role="status">Loading investigations</p> : null}
+          {investigationsQuery.isError ? (
             <div role="alert">
               <p>Could not load investigations</p>
               <Button className="" type="button" variant="secondary" size="sm" onClick={() => investigationsQuery.refetch()}>Retry</Button>

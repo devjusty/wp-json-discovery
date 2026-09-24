@@ -131,6 +131,14 @@ describe('InvestigationsPage', () => {
     expect(screen.getByRole('button', { name: /retry/i })).toBeEnabled();
   });
 
+  it('shows anonymous persistence errors with a retry action', async () => {
+    const investigationStore = { list: vi.fn().mockRejectedValue(new Error('Local storage unavailable')), get: vi.fn(), save: vi.fn(), claim: vi.fn() };
+    renderPage({ investigationStore });
+
+    expect(await screen.findByText('Could not load investigations')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeEnabled();
+  });
+
   it('renders explicit status and hides resume for terminal non-retryable states', async () => {
     const terminalInvestigation = {
       ...remoteInvestigation,
