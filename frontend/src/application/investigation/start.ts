@@ -26,6 +26,7 @@ export type InvestigationCommandDependencies = {
   createId?: () => string;
   now?: () => string;
   remoteStart?: (domain: { submitted: string; normalized: string }, capabilities: ReadonlyArray<{ name: string; dependencies?: ReadonlyArray<string>; options?: Record<string, JsonValue> }>, redirectChain: ReadonlyArray<string>) => Promise<Investigation>;
+  onAllocated?: (investigation: Investigation) => void | Promise<void>;
 };
 
 export type StartInvestigationResult = InvestigationCommandResult;
@@ -58,6 +59,7 @@ export async function startInvestigation(
     store: authenticated ? dependencies.remoteStore : dependencies.localStore,
     localStore: authenticated ? dependencies.localStore : undefined,
   });
+  await dependencies.onAllocated?.(investigation);
   const store = persistence.store;
   await persist(store, investigation);
   const result = await runCapabilities(investigation, {

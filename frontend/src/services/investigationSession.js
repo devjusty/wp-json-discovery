@@ -226,6 +226,10 @@ export function createInvestigatorWorkflow({
     };
   };
 
+  function rememberAuthenticatedInvestigation(investigation) {
+    if (auth.getUserId?.()) saveAuthenticatedInvestigationId(investigation.id);
+  }
+
   const start = async (submittedUrl, capabilities = getInvestigatorSelection()) => {
     const selection = normalizeSelection(capabilities);
     const { startInvestigation: startCommand } = await import('../application/investigation/start.ts');
@@ -240,6 +244,7 @@ export function createInvestigatorWorkflow({
        onProgress,
     }, {
       ...dependencies,
+      onAllocated: rememberAuthenticatedInvestigation,
       remoteStart: auth.getUserId?.()
         ? (remoteStart ?? ((identity, selectedCapabilities, chain) => authenticatedTransport.start(
           identity,
@@ -283,10 +288,6 @@ export function createInvestigatorWorkflow({
     const result = await claimCommand(id, { auth, localStore, remoteStore });
     rememberAuthenticatedInvestigation(result.investigation);
     return present(result);
-  };
-
-  const rememberAuthenticatedInvestigation = (investigation) => {
-    if (auth.getUserId?.()) saveAuthenticatedInvestigationId(investigation.id);
   };
 
   const run = async (investigation) => {

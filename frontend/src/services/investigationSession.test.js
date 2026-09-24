@@ -99,6 +99,30 @@ describe('investigation session', () => {
     expect(loadAuthenticatedInvestigationId()).toBe('claim-inv');
   });
 
+  it('persists authenticated ID before capability execution begins', async () => {
+    localStorage.clear();
+    const investigation = createInvestigation({
+      id: 'early-inv', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: ['https://example.com'], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [{ name: 'wordpress', status: 'queued' }],
+    });
+    let idAtExecution = null;
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => {
+        idAtExecution = loadAuthenticatedInvestigationId();
+        throw new Error('interrupted');
+      } },
+      localStore: memoryStore(),
+      remoteStore: memoryStore(),
+      remoteStart: async () => investigation,
+    });
+
+    await workflow.start('example.com');
+
+    expect(idAtExecution).toBe('early-inv');
+  });
+
   it('emits identity and capability progress before final completion', async () => {
     const changes = [];
     const result = await runInvestigationSession(session, runners, (next) => changes.push(next), { active: true });
