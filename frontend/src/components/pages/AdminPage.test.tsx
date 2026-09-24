@@ -220,6 +220,29 @@ describe('AdminPage integration', () => {
     expect(await screen.findByRole('heading', { name: 'Theme manager' })).toBeInTheDocument();
   });
 
+  it('shows failed-domain history in the DB operational inbox', async () => {
+    vi.mocked(fetchScanHistory).mockResolvedValue({
+      items: [{
+        domain: 'failed.example.com',
+        lastStatus: 'failed',
+        lastErrorCategory: 'timeout'
+      }]
+    });
+
+    renderPage();
+
+    const inbox = await screen.findByRole('region', { name: 'Operational inbox' });
+    await waitFor(() => {
+      expect(fetchScanHistory).toHaveBeenCalledWith({
+        includeFailed: true,
+        sort: 'recent',
+        limit: 200,
+        offset: 0
+      });
+    });
+    expect(await within(inbox).findByText('Failed scan for failed.example.com')).toBeInTheDocument();
+  });
+
   it('uses navigation action from sidebar', async () => {
     const onNavigate = vi.fn();
     renderPage({ onNavigate });

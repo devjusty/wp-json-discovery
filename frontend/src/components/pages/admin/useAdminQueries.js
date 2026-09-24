@@ -68,7 +68,7 @@ export default function useAdminQueries({
       limit: 200,
       offset: 0
     }),
-    enabled: activeSection === 'domains',
+    enabled: activeSection === 'domains' || activeSection === 'db',
     refetchOnWindowFocus: false
   });
 
