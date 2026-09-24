@@ -297,7 +297,14 @@ const scanSessionFields = {
     reason: nonBlankStringSchema.optional(),
     guidance: nonBlankStringSchema.optional(),
     command: nonBlankStringSchema.optional(),
-  }).strict(),
+  }).strict().superRefine((overall, context) => {
+    if (overall.status === 'blocked') return;
+    for (const field of ['reason', 'guidance', 'command'] as const) {
+      if (overall[field] !== undefined) {
+        context.addIssue({ code: 'custom', message: `Blocked recovery field ${field} requires blocked status`, path: [field] });
+      }
+    }
+  }),
   investigationState: investigationStateSchema.optional(),
 };
 

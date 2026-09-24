@@ -197,10 +197,11 @@ function AppContent() {
     }
 
     return (
-         <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryInvestigatorCapability }} activeSection={activePage === 'history' ? 'history' : activeInvestigatorSection} contentLandmark="div">
+         <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryInvestigatorCapability }} activeSection={activePage === 'history' ? 'history' : activeInvestigatorSection} contentLandmark="div" contentMode="legacy">
         <Suspense fallback={<PageLoadingState label="Loading scan history..." />}>
           <HistoryPage
             headerActions={headerActions}
+            embedded
             onRescan={(domain) => {
               if (!domain) return;
                navigateTopLevel('scan');
@@ -219,10 +220,11 @@ function AppContent() {
 
   if (activePage === 'investigations') {
     return (
-      <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryInvestigatorCapability }} activeSection={activeInvestigatorSection} contentLandmark="div">
+      <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryInvestigatorCapability }} activeSection={activeInvestigatorSection} contentLandmark="div" contentMode="legacy">
         <Suspense fallback={<PageLoadingState label="Loading investigations..." />}>
           <InvestigationsPage
             headerActions={headerActions}
+            embedded
             onNavigate={navigateTopLevel}
             isAuthenticated={isAuthenticated}
             onResumeLocal={() => {
@@ -240,9 +242,9 @@ function AppContent() {
   }
 
     return (
-      <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryInvestigatorCapability }} activeSection={activeInvestigatorSection} contentLandmark="div">
+      <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryInvestigatorCapability }} activeSection={activeInvestigatorSection} contentLandmark="div" contentMode="legacy">
         <Suspense fallback={<PageLoadingState label="Loading scanner..." />}>
-          <ScanPage headerActions={headerActions} onNavigate={setActivePage} isAdmin={isAdmin} isAuthenticated={isAuthenticated} activeSection={activeInvestigatorSection} onSectionChange={handleInvestigatorSectionChange} />
+          <ScanPage headerActions={headerActions} onNavigate={navigateTopLevel} isAdmin={isAdmin} isAuthenticated={isAuthenticated} activeSection={activeInvestigatorSection} onSectionChange={handleInvestigatorSectionChange} embedded />
         </Suspense>
       </InvestigatorShell>
     );

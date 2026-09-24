@@ -250,6 +250,21 @@ describe('InvestigatorShell', () => {
     expect(screen.getByRole('heading', { name: 'Investigator overview' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Retry homepage' })).not.toBeInTheDocument();
   });
+
+  it('lets legacy page composition use shell chrome without duplicate legacy chrome or report content', () => {
+    render(<InvestigatorShell
+      readModel={{ title: 'example.com', status: 'complete', sections: [{ id: 'overview', label: 'Overview' }], capabilities: [], investigation: createInvestigationReadModel() }}
+      contentMode="legacy"
+      commands={{ onSectionChange: vi.fn() }}
+    >
+      <AppLayout title="Legacy page" embedded><p>legacy page content</p></AppLayout>
+    </InvestigatorShell>);
+
+    expect(screen.getAllByRole('banner')).toHaveLength(1);
+    expect(screen.getByText('legacy page content')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Legacy page' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Investigator overview' })).not.toBeInTheDocument();
+  });
 });
 
 function createInvestigationReadModel(): Investigation {

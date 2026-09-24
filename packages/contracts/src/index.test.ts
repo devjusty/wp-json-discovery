@@ -237,6 +237,21 @@ describe('scan sessions', () => {
     }).success).toBe(false);
   });
 
+  it('rejects blocked recovery fields on non-blocked aggregate statuses', () => {
+    for (const status of ['complete', 'partial', 'failed', 'incomplete'] as const) {
+      expect(scanSessionSchema.safeParse({
+        id: 'session-status',
+        investigationId: 'investigation-1',
+        status: 'completed',
+        startedAt: timestamp,
+        completedAt: timestamp,
+        selectedCapabilities: [],
+        capabilityStates: {},
+        overall: { status, reason: 'Only blocked sessions explain recovery' },
+      }).success).toBe(false);
+    }
+  });
+
   it('rejects a complete session with any non-success capability', () => {
     expect(scanSessionSchema.safeParse({
       id: 'session-invalid-complete',

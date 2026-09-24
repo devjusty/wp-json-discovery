@@ -119,28 +119,36 @@ function mapResults(capabilityStates: InvestigatorSession['capabilityStates']) {
     const result = asRecord(state.outcome?.result);
     const resultFindings = Array.isArray(result.findings) ? result.findings : [];
     resultFindings.forEach((rawFinding) => {
-      const finding = asRecord(rawFinding);
-      const evidenceIds = mapEvidence(finding.evidence, capability, evidence);
-      if (typeof finding.id === 'string' && typeof finding.summary === 'string') {
-        findings.push({
-          id: finding.id,
-          capability,
-          summary: finding.summary,
-          evidenceIds,
-          ...(isConfidence(finding.confidence)
-            ? { confidence: finding.confidence }
-            : finding.evidenceLevel === 'observed' || evidenceIds.length > 0
-              ? { confidence: 'high' as const }
-              : {}),
-          ...(isConsequence(finding.consequence) ? { consequence: finding.consequence } : {}),
-          ...(isEvidenceQuality(finding.evidenceQuality) ? { evidenceQuality: finding.evidenceQuality } : {}),
-          ...(isNovelty(finding.novelty) ? { novelty: finding.novelty } : {}),
-        });
-      }
+      const finding = mapLiveFinding(rawFinding, capability, evidence);
+      if (finding) findings.push(finding);
     });
   });
 
   return { evidence: [...evidence.values()], findings };
+}
+
+function mapLiveFinding(
+  rawFinding: unknown,
+  capability: string,
+  evidence: Map<string, Investigation['evidence'][number]>,
+): MappedFinding | undefined {
+  const finding = asRecord(rawFinding);
+  const evidenceIds = mapEvidence(finding.evidence, capability, evidence);
+  if (typeof finding.id !== 'string' || typeof finding.summary !== 'string') return undefined;
+  return {
+    id: finding.id,
+    capability,
+    summary: finding.summary,
+    evidenceIds,
+    ...(isConfidence(finding.confidence)
+      ? { confidence: finding.confidence }
+      : finding.evidenceLevel === 'observed' || evidenceIds.length > 0
+        ? { confidence: 'high' as const }
+        : {}),
+    ...(isConsequence(finding.consequence) ? { consequence: finding.consequence } : {}),
+    ...(isEvidenceQuality(finding.evidenceQuality) ? { evidenceQuality: finding.evidenceQuality } : {}),
+    ...(isNovelty(finding.novelty) ? { novelty: finding.novelty } : {}),
+  };
 }
 
 function mapCanonicalInvestigation(value: unknown): Investigation | undefined {
@@ -173,16 +181,7 @@ function mergeEvidence(canonical: Investigation['evidence'], live: Investigation
   const merged = new Map(canonical.map((item) => [item.id, item]));
   live.forEach((item) => {
     const previous = merged.get(item.id);
-    if (!previous) {
-      merged.set(item.id, item);
-      return;
-    }
-    const sparseDefaults = item.kind === 'observed' && item.value === 'Observed evidence';
-    merged.set(item.id, {
-      ...previous,
-      ...(sparseDefaults ? {} : { kind: item.kind, value: item.value }),
-      source: { ...previous.source, ...item.source },
-    });
+    merged.set(item.id, mergeEvidenceOverlay(previous, item));
   });
   return [...merged.values()];
 }
@@ -190,16 +189,35 @@ function mergeEvidence(canonical: Investigation['evidence'], live: Investigation
 function mergeFindings(canonical: Investigation['findings'], live: ReadonlyArray<MappedFinding>) {
   const merged = new Map(canonical.map((finding) => [finding.id, finding]));
   live.forEach((finding) => {
-    const previous = merged.get(finding.id);
-    merged.set(finding.id, previous ? {
-        ...previous,
-        ...finding,
-        ...(finding.confidence === undefined ? { confidence: previous.confidence } : {}),
-        ...(finding.evidenceIds.length === 0 ? { evidenceIds: previous.evidenceIds } : {}),
-      }
-      : { ...finding, confidence: finding.confidence ?? 'medium' });
+    merged.set(finding.id, mergeFindingOverlay(merged.get(finding.id), finding));
   });
   return [...merged.values()];
+}
+
+export function mergeFindingOverlay(
+  previous: Investigation['findings'][number] | undefined,
+  finding: MappedFinding,
+): Investigation['findings'][number] {
+  if (!previous) return { ...finding, confidence: finding.confidence ?? 'medium' };
+  return {
+    ...previous,
+    ...finding,
+    ...(finding.confidence === undefined ? { confidence: previous.confidence } : {}),
+    ...(finding.evidenceIds.length === 0 ? { evidenceIds: previous.evidenceIds } : {}),
+  };
+}
+
+export function mergeEvidenceOverlay(
+  previous: Investigation['evidence'][number] | undefined,
+  evidence: Investigation['evidence'][number],
+): Investigation['evidence'][number] {
+  if (!previous) return evidence;
+  const sparseDefaults = evidence.kind === 'observed' && evidence.value === 'Observed evidence';
+  return {
+    ...previous,
+    ...(sparseDefaults ? {} : { kind: evidence.kind, value: evidence.value }),
+    source: { ...previous.source, ...evidence.source },
+  };
 }
 
 function mapCapabilities(capabilityStates: InvestigatorSession['capabilityStates']) {

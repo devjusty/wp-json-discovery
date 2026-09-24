@@ -56,9 +56,10 @@ type ScanPageProps = {
   isAuthenticated: boolean;
   activeSection?: string;
   onSectionChange?: (sectionId: string) => void;
+  embedded?: boolean;
 };
 
-function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeSection: controlledActiveSection, onSectionChange }: ScanPageProps) {
+function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeSection: controlledActiveSection, onSectionChange, embedded = false }: ScanPageProps) {
   const {
     domain,
     handleDomainChange: onDomainChange,
@@ -403,6 +404,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeS
       headerActions={headerActions}
       sidebar={sidebar}
       onNavigate={onNavigate}
+      embedded={embedded}
     >
       <DomainForm
         onSubmit={handleInvestigatorSubmit}

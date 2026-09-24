@@ -50,6 +50,7 @@ type InvestigationsPageProps = {
   isAuthenticated: boolean;
   onResumeLocal?: () => void;
   onResumeInvestigation?: (investigationId: string) => void;
+  embedded?: boolean;
 };
 
 function InvestigationsPage({
@@ -58,6 +59,7 @@ function InvestigationsPage({
   isAuthenticated,
   onResumeLocal,
   onResumeInvestigation,
+  embedded = false,
 }: InvestigationsPageProps) {
   const [localSnapshot] = useState(() => loadAnonymousInvestigation() as LocalSnapshot | null);
   const investigationsQuery = useQuery({
@@ -74,7 +76,7 @@ function InvestigationsPage({
   const rows = localRow ? [localRow, ...remoteRows] : remoteRows;
 
   return (
-    <AppLayout title="Investigations" subtitle={undefined} sidebar={undefined} headerActions={headerActions} onNavigate={onNavigate}>
+    <AppLayout title="Investigations" subtitle={undefined} sidebar={undefined} headerActions={headerActions} onNavigate={onNavigate} embedded={embedded}>
       <Card className="" role="region" aria-label="Investigations">
         <CardHeader className=""><CardTitle className="">Investigations</CardTitle></CardHeader>
         <CardContent className="">

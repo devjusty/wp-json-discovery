@@ -13,10 +13,12 @@ type AppLayoutProps = {
   sidebar?: ReactNode;
   children?: ReactNode;
   onNavigate?: (page: string) => void;
+  embedded?: boolean;
 };
 
-function AppLayout({ title, subtitle, headerActions, sidebar, children, onNavigate }: AppLayoutProps) {
+function AppLayout({ title, subtitle, headerActions, sidebar, children, onNavigate, embedded = false }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  if (embedded) return <div className="app__embedded-content">{children}</div>;
   const bodyClass = sidebar ? 'app__body' : 'app__body app__body--single';
   const mainClass = sidebar ? 'app__main' : 'app__main app__main--full-width';
   const BrandTag = onNavigate ? 'button' : 'div';

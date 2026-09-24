@@ -26,10 +26,11 @@ type InvestigatorShellProps = Readonly<{
   commands: Readonly<{ onSectionChange: (sectionId: string) => void; onRetry?: (capabilityName: string) => void }>;
   activeSection?: string;
   contentLandmark?: 'main' | 'div';
+  contentMode?: 'report' | 'legacy';
   children?: ReactNode;
 }>;
 
-export function InvestigatorShell({ readModel, commands, activeSection = readModel.sections[0]?.id ?? '', contentLandmark, children }: InvestigatorShellProps) {
+export function InvestigatorShell({ readModel, commands, activeSection = readModel.sections[0]?.id ?? '', contentLandmark, contentMode = 'report', children }: InvestigatorShellProps) {
   const [selectedEvidenceIds, setSelectedEvidenceIds] = useState<ReadonlyArray<string> | null>(null);
   const navigation: ShellNavigation = { items: readModel.sections, activeId: activeSection };
   const isPartial = readModel.status === 'partial' || readModel.status === 'failed';
@@ -64,7 +65,7 @@ export function InvestigatorShell({ readModel, commands, activeSection = readMod
           </button>
         )) : null}
       </div> : null}
-      {readModel.investigation ? (
+      {contentMode === 'legacy' ? null : readModel.investigation ? (
         <InvestigatorSectionContent investigation={readModel.investigation} capabilities={readModel.capabilities} sectionId={activeSection} selectedEvidenceIds={selectedEvidenceIds} onInspect={handleSectionChange} onSelectEvidence={handleSelectEvidence} onRetry={commands.onRetry} />
       ) : (
         <section className="investigator-section-placeholder" aria-labelledby={activeSectionHeadingId} data-active="true">

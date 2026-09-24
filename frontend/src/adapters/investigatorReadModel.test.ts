@@ -1,7 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { createInvestigatorReadModel } from './investigatorReadModel';
+import { createInvestigatorReadModel, mergeEvidenceOverlay, mergeFindingOverlay } from './investigatorReadModel';
 
 describe('createInvestigatorReadModel', () => {
+  it('merges sparse finding overlays through typed helper', () => {
+    expect(mergeFindingOverlay(
+      { id: 'finding', capability: 'wordpress', summary: 'Old', evidenceIds: ['evidence'], confidence: 'high' },
+      { id: 'finding', capability: 'wordpress', summary: 'New', evidenceIds: [] },
+    )).toEqual({
+      id: 'finding', capability: 'wordpress', summary: 'New', evidenceIds: ['evidence'], confidence: 'high',
+    });
+  });
+
+  it('merges sparse evidence overlays through typed helper', () => {
+    expect(mergeEvidenceOverlay(
+      { id: 'evidence', kind: 'request-trace', capability: 'wordpress', value: 'response', source: { locator: '/wp-json', rawBody: '{}' } },
+      { id: 'evidence', kind: 'observed', capability: 'wordpress', value: 'Observed evidence', source: {} },
+    )).toEqual({
+      id: 'evidence', kind: 'request-trace', capability: 'wordpress', value: 'response', source: { locator: '/wp-json', rawBody: '{}' },
+    });
+  });
   it('maps active investigator session findings, evidence, and retry state', () => {
     const readModel = createInvestigatorReadModel({
       id: 'session-1',
