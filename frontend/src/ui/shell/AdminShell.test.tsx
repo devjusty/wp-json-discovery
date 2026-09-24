@@ -10,4 +10,18 @@ describe('AdminShell', () => {
     expect(screen.getByText('Admin workspace')).toBeInTheDocument();
     expect(screen.getAllByRole('main')).toHaveLength(1);
   });
+
+  it('forwards auth actions to the app shell', () => {
+    render(
+      <AdminShell
+        navigation={{ items: [], activeId: '' }}
+        commands={{ onNavigate: vi.fn() }}
+        authActions={<button type="button">Log in</button>}
+      >
+        <p>admin content</p>
+      </AdminShell>,
+    );
+
+    expect(screen.getByRole('group', { name: 'Header actions' })).toContainElement(screen.getByRole('button', { name: 'Log in' }));
+  });
 });
