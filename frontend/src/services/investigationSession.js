@@ -291,15 +291,21 @@ export function createInvestigatorWorkflow({
   };
 
   const run = async (investigation) => {
-    const { resumeInvestigation: resumeCommand } = await import('../application/investigation/resume.ts');
-    await (auth.getUserId?.() ? remoteStore : localStore).save(investigation);
-    return present(await resumeCommand(investigation.id, {
+    const { createPersistenceContext, runCapabilities } = await import('../application/investigation/shared.ts');
+    const authenticated = Boolean(auth.getUserId?.());
+    const persistence = createPersistenceContext({
       auth,
-      store: auth?.getUserId?.() ? remoteStore : localStore,
-      localStore,
+      store: authenticated ? remoteStore : localStore,
+      localStore: authenticated ? localStore : undefined,
+    });
+    rememberAuthenticatedInvestigation(investigation);
+    await persistence.store.save(investigation);
+    const result = await runCapabilities(investigation, {
+      store: persistence.store,
       runner,
       onProgress,
-    }));
+    });
+    return present(persistence.result(result));
   };
 
   return { start, run, retry, resume, claim, list: () => (auth?.getUserId?.() ? remoteStore : localStore).list() };

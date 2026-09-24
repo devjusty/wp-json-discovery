@@ -123,6 +123,37 @@ describe('investigation session', () => {
     expect(idAtExecution).toBe('early-inv');
   });
 
+  it('continues contextual execution through local fallback when authenticated save fails', async () => {
+    const local = memoryStore();
+    const remote = memoryStore();
+    remote.save = async () => { throw new Error('remote unavailable'); };
+    const investigation = createInvestigation({
+      id: 'contextual-run', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: ['https://example.com'], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [
+        { name: 'wordpress', status: 'success', result: { findings: [] } },
+        { name: 'sitemap', status: 'queued', dependencies: ['wordpress'], options: { sitemapUrl: '/custom.xml' } },
+      ],
+    });
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async ({ capability }) => ({ capability, findings: [] }) },
+      localStore: local,
+      remoteStore: remote,
+    });
+
+    const result = await workflow.run(investigation);
+
+    expect(result.investigation.capabilities).toContainEqual(expect.objectContaining({ name: 'sitemap', status: 'success' }));
+    expect(result.persistence).toMatchObject({
+      remote: { code: 'persistence-failed' },
+      local: 'saved',
+    });
+    expect(await local.get('contextual-run')).toEqual(expect.objectContaining({
+      capabilities: expect.arrayContaining([expect.objectContaining({ name: 'sitemap', status: 'success' })]),
+    }));
+  });
+
   it('emits identity and capability progress before final completion', async () => {
     const changes = [];
     const result = await runInvestigationSession(session, runners, (next) => changes.push(next), { active: true });
