@@ -1,10 +1,11 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import './App.css';
-import { ScanProvider, useScanResultsContext, useScanShellContext } from './context/ScanContext';
+import { ScanProvider } from './context/ScanContext';
+import { useScanResultsContext, useScanShellContext } from './context/ScanContextHooks';
 import { useActivityLog } from './hooks/useActivityLog.js';
 import { setTokenProvider, setAuthUserProvider, fetchUserProfile } from './api/client.js';
 import { setScanCapabilityContext } from './services/scanCapabilities.js';
@@ -60,7 +61,10 @@ function AppContent({ authSession }) {
   });
   const isAdmin = userProfile?.user?.role === 'admin';
   const [activeInvestigatorSection, setActiveInvestigatorSection] = useState('overview');
-  const navigateTopLevel = (page: string) => navigateToTopLevelPage(page, setActivePage, setActiveInvestigatorSection);
+  const navigateTopLevel = useCallback(
+    (page: string) => navigateToTopLevelPage(page, setActivePage, setActiveInvestigatorSection),
+    [setActivePage],
+  );
   const authActions = (
     <>
       <UserMenu onNavigate={navigateTopLevel} />

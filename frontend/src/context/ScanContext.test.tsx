@@ -1,10 +1,9 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  ScanProvider,
-  useScanResultsContext,
-  useScanShellContext
+  ScanProvider
 } from './ScanContext';
+import { useScanResultsContext, useScanShellContext } from './ScanContextHooks';
 
 const mocks = vi.hoisted(() => ({
   loadScanPreferences: vi.fn(),

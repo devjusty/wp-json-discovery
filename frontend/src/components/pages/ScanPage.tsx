@@ -10,10 +10,7 @@ import {
   fetchUserRecentRuns,
   request,
 } from '../../api/client.js';
-import {
-  useScanResultsContext,
-  useScanShellContext
-} from '../../context/ScanContext';
+import { useScanResultsContext, useScanShellContext } from '../../context/ScanContextHooks';
 import ScanSidebarNav from './scan/ScanSidebarNav';
 import ScanSectionContent from './scan/ScanSectionContent.jsx';
 import RecentDomainsCard from './scan/RecentDomainsCard.jsx';
@@ -339,12 +336,12 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, authSes
     : 'Scan a WordPress site and review REST exposure, homepage source signals, and unsupported plugins. Log in to save history and notes.';
 
   const scanProgressSlot = useMemo(() => {
-    const rawStates = investigatorSession?.capabilityStates ?? session?.capabilityStates ?? null;
+    const rawStates = investigatorSession?.capabilityStates ?? session?.capabilities ?? null;
     if (!rawStates || typeof rawStates !== 'object') return null;
     const capabilityStates = normalizeCapabilityStates(rawStates);
     if (Object.keys(capabilityStates).length === 0) return null;
     return <ScanProgress capabilityStates={capabilityStates} />;
-  }, [investigatorSession?.capabilityStates, session?.capabilityStates]);
+  }, [investigatorSession?.capabilityStates, session?.capabilities]);
 
   return (
       <AppLayout

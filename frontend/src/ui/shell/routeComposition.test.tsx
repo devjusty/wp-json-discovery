@@ -19,8 +19,7 @@ vi.mock('@tanstack/react-query', () => ({
   useQuery: () => ({ data: { user: { role: 'admin' } } }),
 }));
 
-vi.mock('../../context/ScanContext', () => ({
-  ScanProvider: ({ children }) => children,
+vi.mock('../../context/ScanContextHooks', () => ({
   useScanShellContext: () => ({
     activePage: routeState.activePage,
     setActivePage: (page) => { routeState.activePage = page; },
@@ -33,6 +32,10 @@ vi.mock('../../context/ScanContext', () => ({
     retryInvestigatorCapability: vi.fn(),
     investigatorSession: null,
   }),
+}));
+
+vi.mock('../../context/ScanContext', () => ({
+  ScanProvider: ({ children }) => children,
 }));
 
 vi.mock('../../hooks/useActivityLog.js', () => ({
