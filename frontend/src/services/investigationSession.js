@@ -15,6 +15,7 @@ import { createInvestigationTransport } from '../adapters/http/investigationTran
 import { createInvestigationApiClient } from '../api/client.ts';
 import { normalizeDomain } from '../utils/format.js';
 import { saveAuthenticatedInvestigationId } from './anonymousInvestigations.js';
+import { InvestigationCommandError } from '../application/investigation/shared.ts';
 
 const DEPENDENCY_ERROR = {
   code: 'dependency_failed',
@@ -211,8 +212,12 @@ export function createInvestigatorWorkflow({
   localStore = resolvedLocalStore;
   remoteStore = resolvedRemoteStore;
   const dependencies = { auth, localStore, remoteStore, runner };
+  const storeAffinity = new Map();
+  const defaultAffinity = () => (auth?.getUserId?.() ? 'remote' : 'local');
+  const storeForAffinity = (affinity) => affinity === 'local' ? localStore : remoteStore;
 
-  const present = (result) => {
+  const present = (result, affinity = storeAffinity.get(result.investigation.id) ?? defaultAffinity()) => {
+    storeAffinity.set(result.investigation.id, affinity);
     const session = domainToSession(result.investigation);
     return {
       ...result,
@@ -263,27 +268,41 @@ export function createInvestigatorWorkflow({
 
   const retry = async (investigation, capability) => {
     const { retryCapability: retryCommand } = await import('../application/investigation/retry.ts');
+    const affinity = storeAffinity.get(investigation.id) ?? defaultAffinity();
     return present(await retryCommand({ investigation, capability }, {
       auth,
-      store: auth?.getUserId?.() ? remoteStore : localStore,
+      store: storeForAffinity(affinity),
       localStore,
        runner,
        onProgress,
-    }));
+    }), affinity);
   };
 
   const resume = async (id) => {
     const { resumeInvestigation: resumeCommand } = await import('../application/investigation/resume.ts');
-    const store = auth?.getUserId?.()
-      ? (await localStore.get(id) ? localStore : remoteStore)
-      : localStore;
-    return present(await resumeCommand(id, {
+    let affinity = storeAffinity.get(id);
+    let probeFailure;
+    if (!affinity && auth?.getUserId?.()) {
+      try {
+        affinity = await localStore.get(id) ? 'local' : 'remote';
+      } catch (cause) {
+        probeFailure = new InvestigationCommandError('persistence-failed', 'Unable to load investigation.', cause);
+        affinity = 'remote';
+      }
+    }
+    affinity ??= defaultAffinity();
+    try {
+      return present(await resumeCommand(id, {
       auth,
-      store,
+      store: storeForAffinity(affinity),
       localStore,
        runner,
        onProgress,
-    }));
+      }), affinity);
+    } catch (cause) {
+      if (probeFailure && cause?.code === 'not-found') throw probeFailure;
+      throw cause;
+    }
   };
 
   const claim = async (id) => {
@@ -296,9 +315,10 @@ export function createInvestigatorWorkflow({
   const run = async (investigation) => {
     const { createPersistenceContext, runCapabilities } = await import('../application/investigation/shared.ts');
     const authenticated = Boolean(auth.getUserId?.());
+    const affinity = storeAffinity.get(investigation.id) ?? defaultAffinity();
     const persistence = createPersistenceContext({
       auth,
-      store: authenticated ? remoteStore : localStore,
+      store: storeForAffinity(affinity),
       localStore: authenticated ? localStore : undefined,
     });
     rememberAuthenticatedInvestigation(investigation);
@@ -308,7 +328,7 @@ export function createInvestigatorWorkflow({
       runner,
       onProgress,
     });
-    return present(persistence.result(result));
+    return present(persistence.result(result), affinity);
   };
 
   return { start, run, retry, resume, claim, list: () => (auth?.getUserId?.() ? remoteStore : localStore).list() };

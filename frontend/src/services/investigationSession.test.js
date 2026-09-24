@@ -119,6 +119,68 @@ describe('investigation session', () => {
     expect(remoteGet).not.toHaveBeenCalled();
   });
 
+  it('falls back to remote resume when local affinity probe fails', async () => {
+    const investigation = createInvestigation({
+      id: 'remote-after-probe', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: ['https://example.com'], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [],
+    });
+    const remoteGet = vi.fn().mockResolvedValue(investigation);
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => ({ findings: [] }) },
+      localStore: { ...memoryStore(), get: vi.fn(async () => { throw new Error('local storage unavailable'); }) },
+      remoteStore: { ...memoryStore(), get: remoteGet },
+    });
+
+    await expect(workflow.resume('remote-after-probe')).resolves.toMatchObject({ investigation: { id: 'remote-after-probe' } });
+    expect(remoteGet).toHaveBeenCalledWith('remote-after-probe');
+  });
+
+  it('reports typed persistence error when probe and remote resume both fail', async () => {
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => ({ findings: [] }) },
+      localStore: { ...memoryStore(), get: vi.fn(async () => { throw new Error('local storage unavailable'); }) },
+      remoteStore: { ...memoryStore(), get: vi.fn().mockResolvedValue(null) },
+    });
+
+    await expect(workflow.resume('missing-after-probe')).rejects.toMatchObject({
+      code: 'persistence-failed',
+      message: 'Unable to load investigation.',
+    });
+  });
+
+  it('preserves local affinity for retry and contextual persistence', async () => {
+    const local = memoryStore();
+    const localSaves = [];
+    const originalLocalSave = local.save;
+    local.save = async (value) => { localSaves.push(value); return originalLocalSave(value); };
+    const remoteSave = vi.fn(async () => { throw new Error('remote store should not be used'); });
+    const investigation = createInvestigation({
+      id: 'local-affinity', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: ['https://example.com'], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [{ name: 'homepage', status: 'failed', error: { code: 'failed', message: 'Failed', retryable: true } }],
+    });
+    await local.save(investigation);
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => ({ findings: [] }) },
+      localStore: local,
+      remoteStore: { ...memoryStore(), save: remoteSave },
+    });
+
+    const resumed = await workflow.resume('local-affinity');
+    await resumed.commands.retry('homepage');
+    await workflow.run(createInvestigation({
+      ...investigation,
+      capabilities: [{ name: 'sitemap', status: 'queued' }],
+    }));
+
+    expect(localSaves.length).toBeGreaterThan(1);
+    expect(remoteSave).not.toHaveBeenCalled();
+  });
+
   it('persists authenticated ID before capability execution begins', async () => {
     localStorage.clear();
     const investigation = createInvestigation({
