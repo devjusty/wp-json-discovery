@@ -23,6 +23,19 @@ type ScanSession = {
   selection?: ScanSettings;
 };
 
+type InvestigatorSession = {
+  id?: string;
+  status?: string;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  domain?: { submitted: string; normalized: string; redirectChain?: string[] };
+  selection?: { capabilityIds: string[]; options: Record<string, Record<string, unknown>> };
+  selectedCapabilities?: ReadonlyArray<{ id: string; dependencies?: ReadonlyArray<string>; options?: Record<string, unknown> }>;
+  capabilityStates?: Record<string, unknown>;
+  overall?: { status?: string };
+  [key: string]: unknown;
+};
+
 type ScanShellContextValue = {
   activePage: string;
   setActivePage: Dispatch<SetStateAction<string>>;
@@ -40,6 +53,8 @@ type ScanShellContextValue = {
 
 type ScanResultsContextValue = {
   session: ScanSession | null;
+  investigatorSession: InvestigatorSession;
+  setInvestigatorSession: Dispatch<SetStateAction<InvestigatorSession>>;
   scanSettings: ScanSettings;
   updateScanSettings: (next: ScanSettings | ((current: ScanSettings) => ScanSettings)) => void;
   resetScanSettings: () => void;
@@ -60,6 +75,7 @@ export function ScanProvider({ children }: ScanProviderProps) {
   const [domain, setDomain] = useState('');
   const [investigatorDomain, setInvestigatorDomain] = useState('');
   const [selectedInvestigationId, setSelectedInvestigationId] = useState('');
+  const [investigatorSession, setInvestigatorSession] = useState<InvestigatorSession>(null);
   const [scanSettings, setScanSettings] = useState<ScanSettings>(() => normalizeSelection(loadScanPreferences()) as ScanSettings);
 
   const {
@@ -126,6 +142,8 @@ export function ScanProvider({ children }: ScanProviderProps) {
   const resultsValue = useMemo(
     () => ({
       session,
+      investigatorSession,
+      setInvestigatorSession,
       scanSettings,
       updateScanSettings,
       resetScanSettings,
@@ -137,6 +155,7 @@ export function ScanProvider({ children }: ScanProviderProps) {
     }),
     [
       session,
+      investigatorSession,
       scanSettings,
       updateScanSettings,
       resetScanSettings,

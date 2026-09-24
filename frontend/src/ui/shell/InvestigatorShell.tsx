@@ -5,6 +5,7 @@ import { InvestigatorSectionSelector, type InvestigatorSection } from '../invest
 import { InvestigatorOverview } from '../investigation/InvestigatorOverview';
 import { InvestigatorFindings } from '../investigation/InvestigatorFindings';
 import { EvidenceDisclosure } from '../investigation/EvidenceDisclosure';
+import { InvestigatorAssetsPanel, InvestigatorHistoryPanel, InvestigatorToolsPanel } from '../investigation/InvestigatorSectionPanels';
 
 type InvestigatorShellReadModel = Readonly<{
   title: string;
@@ -48,7 +49,7 @@ export function InvestigatorShell({ readModel, commands, activeSection = readMod
         )) : null}
       </div> : null}
       {readModel.investigation ? (
-        <InvestigatorSectionContent investigation={readModel.investigation} sectionId={activeSection} onInspect={commands.onSectionChange} />
+        <InvestigatorSectionContent investigation={readModel.investigation} capabilities={readModel.capabilities} sectionId={activeSection} onInspect={commands.onSectionChange} onRetry={commands.onRetry} />
       ) : (
         <section className="investigator-section-placeholder" aria-labelledby={activeSectionHeadingId} data-active="true">
           <p className="investigation-shell__eyebrow">Active investigation section</p>
@@ -61,14 +62,19 @@ export function InvestigatorShell({ readModel, commands, activeSection = readMod
   );
 }
 
-function InvestigatorSectionContent({ investigation, sectionId, onInspect }: Readonly<{
+function InvestigatorSectionContent({ investigation, capabilities, sectionId, onInspect, onRetry }: Readonly<{
   investigation: Investigation;
+  capabilities: InvestigatorShellReadModel['capabilities'];
   sectionId: string;
   onInspect: (sectionId: string) => void;
+  onRetry?: (capabilityName: string) => void;
 }>) {
   if (sectionId === 'overview') return <InvestigatorOverview investigation={investigation} onInspect={onInspect} />;
   if (sectionId === 'findings') return <InvestigatorFindings investigation={investigation} onSelectEvidence={() => onInspect('evidence')} />;
   if (sectionId === 'evidence') return <EvidenceDisclosure evidence={investigation.evidence} />;
+  if (sectionId === 'assets') return <InvestigatorAssetsPanel investigation={investigation} />;
+  if (sectionId === 'history') return <InvestigatorHistoryPanel investigation={investigation} />;
+  if (sectionId === 'tools') return <InvestigatorToolsPanel capabilities={capabilities} onRetry={onRetry} />;
 
   return (
     <section className="investigator-section-placeholder" aria-labelledby={`investigator-section-${sectionId}`} data-active="true">

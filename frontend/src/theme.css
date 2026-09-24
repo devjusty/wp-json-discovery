@@ -43,6 +43,19 @@
   --investigation-content-width: 76rem;
   --investigation-navigation-width: 15rem;
   --investigation-control-height: 2.75rem;
+  --surface-app: #f7f9fc;
+  --surface-panel: #ffffff;
+  --surface-raised: #eef3f8;
+  --text-primary: #172033;
+  --text-secondary: #5a687d;
+  --status-success: #22864a;
+  --status-warning: #b45309;
+  --status-danger: #c2415b;
+  --status-info: #16709c;
+  --focus-ring: #16709c;
+  --content-width: 76rem;
+  --navigation-width: 15rem;
+  --control-height: 2.75rem;
 }
 
 .dark {
@@ -86,4 +99,17 @@
   --investigation-status-warning: #fb923c;
   --investigation-status-danger: #fb7185;
   --investigation-focus: #7dd3fc;
+  --surface-app: #0f172a;
+  --surface-panel: #111827;
+  --surface-raised: #202b41;
+  --text-primary: #f2f7ff;
+  --text-secondary: #aebcd2;
+  --status-success: #4ade80;
+  --status-warning: #fb923c;
+  --status-danger: #fb7185;
+  --status-info: #7dd3fc;
+  --focus-ring: #7dd3fc;
+  --content-width: 76rem;
+  --navigation-width: 15rem;
+  --control-height: 2.75rem;
 }

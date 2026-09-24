@@ -27,6 +27,6 @@ describe('InvestigatorOverview', () => {
     expect(screen.getByRole('heading', { name: 'Inspect next' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Changes' })).toBeInTheDocument();
     expect(screen.getByText('https://www.example.com')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Inspect exposure' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Inspect evidence' })).toBeInTheDocument();
   });
 });

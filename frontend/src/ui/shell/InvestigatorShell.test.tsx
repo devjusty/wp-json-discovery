@@ -91,6 +91,26 @@ describe('InvestigatorShell', () => {
     expect(screen.getByText('legacy scan content')).toBeInTheDocument();
     expect(screen.getAllByRole('main')).toHaveLength(1);
   });
+
+  it('renders meaningful panels for every reachable section', async () => {
+    const user = userEvent.setup();
+    render(<StatefulReportShell />);
+    const navigation = screen.getByRole('navigation', { name: 'Investigation sections' });
+
+    for (const section of ['Overview', 'Findings', 'Evidence', 'Assets', 'History', 'Tools']) {
+      await user.click(within(navigation).getByRole('button', { name: section }));
+      const heading = section === 'Overview'
+        ? 'Investigator overview'
+        : section === 'Findings'
+          ? 'Ranked findings'
+          : section === 'Evidence'
+            ? 'Evidence provenance'
+            : section;
+      expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
+    }
+    await user.click(screen.getByRole('button', { name: 'Retry wordpress' }));
+    expect(screen.getByText('retry wordpress')).toBeInTheDocument();
+  });
 });
 
 function createInvestigationReadModel(): Investigation {
@@ -117,5 +137,22 @@ function StatefulInvestigatorShell({ sections }: { sections: ReadonlyArray<{ id:
     >
       <p>existing page content</p>
     </InvestigatorShell>
+  );
+}
+
+function StatefulReportShell() {
+  const [activeSection, setActiveSection] = useState('overview');
+  const [retryMessage, setRetryMessage] = useState('');
+  const sections = ['overview', 'findings', 'evidence', 'assets', 'history', 'tools'].map((id) => ({ id, label: id[0].toUpperCase() + id.slice(1) }));
+  return (
+    <>
+      <InvestigatorShell
+        readModel={{ title: 'example.com', status: 'partial', sections, capabilities: [{ name: 'wordpress', status: 'failed', retryable: true }], investigation: createInvestigationReadModel() }}
+        activeSection={activeSection}
+        commands={{ onSectionChange: setActiveSection, onRetry: (name) => setRetryMessage(`retry ${name}`) }}
+      >
+        <p>{retryMessage}</p>
+      </InvestigatorShell>
+    </>
   );
 }

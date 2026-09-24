@@ -10,12 +10,8 @@ import { setTokenProvider, setAuthUserProvider, fetchUserProfile } from './api/c
 import { setScanCapabilityContext } from './services/scanCapabilities.js';
 import { AdminShell } from './ui/shell/AdminShell';
 import { InvestigatorShell } from './ui/shell/InvestigatorShell';
-import { createInvestigation, type CapabilityStatus } from './domain/investigation/model';
-
-const loadScanPage = () => import('./components/pages/ScanPage');
-const loadAdminPage = () => import('./components/pages/AdminPage');
-const loadHistoryPage = () => import('./components/pages/HistoryPage');
-const loadInvestigationsPage = () => import('./components/pages/InvestigationsPage');
+import { createInvestigatorReadModel } from './adapters/investigatorReadModel';
+import { loadAdminPage, loadHistoryPage, loadInvestigationsPage, loadScanPage } from './adapters/legacyPageAdapters';
 
 const ScanPage = lazy(loadScanPage);
 const AdminPage = lazy(loadAdminPage);
@@ -49,7 +45,7 @@ function AppContent() {
     currentScanDomain,
     setSelectedInvestigationId
   } = useScanShellContext();
-  const { session, retryCapability } = useScanResultsContext();
+  const { retryCapability, investigatorSession } = useScanResultsContext();
   const { isRotatingLogs, rotateLogs } = useActivityLog();
   const { isAuthenticated } = useAuth0();
   const { data: userProfile } = useQuery({
@@ -65,8 +61,8 @@ function AppContent() {
     setActivePage(sectionId === 'history' ? 'history' : 'scan');
   };
   const investigatorReadModel = useMemo(
-    () => routeReadModel(currentScanDomain, isAdmin, session),
-    [currentScanDomain, isAdmin, session],
+    () => createInvestigatorReadModel(investigatorSession, isAdmin, currentScanDomain),
+    [currentScanDomain, isAdmin, investigatorSession],
   );
 
   useEffect(() => {
@@ -150,14 +146,14 @@ function AppContent() {
   if (activePage === 'admin') {
     if (!isAdmin) {
       return (
-        <div className="app__page-loading" role="status">
-          <p>You do not have admin access on this account.</p>
+        <main className="app__page-loading">
+          <p role="status">You do not have admin access on this account.</p>
           <div style={{ marginTop: '1rem' }}>
             <Button type="button" className="" size="sm" onClick={() => setActivePage('scan')}>
               Back to main view
             </Button>
           </div>
-        </div>
+        </main>
       );
     }
 
@@ -186,14 +182,14 @@ function AppContent() {
   if (activePage === 'history') {
     if (!isAdmin) {
       return (
-        <div className="app__page-loading" role="status">
-          <p>Full scan history is available for admin users only.</p>
+        <main className="app__page-loading">
+          <p role="status">Full scan history is available for admin users only.</p>
           <div style={{ marginTop: '1rem' }}>
             <Button type="button" className="" size="sm" onClick={() => setActivePage('scan')}>
               Back to main view
             </Button>
           </div>
-        </div>
+        </main>
       );
     }
 
@@ -247,62 +243,6 @@ function AppContent() {
         </Suspense>
       </InvestigatorShell>
     );
-}
-
-function routeReadModel(currentScanDomain: string, isAdmin: boolean, session: {
-  domain: string;
-  overallStatus: string;
-  capabilities: Record<string, { status: string; error?: { code?: string; message?: string; retryable?: boolean } | null }>;
-} | null) {
-  const domain = session?.domain || currentScanDomain;
-  const capabilities = Object.entries(session?.capabilities ?? {}).map(([name, state]) => ({
-    name,
-    status: normalizeCapabilityStatus(state.status),
-    ...(state.status === 'failed'
-      ? { error: {
-        code: state.error?.code || 'capability_failed',
-        message: state.error?.message || 'Capability failed.',
-        retryable: state.error?.retryable === true,
-      } }
-      : {}),
-    ...(state.status === 'failed' || state.status === 'unavailable'
-      ? { retryable: state.error?.retryable === true }
-      : {}),
-  }));
-  const investigation = domain ? createInvestigation({
-    id: `current:${domain}`,
-    submittedUrl: domain,
-    normalizedUrl: domain,
-    redirectChain: [domain],
-    createdAt: '1970-01-01T00:00:00.000Z',
-    capabilities: capabilities.map(({ name, status, error }) => ({ name, status, ...(error ? { error } : {}) })),
-  }) : undefined;
-
-  return {
-    title: currentScanDomain || 'Investigation workspace',
-    status: normalizeInvestigationStatus(session?.overallStatus),
-    capabilities,
-    investigation,
-    sections: [
-      { id: 'overview', label: 'Overview', description: 'Site identity and investigation summary.' },
-      { id: 'findings', label: 'Findings', description: 'Ranked signals requiring investigator attention.' },
-      { id: 'evidence', label: 'Evidence', description: 'Observed evidence and provenance.' },
-      { id: 'assets', label: 'Assets', description: 'Discovered site assets and their sources.' },
-      { id: 'history', label: 'History', description: 'Previous investigation activity.' },
-      { id: 'tools', label: 'Tools', description: 'Investigation actions and capability controls.' },
-    ].map((section) => ({ ...section, disabled: section.id === 'history' && (!currentScanDomain || !isAdmin) })),
-  };
-}
-
-function normalizeCapabilityStatus(status: string): CapabilityStatus {
-  return ['queued', 'running', 'success', 'failed', 'unavailable'].includes(status)
-    ? status as CapabilityStatus
-    : 'unavailable';
-}
-
-function normalizeInvestigationStatus(status?: string): 'complete' | 'partial' | 'failed' | 'blocked' | 'incomplete' {
-  if (status === 'complete' || status === 'partial' || status === 'failed' || status === 'blocked') return status;
-  return 'incomplete';
 }
 
 function App() {

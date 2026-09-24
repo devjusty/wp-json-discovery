@@ -8,5 +8,5 @@ type AdminShellProps = Readonly<{
 }>;
 
 export function AdminShell({ navigation, commands, children }: AdminShellProps) {
-  return <AppShell navigation={navigation} commands={commands} title="Admin workspace" navigationLabel="Admin navigation">{children}</AppShell>;
+  return <AppShell navigation={navigation} commands={commands} title="Admin workspace" navigationLabel="Admin navigation" contentLandmark="div">{children}</AppShell>;
 }

@@ -24,12 +24,12 @@ export function InvestigatorOverview({ investigation, onInspect }: InvestigatorO
           <h3>Exposure</h3>
           <p>{investigation.evidence.filter(({ kind }) => kind === 'observed').length} observed signals collected.</p>
           <p>{investigation.evidence.filter(({ kind }) => kind === 'absence').length} absence signals recorded.</p>
-          <button type="button" onClick={() => onInspect('exposure')}>Inspect exposure</button>
+          <button type="button" onClick={() => onInspect('evidence')}>Inspect evidence</button>
         </article>
         <article className="investigator-panel">
           <h3>Inspect next</h3>
           <p>{failed.length > 0 ? `${failed.length} capability${failed.length === 1 ? '' : 'ies'} need attention.` : 'Review ranked findings and supporting evidence.'}</p>
-          <button type="button" onClick={() => onInspect(failed.length > 0 ? failed[0].name : 'findings')}>{failed.length > 0 ? 'Inspect incomplete work' : 'Inspect findings'}</button>
+          <button type="button" onClick={() => onInspect(failed.length > 0 ? 'tools' : 'findings')}>{failed.length > 0 ? 'Inspect incomplete work' : 'Inspect findings'}</button>
         </article>
         <article className="investigator-panel">
           <h3>Changes</h3>

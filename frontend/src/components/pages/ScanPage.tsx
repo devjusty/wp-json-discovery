@@ -67,6 +67,8 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeS
   } = useScanShellContext();
   const {
     session,
+    investigatorSession: contextInvestigatorSession,
+    setInvestigatorSession: contextSetInvestigatorSession,
     isScanning,
     scanSettings,
     updateScanSettings,
@@ -74,6 +76,11 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeS
     runCapability,
     retryCapability
   } = useScanResultsContext();
+
+  // Legacy page tests can render without ScanProvider; production uses context as sole source.
+  const [fallbackInvestigatorSession, setFallbackInvestigatorSession] = useState(null);
+  const investigatorSession = contextInvestigatorSession ?? fallbackInvestigatorSession;
+  const setInvestigatorSession = contextSetInvestigatorSession ?? setFallbackInvestigatorSession;
 
   const [sitemapFilter, setSitemapFilter] = useState('all');
   const [localActiveSection, setLocalActiveSection] = useState('overview');
@@ -86,7 +93,6 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeS
     setLocalActiveSection(sectionId);
   }, [onSectionChange]);
   const [recentDomainsExpanded, setRecentDomainsExpanded] = useState(false);
-  const [investigatorSession, setInvestigatorSession] = useState(null);
   const [anonymousSnapshot, setAnonymousSnapshot] = useState(null);
   const [retryingCapabilityId, setRetryingCapabilityId] = useState(null);
   const [claimError, setClaimError] = useState('');
