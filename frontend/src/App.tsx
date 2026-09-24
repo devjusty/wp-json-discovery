@@ -4,12 +4,13 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import './App.css';
-import { ScanProvider, useScanShellContext } from './context/ScanContext';
+import { ScanProvider, useScanResultsContext, useScanShellContext } from './context/ScanContext';
 import { useActivityLog } from './hooks/useActivityLog.js';
 import { setTokenProvider, setAuthUserProvider, fetchUserProfile } from './api/client.js';
 import { setScanCapabilityContext } from './services/scanCapabilities.js';
 import { AdminShell } from './ui/shell/AdminShell';
 import { InvestigatorShell } from './ui/shell/InvestigatorShell';
+import { createInvestigation, type CapabilityStatus } from './domain/investigation/model';
 
 const loadScanPage = () => import('./components/pages/ScanPage');
 const loadAdminPage = () => import('./components/pages/AdminPage');
@@ -48,6 +49,7 @@ function AppContent() {
     currentScanDomain,
     setSelectedInvestigationId
   } = useScanShellContext();
+  const { session, retryCapability } = useScanResultsContext();
   const { isRotatingLogs, rotateLogs } = useActivityLog();
   const { isAuthenticated } = useAuth0();
   const { data: userProfile } = useQuery({
@@ -62,6 +64,10 @@ function AppContent() {
     setActiveInvestigatorSection(sectionId);
     setActivePage(sectionId === 'history' ? 'history' : 'scan');
   };
+  const investigatorReadModel = useMemo(
+    () => routeReadModel(currentScanDomain, isAdmin, session),
+    [currentScanDomain, isAdmin, session],
+  );
 
   useEffect(() => {
     setScanCapabilityContext({ isAdmin: Boolean(isAdmin) });
@@ -192,7 +198,7 @@ function AppContent() {
     }
 
     return (
-      <InvestigatorShell readModel={routeReadModel(currentScanDomain, isAdmin)} commands={{ onSectionChange: handleInvestigatorSectionChange }} activeSection={activePage === 'history' ? 'history' : activeInvestigatorSection}>
+      <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryCapability }} activeSection={activePage === 'history' ? 'history' : activeInvestigatorSection} contentLandmark="div">
         <Suspense fallback={<PageLoadingState label="Loading scan history..." />}>
           <HistoryPage
             headerActions={headerActions}
@@ -214,7 +220,7 @@ function AppContent() {
 
   if (activePage === 'investigations') {
     return (
-      <InvestigatorShell readModel={routeReadModel(currentScanDomain, isAdmin)} commands={{ onSectionChange: handleInvestigatorSectionChange }} activeSection={activeInvestigatorSection}>
+      <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryCapability }} activeSection={activeInvestigatorSection} contentLandmark="div">
         <Suspense fallback={<PageLoadingState label="Loading investigations..." />}>
           <InvestigationsPage
             headerActions={headerActions}
@@ -235,19 +241,48 @@ function AppContent() {
   }
 
     return (
-      <InvestigatorShell readModel={routeReadModel(currentScanDomain, isAdmin)} commands={{ onSectionChange: handleInvestigatorSectionChange }} activeSection={activeInvestigatorSection}>
+      <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryCapability }} activeSection={activeInvestigatorSection} contentLandmark="div">
         <Suspense fallback={<PageLoadingState label="Loading scanner..." />}>
-          <ScanPage headerActions={headerActions} onNavigate={setActivePage} isAdmin={isAdmin} isAuthenticated={isAuthenticated} />
+          <ScanPage headerActions={headerActions} onNavigate={setActivePage} isAdmin={isAdmin} isAuthenticated={isAuthenticated} activeSection={activeInvestigatorSection} onSectionChange={handleInvestigatorSectionChange} />
         </Suspense>
       </InvestigatorShell>
     );
 }
 
-function routeReadModel(currentScanDomain: string, isAdmin: boolean) {
+function routeReadModel(currentScanDomain: string, isAdmin: boolean, session: {
+  domain: string;
+  overallStatus: string;
+  capabilities: Record<string, { status: string; error?: { code?: string; message?: string; retryable?: boolean } | null }>;
+} | null) {
+  const domain = session?.domain || currentScanDomain;
+  const capabilities = Object.entries(session?.capabilities ?? {}).map(([name, state]) => ({
+    name,
+    status: normalizeCapabilityStatus(state.status),
+    ...(state.status === 'failed'
+      ? { error: {
+        code: state.error?.code || 'capability_failed',
+        message: state.error?.message || 'Capability failed.',
+        retryable: state.error?.retryable === true,
+      } }
+      : {}),
+    ...(state.status === 'failed' || state.status === 'unavailable'
+      ? { retryable: state.error?.retryable === true }
+      : {}),
+  }));
+  const investigation = domain ? createInvestigation({
+    id: `current:${domain}`,
+    submittedUrl: domain,
+    normalizedUrl: domain,
+    redirectChain: [domain],
+    createdAt: '1970-01-01T00:00:00.000Z',
+    capabilities: capabilities.map(({ name, status, error }) => ({ name, status, ...(error ? { error } : {}) })),
+  }) : undefined;
+
   return {
     title: currentScanDomain || 'Investigation workspace',
-    status: 'incomplete' as const,
-    capabilities: [],
+    status: normalizeInvestigationStatus(session?.overallStatus),
+    capabilities,
+    investigation,
     sections: [
       { id: 'overview', label: 'Overview', description: 'Site identity and investigation summary.' },
       { id: 'findings', label: 'Findings', description: 'Ranked signals requiring investigator attention.' },
@@ -257,6 +292,17 @@ function routeReadModel(currentScanDomain: string, isAdmin: boolean) {
       { id: 'tools', label: 'Tools', description: 'Investigation actions and capability controls.' },
     ].map((section) => ({ ...section, disabled: section.id === 'history' && (!currentScanDomain || !isAdmin) })),
   };
+}
+
+function normalizeCapabilityStatus(status: string): CapabilityStatus {
+  return ['queued', 'running', 'success', 'failed', 'unavailable'].includes(status)
+    ? status as CapabilityStatus
+    : 'unavailable';
+}
+
+function normalizeInvestigationStatus(status?: string): 'complete' | 'partial' | 'failed' | 'blocked' | 'incomplete' {
+  if (status === 'complete' || status === 'partial' || status === 'failed' || status === 'blocked') return status;
+  return 'incomplete';
 }
 
 function App() {

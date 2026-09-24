@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import PropTypes from 'prop-types';
 import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -47,7 +47,16 @@ import { normalizeCapabilityStates } from '../../domain/investigation/capability
 import { normalizeDomain } from '../../utils/format.js';
 import { createPersistableSession } from '../../adapters/persistence/sessionMapping';
 
-function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
+type ScanPageProps = {
+  headerActions: ReactNode;
+  onNavigate: (page: string) => void;
+  isAdmin: boolean;
+  isAuthenticated: boolean;
+  activeSection?: string;
+  onSectionChange?: (sectionId: string) => void;
+};
+
+function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeSection: controlledActiveSection, onSectionChange }: ScanPageProps) {
   const {
     domain,
     handleDomainChange: onDomainChange,
@@ -67,7 +76,15 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
   } = useScanResultsContext();
 
   const [sitemapFilter, setSitemapFilter] = useState('all');
-  const [activeSection, setActiveSection] = useState('overview');
+  const [localActiveSection, setLocalActiveSection] = useState('overview');
+  const activeSection = controlledActiveSection ?? localActiveSection;
+  const setActiveSection = useCallback((sectionId: string) => {
+    if (onSectionChange) {
+      onSectionChange(sectionId);
+      return;
+    }
+    setLocalActiveSection(sectionId);
+  }, [onSectionChange]);
   const [recentDomainsExpanded, setRecentDomainsExpanded] = useState(false);
   const [investigatorSession, setInvestigatorSession] = useState(null);
   const [anonymousSnapshot, setAnonymousSnapshot] = useState(null);
@@ -327,7 +344,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
     if (session?.domain) {
       setActiveSection('overview');
     }
-  }, [session?.domain]);
+  }, [session?.domain, setActiveSection]);
 
   const handleOpenHistory = useCallback(() => {
     setActivePage('history');
@@ -357,7 +374,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated }) {
         isAdmin={isAdmin}
       />
     ),
-    [visibleSection, session, investigatorSession, sidebarSession, handleOpenHistory, handleOpenAdmin, isAdmin]
+    [visibleSection, session, investigatorSession, sidebarSession, handleOpenHistory, handleOpenAdmin, isAdmin, setActiveSection]
   );
 
   const subtitle = isScanning

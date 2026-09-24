@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { AppShell } from './AppShell';
 import { InvestigatorShell } from './InvestigatorShell';
+import type { Investigation } from '../../domain/investigation/model';
 
 describe('InvestigatorShell', () => {
   it('exposes required contextual sections through selector and navigation', () => {
@@ -63,7 +64,48 @@ describe('InvestigatorShell', () => {
 
     expect(screen.queryByText('Successful evidence remains available.')).not.toBeInTheDocument();
   });
+
+  it('renders report modules from the investigation read model', () => {
+    render(
+      <InvestigatorShell
+        readModel={{
+          title: 'example.com',
+          status: 'complete',
+          sections: [
+            { id: 'overview', label: 'Overview' },
+            { id: 'findings', label: 'Findings' },
+            { id: 'evidence', label: 'Evidence' },
+          ],
+          capabilities: [{ name: 'exposure', status: 'success' }],
+          investigation: createInvestigationReadModel(),
+        }}
+        activeSection="overview"
+        contentLandmark="div"
+        commands={{ onSectionChange: vi.fn() }}
+      >
+        <main><p>legacy scan content</p></main>
+      </InvestigatorShell>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Investigator overview' })).toBeInTheDocument();
+    expect(screen.getByText('legacy scan content')).toBeInTheDocument();
+    expect(screen.getAllByRole('main')).toHaveLength(1);
+  });
 });
+
+function createInvestigationReadModel(): Investigation {
+  return {
+    id: 'investigation-1',
+    submittedUrl: 'https://example.com',
+    normalizedUrl: 'https://example.com',
+    redirectChain: ['https://example.com'],
+    createdAt: '2026-01-01T00:00:00.000Z',
+    capabilities: [{ name: 'exposure', status: 'success' }],
+    observationTimeline: [],
+    evidence: [],
+    findings: [],
+  };
+}
 
 function StatefulInvestigatorShell({ sections }: { sections: ReadonlyArray<{ id: string; label: string }> }) {
   const [activeSection, setActiveSection] = useState('overview');
