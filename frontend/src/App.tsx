@@ -9,6 +9,8 @@ import { useActivityLog } from './hooks/useActivityLog.js';
 import { setTokenProvider, setAuthUserProvider, fetchUserProfile } from './api/client.js';
 import { setScanCapabilityContext } from './services/scanCapabilities.js';
 import { AdminShell } from './ui/shell/AdminShell';
+import LoginButton from './ui/auth/LoginButton';
+import UserMenu from './ui/auth/UserMenu';
 import { InvestigatorShell } from './ui/shell/InvestigatorShell';
 import { PageLoadingState } from './ui/shell/PageLoadingState';
 import { navigateToTopLevelPage, resolveInvestigatorSectionPage } from './ui/shell/investigatorNavigation';
@@ -59,6 +61,12 @@ function AppContent({ authSession }) {
   const isAdmin = userProfile?.user?.role === 'admin';
   const [activeInvestigatorSection, setActiveInvestigatorSection] = useState('overview');
   const navigateTopLevel = (page: string) => navigateToTopLevelPage(page, setActivePage, setActiveInvestigatorSection);
+  const authActions = (
+    <>
+      <UserMenu onNavigate={navigateTopLevel} />
+      <LoginButton />
+    </>
+  );
   const handleInvestigatorSectionChange = (sectionId: string) => {
     setActiveInvestigatorSection(sectionId);
     setActivePage(resolveInvestigatorSectionPage(sectionId, isAdmin));
@@ -160,6 +168,7 @@ function AppContent({ authSession }) {
         navigation={{ items: [{ id: 'admin', label: 'Admin' }], activeId: 'admin' }}
         commands={{ onNavigate: navigateTopLevel }}
         headerActions={headerActions}
+        authActions={authActions}
       >
         <Suspense fallback={<PageLoadingState label="Loading admin console..." />}>
           <AdminPage
@@ -192,7 +201,7 @@ function AppContent({ authSession }) {
     }
 
     return (
-      <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryInvestigatorCapability }} activeSection={activePage === 'history' ? 'history' : activeInvestigatorSection} contentLandmark="main" contentMode="report" headerActions={headerActions}>
+      <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryInvestigatorCapability }} activeSection={activePage === 'history' ? 'history' : activeInvestigatorSection} contentLandmark="main" contentMode="report" headerActions={headerActions} authActions={authActions}>
         <Suspense fallback={<PageLoadingState label="Loading scan history..." />}>
           <HistoryPage
             embedded
@@ -214,7 +223,7 @@ function AppContent({ authSession }) {
 
   if (activePage === 'investigations') {
     return (
-      <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryInvestigatorCapability }} activeSection={activeInvestigatorSection} contentLandmark="main" contentMode="report" headerActions={headerActions}>
+      <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryInvestigatorCapability }} activeSection={activeInvestigatorSection} contentLandmark="main" contentMode="report" headerActions={headerActions} authActions={authActions}>
         <Suspense fallback={<PageLoadingState label="Loading investigations..." />}>
           <InvestigationsPage
             embedded
@@ -236,7 +245,7 @@ function AppContent({ authSession }) {
   }
 
   return (
-    <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryInvestigatorCapability }} activeSection={activeInvestigatorSection} contentLandmark="main" contentMode="report" headerActions={headerActions}>
+    <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryInvestigatorCapability }} activeSection={activeInvestigatorSection} contentLandmark="main" contentMode="report" headerActions={headerActions} authActions={authActions}>
         <Suspense fallback={<PageLoadingState label="Loading scanner..." />}>
           <ScanPage authSession={authSession} onNavigate={navigateTopLevel} isAdmin={isAdmin} isAuthenticated={isAuthenticated} activeSection={activeInvestigatorSection} onSectionChange={handleInvestigatorSectionChange} embedded />
         </Suspense>
