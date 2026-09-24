@@ -205,22 +205,69 @@ describe('investigation transport', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('wraps list hydration failures as contract-invalid errors', async () => {
+  it('preserves valid summaries without session hydration', async () => {
+    const summary = {
+      id: 'inv-1',
+      domain: { submitted: 'Example.com', normalized: 'https://example.com' },
+      createdAt: '2026-09-23T12:00:00.000Z',
+      updatedAt: '2026-09-23T12:00:00.000Z',
+      selectedCapabilityCount: 0,
+      completedCapabilityCount: 0,
+      findingsCount: 0,
+      status: 'complete',
+      resumable: false,
+    } as const;
+    const get = vi.fn(async () => { throw new Error('must not hydrate summary-only row'); });
     const transport = createInvestigationTransport({
-      get: async () => { throw new Error('malformed response'); },
+      get,
       list: async () => ({ investigations: [{
-        id: 'inv-1',
-        domain: { submitted: 'Example.com', normalized: 'https://example.com' },
-        createdAt: '2026-09-23T12:00:00.000Z',
-        updatedAt: '2026-09-23T12:00:00.000Z',
-        selectedCapabilityCount: 0,
-        completedCapabilityCount: 0,
-        findingsCount: 0,
+        ...summary,
       }] }),
       save: async () => validSessionRecord(),
     });
 
-    await expect(transport.list()).rejects.toMatchObject({ code: 'contract-invalid' });
+    await expect(transport.list()).resolves.toEqual([summary]);
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it('preserves summary-only rows and hydrates only summaries with latest sessions', async () => {
+    const summaryOnly = {
+      id: 'summary-only',
+      domain: { submitted: 'Summary.example', normalized: 'https://summary.example' },
+      createdAt: '2026-09-23T12:00:00.000Z',
+      updatedAt: '2026-09-23T12:01:00.000Z',
+      selectedCapabilityCount: 2,
+      completedCapabilityCount: 2,
+      findingsCount: 3,
+      status: 'complete',
+      resumable: false,
+    } as const;
+    const hydratedState = { ...fullInvestigation(), id: 'hydrated' };
+    const get = vi.fn(async (id: string) => id === 'hydrated' ? investigationRecord('hydrated', hydratedState) : null);
+    const hydratedSummary = {
+      id: 'hydrated',
+      domain: { submitted: hydratedState.submittedUrl, normalized: hydratedState.normalizedUrl },
+      createdAt: hydratedState.createdAt,
+      updatedAt: hydratedState.createdAt,
+      latestSessionId: 'session-1',
+      selectedCapabilityCount: 1,
+      completedCapabilityCount: 1,
+      findingsCount: 1,
+      status: 'complete',
+      resumable: true,
+    } as const;
+    const transport = createInvestigationTransport({
+      get,
+      list: async () => ({ investigations: [summaryOnly, hydratedSummary] }),
+      save: async () => validSessionRecord(),
+    });
+
+    await expect(transport.list()).resolves.toEqual([
+      summaryOnly,
+      { ...hydratedState, updatedAt: hydratedState.createdAt },
+    ]);
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(get).toHaveBeenCalledWith('hydrated');
   });
 
   it('preserves a valid not-found null from the HTTP client', async () => {
@@ -374,6 +421,7 @@ describe('investigation transport', () => {
         domain: { submitted: 'Example.com', normalized: 'https://example.com' },
         createdAt: '2026-09-23T12:00:00.000Z',
         updatedAt: '2026-09-23T12:00:00.000Z',
+        latestSessionId: 'session-1',
         selectedCapabilityCount: 1,
         completedCapabilityCount: 1,
         findingsCount: 1,
@@ -393,6 +441,7 @@ describe('investigation transport', () => {
         domain: { submitted: 'Example.com', normalized: 'https://example.com' },
         createdAt: '2026-09-23T12:00:00.000Z',
         updatedAt: '2026-09-23T12:00:00.000Z',
+        latestSessionId: 'session-1',
         selectedCapabilityCount: 1,
         completedCapabilityCount: 1,
         findingsCount: 1,

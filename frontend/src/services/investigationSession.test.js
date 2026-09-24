@@ -220,6 +220,55 @@ describe('investigation session', () => {
     expect(remoteSave).toHaveBeenCalled();
   });
 
+  it('updates start affinity after remote fallback before retry and resume', async () => {
+    const local = memoryStore();
+    const remoteSave = vi.fn(async () => { throw new Error('remote unavailable'); });
+    const remoteGet = vi.fn(async () => { throw new Error('remote get should not run'); });
+    let attempts = 0;
+    const investigation = createInvestigation({
+      id: 'start-fallback-affinity', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: ['https://example.com'], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [{ name: 'homepage', status: 'queued' }],
+    });
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => { attempts += 1; if (attempts === 1) throw new Error('first attempt'); return { findings: [] }; } },
+      localStore: local,
+      remoteStore: { ...memoryStore(), save: remoteSave, get: remoteGet },
+      remoteStart: async () => investigation,
+    });
+
+    const result = await workflow.start('example.com');
+    await result.commands.retry('homepage');
+    await result.commands.resume();
+
+    expect(remoteGet).not.toHaveBeenCalled();
+    expect(remoteSave).toHaveBeenCalled();
+  });
+
+  it('updates resume affinity after remote fallback before the next resume', async () => {
+    const local = memoryStore();
+    const investigation = createInvestigation({
+      id: 'resume-fallback-affinity', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: ['https://example.com'], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [{ name: 'homepage', status: 'queued' }],
+    });
+    const remoteGet = vi.fn(async () => investigation);
+    const remoteSave = vi.fn(async () => { throw new Error('remote unavailable'); });
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => ({ findings: [] }) },
+      localStore: local,
+      remoteStore: { ...memoryStore(), get: remoteGet, save: remoteSave },
+    });
+
+    const result = await workflow.resume('resume-fallback-affinity');
+    await result.commands.resume();
+
+    expect(remoteGet).toHaveBeenCalledTimes(1);
+    expect(remoteSave).toHaveBeenCalled();
+  });
+
   it('derives local affinity from active investigation across workflow recreation', async () => {
     const local = memoryStore();
     const investigation = createInvestigation({

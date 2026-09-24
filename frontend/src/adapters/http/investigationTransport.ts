@@ -9,6 +9,7 @@ import {
 import type {
   DomainIdentity,
   InvestigationRecord,
+  InvestigationSummary,
   SessionRecord,
   StartInvestigationRequest,
 } from '@wp-json-discovery/contracts';
@@ -38,7 +39,7 @@ export type InvestigationTransport = {
   ): Promise<Investigation>;
   save(investigation: Investigation): Promise<void>;
   get(id: string): Promise<Investigation | null>;
-  list(): Promise<Investigation[]>;
+  list(): Promise<Array<Investigation | InvestigationSummary>>;
   claim(id: string): Promise<Investigation>;
 };
 
@@ -113,17 +114,20 @@ export const createInvestigationTransport = (
     }
   },
   async list() {
-    const investigations = mapList(await call(source.list(), 'list'));
-    const hydrated = await Promise.all(investigations.map(async investigation => {
+    const summaries = mapList(await call(source.list(), 'list'));
+    const hydrated = await Promise.all(summaries.map(async summary => {
+      if (!summary.latestSessionId) return summary;
       try {
-        const value = await source.get(investigation.id);
-        if (value === null) throw new ContractInvalidError('Investigation list item is missing full state');
-        const hydrated = mapRecord(value, investigation.id);
-        if (hydrated.submittedUrl !== investigation.submittedUrl
-          || hydrated.normalizedUrl !== investigation.normalizedUrl) {
+        const value = await source.get(summary.id);
+        if (value === null) return summary;
+        const record = parseRecord(value, summary.id);
+        if (!record.latestSession?.investigationState) return summary;
+        const investigation = recordToDomain(record);
+        if (investigation.submittedUrl !== summary.domain.submitted
+          || investigation.normalizedUrl !== summary.domain.normalized) {
           throw new ContractInvalidError('Investigation list item identity mismatch');
         }
-        return hydrated;
+        return investigation;
       } catch (error) {
         if (error instanceof ContractInvalidError) throw error;
         throw new ContractInvalidError('Invalid investigation list item', error);
@@ -193,16 +197,19 @@ function mapRecord(value: unknown, expectedId?: string): Investigation {
   return recordToDomain(parsed.data);
 }
 
-function mapList(value: unknown): Investigation[] {
+function mapList(value: unknown): InvestigationSummary[] {
   const parsed = investigationListSchema.safeParse(value);
   if (!parsed.success) throw new ContractInvalidError('Invalid investigation list', parsed.error);
-  return parsed.data.investigations.map(summary => createInvestigation({
-    id: summary.id,
-    submittedUrl: summary.domain.submitted,
-    normalizedUrl: summary.domain.normalized,
-    redirectChain: [],
-    createdAt: summary.createdAt,
-  }));
+  return parsed.data.investigations;
+}
+
+function parseRecord(value: unknown, expectedId?: string): InvestigationRecord {
+  const parsed = investigationRecordSchema.safeParse(value);
+  if (!parsed.success) throw new ContractInvalidError('Invalid investigation record', parsed.error);
+  if (expectedId !== undefined && parsed.data.investigation.id !== expectedId) {
+    throw new ContractInvalidError('Investigation record identity mismatch');
+  }
+  return parsed.data;
 }
 
 function parseSession(value: unknown): SessionRecord {

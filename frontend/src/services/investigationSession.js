@@ -188,6 +188,9 @@ export function createInvestigatorWorkflow({
   const storeAffinity = new Map();
   const defaultAffinity = () => (auth?.getUserId?.() ? 'remote' : 'local');
   const storeForAffinity = (affinity) => affinity === 'local' ? localStore : remoteStore;
+  const affinityFromResult = (result, fallback) => result.persistence.remote && result.persistence.local === 'saved'
+    ? 'local'
+    : fallback;
 
   const present = (result, affinity = storeAffinity.get(result.investigation.id) ?? result.investigation.storeAffinity ?? defaultAffinity()) => {
     storeAffinity.set(result.investigation.id, affinity);
@@ -201,9 +204,9 @@ export function createInvestigatorWorkflow({
       session,
       readModel: createInvestigatorReadModel(session, Boolean(auth?.getUserId?.())),
       commands: {
-        retry: (capability) => retry(result.investigation, capability),
-        resume: () => resume(result.investigation.id),
-        claim: () => claim(result.investigation.id),
+        retry: (capability) => retry(investigation, capability),
+        resume: () => resume(investigation.id),
+        claim: () => claim(investigation.id),
       },
     };
   };
@@ -240,19 +243,20 @@ export function createInvestigatorWorkflow({
         : undefined,
     });
     rememberAuthenticatedInvestigation(result.investigation);
-    return present(result);
+    return present(result, affinityFromResult(result, defaultAffinity()));
   };
 
   const retry = async (investigation, capability) => {
     const { retryCapability: retryCommand } = await import('../application/investigation/retry.ts');
     const affinity = storeAffinity.get(investigation.id) ?? investigation.storeAffinity ?? defaultAffinity();
-    return present(await retryCommand({ investigation, capability }, {
+    const result = await retryCommand({ investigation, capability }, {
       auth,
       store: storeForAffinity(affinity),
       localStore,
        runner,
        onProgress,
-    }), affinity);
+    });
+    return present(result, affinityFromResult(result, affinity));
   };
 
   const resume = async (id) => {
@@ -269,13 +273,14 @@ export function createInvestigatorWorkflow({
     }
     affinity ??= defaultAffinity();
     try {
-      return present(await resumeCommand(id, {
-      auth,
-      store: storeForAffinity(affinity),
-      localStore,
-       runner,
-       onProgress,
-      }), affinity);
+      const result = await resumeCommand(id, {
+       auth,
+       store: storeForAffinity(affinity),
+       localStore,
+        runner,
+        onProgress,
+       });
+       return present(result, affinityFromResult(result, affinity));
     } catch (cause) {
       if (probeFailure && cause?.code === 'not-found') throw probeFailure;
       throw cause;
@@ -306,10 +311,7 @@ export function createInvestigatorWorkflow({
       onProgress,
     });
     const commandResult = persistence.result(result);
-    const resultAffinity = commandResult.persistence.remote && commandResult.persistence.local === 'saved'
-      ? 'local'
-      : affinity;
-    return present(commandResult, resultAffinity);
+    return present(commandResult, affinityFromResult(commandResult, affinity));
   };
 
   return { start, run, retry, resume, claim, list: () => (auth?.getUserId?.() ? remoteStore : localStore).list() };

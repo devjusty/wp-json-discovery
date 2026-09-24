@@ -1,6 +1,7 @@
 import type { InvestigationStore } from '../../application/ports/investigation-store';
 import type { AuthSession } from '../../application/ports/auth-session';
 import type { Investigation } from '../../domain/investigation/model';
+import type { InvestigationSummary } from '@wp-json-discovery/contracts';
 import { createInvestigationApiClient } from '../../api/client';
 import {
   createInvestigationTransport,
@@ -11,7 +12,7 @@ export type RemoteInvestigationTransport = {
   start?: (domain: { submitted: string; normalized: string }, selectedCapabilities: ReadonlyArray<{ id: string; dependencies: ReadonlyArray<string>; options?: Record<string, unknown> }>, redirectChain: ReadonlyArray<string>) => Promise<Investigation>;
   save: (investigation: Investigation) => Promise<void>;
   get: (id: string) => Promise<Investigation | null>;
-  list: () => Promise<Investigation[]>;
+  list: () => Promise<Array<Investigation | InvestigationSummary>>;
   claim: (id: string) => Promise<Investigation>;
 };
 
