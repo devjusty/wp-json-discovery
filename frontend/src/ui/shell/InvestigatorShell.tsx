@@ -33,7 +33,8 @@ type InvestigatorShellProps = Readonly<{
 
 export function InvestigatorShell({ readModel, commands, activeSection = readModel.sections[0]?.id ?? '', contentLandmark, contentMode = 'report', headerActions, children }: InvestigatorShellProps) {
   const [selectedEvidenceIds, setSelectedEvidenceIds] = useState<ReadonlyArray<string> | null>(null);
-  const navigation: ShellNavigation = { items: readModel.sections, activeId: activeSection };
+  // Section nav lives in InvestigatorSectionSelector only — keep AppShell header for brand + actions.
+  const navigation: ShellNavigation = { items: [], activeId: activeSection };
   const isPartial = readModel.status === 'partial' || readModel.status === 'failed';
   const isBlocked = readModel.status === 'blocked';
   const successfulCapabilityExists = readModel.capabilities.some(({ status }) => status === 'success');

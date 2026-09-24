@@ -74,75 +74,70 @@ function AppContent({ authSession }) {
 
   const headerActions = useMemo(() => {
     return (
-      <div className="app__topbar">
-        <div className="app__topbar-actions">
-          <nav className="app__nav" aria-label="Primary">
-            <Button
-              type="button"
-              className=""
-              variant={activePage === 'scan' ? 'secondary' : 'ghost'}
-              size="sm"
-               onClick={() => navigateTopLevel('scan')}
-              onMouseEnter={() => prefetchPage('scan')}
-              onFocus={() => prefetchPage('scan')}
-              aria-current={activePage === 'scan' ? 'page' : undefined}
-            >
-              Current scan
-            </Button>
-            <Button
-                type="button"
-                className=""
-                variant={activePage === 'investigations' ? 'secondary' : 'ghost'}
-                size="sm"
-                 onClick={() => navigateTopLevel('investigations')}
-                onMouseEnter={() => prefetchPage('investigations')}
-                onFocus={() => prefetchPage('investigations')}
-                aria-current={activePage === 'investigations' ? 'page' : undefined}
-              >
-                Investigations
-            </Button>
-            {isAdmin && (
-              <Button
-                type="button"
-                className=""
-                variant={activePage === 'history' ? 'secondary' : 'ghost'}
-                size="sm"
-                 onClick={() => navigateTopLevel('history')}
-                onMouseEnter={() => prefetchPage('history')}
-                onFocus={() => prefetchPage('history')}
-                aria-current={activePage === 'history' ? 'page' : undefined}
-              >
-                History
-              </Button>
-            )}
-            {isAdmin && (
-              <Button
-                type="button"
-                className=""
-                variant={activePage === 'admin' ? 'secondary' : 'ghost'}
-                size="sm"
-                 onClick={() => navigateTopLevel('admin')}
-                onMouseEnter={() => prefetchPage('admin')}
-                onFocus={() => prefetchPage('admin')}
-                aria-current={activePage === 'admin' ? 'page' : undefined}
-              >
-                Admin
-              </Button>
-            )}
-          </nav>
+      <div className="app__topbar" role="group" aria-label="Workspace actions">
+        <nav className="app__nav" aria-label="Primary">
           <Button
             type="button"
-            variant="default"
+            className="app__nav-control"
+            variant={activePage === 'scan' ? 'secondary' : 'ghost'}
             size="sm"
-            className="app__new-scan"
-             onClick={() => navigateTopLevel('scan')}
+            onClick={() => navigateTopLevel('scan')}
+            onMouseEnter={() => prefetchPage('scan')}
+            onFocus={() => prefetchPage('scan')}
+            aria-current={activePage === 'scan' ? 'page' : undefined}
           >
-            New scan
+            {currentScanDomain || 'Scan'}
           </Button>
-        </div>
-        <p className="app__context">
-          Current scan: {currentScanDomain || 'none yet'}
-        </p>
+          <Button
+            type="button"
+            className="app__nav-control"
+            variant={activePage === 'investigations' ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => navigateTopLevel('investigations')}
+            onMouseEnter={() => prefetchPage('investigations')}
+            onFocus={() => prefetchPage('investigations')}
+            aria-current={activePage === 'investigations' ? 'page' : undefined}
+          >
+            Investigations
+          </Button>
+          {isAdmin ? (
+            <Button
+              type="button"
+              className="app__nav-control"
+              variant={activePage === 'history' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => navigateTopLevel('history')}
+              onMouseEnter={() => prefetchPage('history')}
+              onFocus={() => prefetchPage('history')}
+              aria-current={activePage === 'history' ? 'page' : undefined}
+            >
+              History
+            </Button>
+          ) : null}
+          {isAdmin ? (
+            <Button
+              type="button"
+              className="app__nav-control"
+              variant={activePage === 'admin' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => navigateTopLevel('admin')}
+              onMouseEnter={() => prefetchPage('admin')}
+              onFocus={() => prefetchPage('admin')}
+              aria-current={activePage === 'admin' ? 'page' : undefined}
+            >
+              Admin
+            </Button>
+          ) : null}
+        </nav>
+        <Button
+          type="button"
+          variant="default"
+          size="sm"
+          className="app__new-scan"
+          onClick={() => navigateTopLevel('scan')}
+        >
+          New scan
+        </Button>
       </div>
     );
   }, [activePage, currentScanDomain, navigateTopLevel, isAdmin]);

@@ -168,7 +168,7 @@ function ScanSectionContent({
   }
 
   return (
-    <div key={activeSection} className="section-enter">
+    <div key={activeSection} className="section-enter scan-sections">
       <SwitchBody
         activeSection={activeSection}
         scanResult={scanResult}

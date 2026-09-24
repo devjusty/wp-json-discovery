@@ -46,9 +46,11 @@ function ScanProgress({ capabilityStates = {} }: ScanProgressProps) {
   const summary = `${completed} of ${segments.length} complete${failed ? `; ${failed} failed` : ''}${unavailable ? `; ${unavailable} unavailable` : ''}`;
 
   return (
-    <section aria-labelledby="scan-progress-heading">
-      <h2 id="scan-progress-heading">Scan progress</h2>
-      <p role="status" aria-live="polite">{summary}</p>
+    <section className="scan-progress-panel" aria-labelledby="scan-progress-heading">
+      <div className="scan-progress-panel__header">
+        <h2 id="scan-progress-heading">Scan progress</h2>
+        <p className="scan-progress-panel__summary" role="status" aria-live="polite">{summary}</p>
+      </div>
       <ol aria-label="Initial scan capabilities" className="scan-progress">
         {segments.map(({ id, label, status }) => (
           <li key={id} className={`scan-progress__segment scan-progress__segment--${status}`}>
