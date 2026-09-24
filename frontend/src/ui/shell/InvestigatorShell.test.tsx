@@ -1,5 +1,6 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { AppShell } from './AppShell';
 import { InvestigatorShell } from './InvestigatorShell';
@@ -11,6 +12,19 @@ describe('InvestigatorShell', () => {
 
     expect(screen.getByRole('navigation', { name: 'Investigation sections' })).toHaveTextContent('OverviewFindingsEvidenceAssetsHistoryTools');
     expect(screen.getByRole('combobox', { name: 'Investigation section' })).toHaveValue('overview');
+  });
+
+  it('changes active content for every contextual section', async () => {
+    const user = userEvent.setup();
+    const sections = ['overview', 'findings', 'evidence', 'assets', 'history', 'tools'].map((id) => ({ id, label: id[0].toUpperCase() + id.slice(1) }));
+    render(<StatefulInvestigatorShell sections={sections} />);
+    const selector = screen.getByRole('navigation', { name: 'Investigation sections' });
+
+    for (const section of sections) {
+      await user.click(within(selector).getByRole('button', { name: section.label }));
+      expect(screen.getByRole('region', { name: section.label })).toBeInTheDocument();
+      expect(screen.getByRole('region', { name: section.label })).toHaveAttribute('data-active', 'true');
+    }
   });
 
   it('provides one main landmark and keyboard navigation', async () => {
@@ -50,3 +64,16 @@ describe('InvestigatorShell', () => {
     expect(screen.queryByText('Successful evidence remains available.')).not.toBeInTheDocument();
   });
 });
+
+function StatefulInvestigatorShell({ sections }: { sections: ReadonlyArray<{ id: string; label: string }> }) {
+  const [activeSection, setActiveSection] = useState('overview');
+  return (
+    <InvestigatorShell
+      readModel={{ title: 'example.com', status: 'incomplete', sections, capabilities: [] }}
+      activeSection={activeSection}
+      commands={{ onSectionChange: setActiveSection }}
+    >
+      <p>existing page content</p>
+    </InvestigatorShell>
+  );
+}

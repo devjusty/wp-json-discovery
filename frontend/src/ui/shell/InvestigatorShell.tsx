@@ -26,6 +26,9 @@ export function InvestigatorShell({ readModel, commands, activeSection = readMod
   const isPartial = readModel.status === 'partial' || readModel.status === 'failed';
   const successfulCapabilityExists = readModel.capabilities.some(({ status }) => status === 'success');
   const retryableCapabilities = readModel.capabilities.filter(({ status, retryable }) => status === 'failed' && retryable);
+  const activeSectionDefinition = readModel.sections.find(({ id }) => id === activeSection) ?? readModel.sections[0];
+  const activeSectionLabel = activeSectionDefinition?.label ?? 'Investigation';
+  const activeSectionHeadingId = `investigator-section-${activeSectionDefinition?.id ?? 'content'}`;
 
   return (
     <AppShell navigation={navigation} commands={{ onNavigate: commands.onSectionChange }} title={readModel.title} navigationLabel="Investigator navigation">
@@ -39,7 +42,12 @@ export function InvestigatorShell({ readModel, commands, activeSection = readMod
           </button>
         )) : null}
       </div> : null}
-      {children}
+      <section className="investigator-section-placeholder" aria-labelledby={activeSectionHeadingId} data-active="true">
+        <p className="investigation-shell__eyebrow">Active investigation section</p>
+        <h2 id={activeSectionHeadingId}>{activeSectionLabel}</h2>
+        <p>{activeSectionDefinition?.description ?? `${activeSectionLabel} content is available in this investigation.`}</p>
+      </section>
+      <div className="investigator-shell__page-content">{children}</div>
     </AppShell>
   );
 }

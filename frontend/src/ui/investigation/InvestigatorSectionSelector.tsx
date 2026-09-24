@@ -2,6 +2,7 @@ export type InvestigatorSection = Readonly<{
   id: string;
   label: string;
   disabled?: boolean;
+  description?: string;
 }>;
 
 type InvestigatorSectionSelectorProps = Readonly<{

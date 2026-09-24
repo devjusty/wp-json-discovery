@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -57,8 +57,10 @@ function AppContent() {
     staleTime: 5 * 60 * 1000
   });
   const isAdmin = userProfile?.user?.role === 'admin';
+  const [activeInvestigatorSection, setActiveInvestigatorSection] = useState('overview');
   const handleInvestigatorSectionChange = (sectionId: string) => {
-    if (sectionId === 'history') setActivePage('history');
+    setActiveInvestigatorSection(sectionId);
+    setActivePage(sectionId === 'history' ? 'history' : 'scan');
   };
 
   useEffect(() => {
@@ -190,7 +192,7 @@ function AppContent() {
     }
 
     return (
-      <InvestigatorShell readModel={routeReadModel(currentScanDomain)} commands={{ onSectionChange: handleInvestigatorSectionChange }} activeSection={activePage === 'history' ? 'history' : 'overview'}>
+      <InvestigatorShell readModel={routeReadModel(currentScanDomain, isAdmin)} commands={{ onSectionChange: handleInvestigatorSectionChange }} activeSection={activePage === 'history' ? 'history' : activeInvestigatorSection}>
         <Suspense fallback={<PageLoadingState label="Loading scan history..." />}>
           <HistoryPage
             headerActions={headerActions}
@@ -212,7 +214,7 @@ function AppContent() {
 
   if (activePage === 'investigations') {
     return (
-      <InvestigatorShell readModel={routeReadModel(currentScanDomain)} commands={{ onSectionChange: handleInvestigatorSectionChange }} activeSection="overview">
+      <InvestigatorShell readModel={routeReadModel(currentScanDomain, isAdmin)} commands={{ onSectionChange: handleInvestigatorSectionChange }} activeSection={activeInvestigatorSection}>
         <Suspense fallback={<PageLoadingState label="Loading investigations..." />}>
           <InvestigationsPage
             headerActions={headerActions}
@@ -233,7 +235,7 @@ function AppContent() {
   }
 
     return (
-      <InvestigatorShell readModel={routeReadModel(currentScanDomain)} commands={{ onSectionChange: handleInvestigatorSectionChange }} activeSection="overview">
+      <InvestigatorShell readModel={routeReadModel(currentScanDomain, isAdmin)} commands={{ onSectionChange: handleInvestigatorSectionChange }} activeSection={activeInvestigatorSection}>
         <Suspense fallback={<PageLoadingState label="Loading scanner..." />}>
           <ScanPage headerActions={headerActions} onNavigate={setActivePage} isAdmin={isAdmin} isAuthenticated={isAuthenticated} />
         </Suspense>
@@ -241,19 +243,19 @@ function AppContent() {
     );
 }
 
-function routeReadModel(currentScanDomain: string) {
+function routeReadModel(currentScanDomain: string, isAdmin: boolean) {
   return {
     title: currentScanDomain || 'Investigation workspace',
     status: 'incomplete' as const,
     capabilities: [],
     sections: [
-      { id: 'overview', label: 'Overview' },
-      { id: 'findings', label: 'Findings' },
-      { id: 'evidence', label: 'Evidence' },
-      { id: 'assets', label: 'Assets' },
-      { id: 'history', label: 'History' },
-      { id: 'tools', label: 'Tools' },
-    ].map((section) => ({ ...section, disabled: section.id === 'history' && !currentScanDomain })),
+      { id: 'overview', label: 'Overview', description: 'Site identity and investigation summary.' },
+      { id: 'findings', label: 'Findings', description: 'Ranked signals requiring investigator attention.' },
+      { id: 'evidence', label: 'Evidence', description: 'Observed evidence and provenance.' },
+      { id: 'assets', label: 'Assets', description: 'Discovered site assets and their sources.' },
+      { id: 'history', label: 'History', description: 'Previous investigation activity.' },
+      { id: 'tools', label: 'Tools', description: 'Investigation actions and capability controls.' },
+    ].map((section) => ({ ...section, disabled: section.id === 'history' && (!currentScanDomain || !isAdmin) })),
   };
 }
 

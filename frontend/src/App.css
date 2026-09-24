@@ -355,6 +355,10 @@ body {
 .investigator-section-selector select { min-height: var(--investigation-control-height); border: 1px solid var(--color-border); border-radius: 0; background: var(--investigation-surface-raised); color: var(--investigation-text); font: inherit; padding: .5rem; }
 .investigator-partial { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; border-left: 3px solid var(--investigation-status-warning); background: var(--investigation-surface-raised); padding: .85rem 1rem; }
 .investigator-partial span { color: var(--investigation-text-muted); }
+.investigator-section-placeholder { border: 1px solid var(--color-border); background: var(--investigation-surface); padding: 1.25rem; }
+.investigator-section-placeholder h2 { margin: .25rem 0 .5rem; }
+.investigator-section-placeholder p:last-child { margin-bottom: 0; color: var(--investigation-text-muted); }
+.investigator-shell__page-content { min-width: 0; }
 .investigator-overview__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .investigator-panel, .investigator-findings, .evidence-disclosure { border: 1px solid var(--color-border); background: var(--investigation-surface); padding: 1.25rem; }
 .investigator-panel h3, .investigator-finding h3 { margin: .35rem 0 .5rem; }
