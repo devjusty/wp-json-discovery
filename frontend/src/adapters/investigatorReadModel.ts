@@ -1,4 +1,5 @@
 import { createInvestigation, type CapabilityStatus, type Investigation, type JsonValue, type EvidenceKind } from '../domain/investigation/model';
+import { rankFindings } from '../domain/investigation/findings';
 
 export type InvestigatorCapabilityStatus = CapabilityStatus | 'idle';
 export type InvestigatorStatus = 'queued' | 'running' | 'partial' | 'complete' | 'failed' | 'blocked';
@@ -62,7 +63,7 @@ export function createInvestigatorReadModel(
     capabilities: mergeCapabilityRuns(canonical?.capabilities ?? [], liveCapabilities),
     observationTimeline: canonical?.observationTimeline,
     evidence: mergeById(canonical?.evidence ?? [], mapped.evidence),
-    findings: mergeFindings(canonical?.findings ?? [], mapped.findings),
+    findings: rankFindings(mergeFindings(canonical?.findings ?? [], mapped.findings)),
   }) : undefined;
 
   return {
@@ -123,9 +124,11 @@ function mergeCapabilityRuns(canonical: Investigation['capabilities'], live: Ret
     const result = item.status === 'success' && !('result' in item) && previous?.status === 'success'
       ? previous.result
       : undefined;
+    const error = !('error' in item) && previous && 'error' in previous ? previous.error : undefined;
     merged.set(item.name, {
       ...item,
       ...(result !== undefined ? { result } : {}),
+      ...(error !== undefined ? { error } : {}),
     } as Investigation['capabilities'][number]);
   });
   return [...merged.values()];
@@ -152,8 +155,11 @@ function mapCapabilities(capabilityStates: InvestigatorSession['capabilityStates
   return Object.entries(capabilityStates ?? {}).flatMap(([name, state]) => {
     const status = normalizeCapabilityStatus(state.status);
     if (!status) return [];
-    const retryable = status === 'failed' && state.outcome?.error?.retryable === true;
-    return [{ name, status, ...(status === 'failed' || status === 'unavailable' ? { retryable } : {}) }];
+    const error = state.outcome?.error;
+    const retryable = status === 'unavailable'
+      ? error !== undefined ? false : undefined
+      : error?.retryable;
+    return [{ name, status, ...(status === 'failed' || status === 'unavailable') && typeof retryable === 'boolean' ? { retryable } : {} }];
   });
 }
 

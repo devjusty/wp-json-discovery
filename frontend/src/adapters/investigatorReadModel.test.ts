@@ -322,4 +322,64 @@ describe('createInvestigatorReadModel', () => {
       expect.objectContaining({ name: 'homepage', status: 'success', result: { title: 'Example' } }),
     ]));
   });
+
+  it('preserves persisted failed error and retry metadata across sparse live overlays', () => {
+    const readModel = createInvestigatorReadModel({
+      status: 'failed',
+      overall: { status: 'failed' },
+      domain: { submitted: 'Example.com', normalized: 'https://example.com' },
+      capabilityStates: { wordpress: { status: 'failed' } },
+      investigationState: {
+        id: 'investigation-1',
+        submittedUrl: 'Example.com',
+        normalizedUrl: 'https://example.com',
+        redirectChain: [],
+        createdAt: '2026-01-01T00:00:00.000Z',
+        capabilities: [{ name: 'wordpress', status: 'failed', error: { code: 'timeout', message: 'Timed out', retryable: true } }],
+        observationTimeline: [],
+        evidence: [],
+        findings: [],
+      },
+    }, false);
+
+    expect(readModel.capabilities).toEqual([
+      { name: 'wordpress', status: 'failed', retryable: true },
+    ]);
+    expect(readModel.investigation?.capabilities[0]).toMatchObject({
+      name: 'wordpress',
+      status: 'failed',
+      error: { code: 'timeout', message: 'Timed out', retryable: true },
+    });
+  });
+
+  it('returns canonical findings in deterministic ranked order while preserving evidence IDs', () => {
+    const readModel = createInvestigatorReadModel({
+      status: 'completed',
+      overall: { status: 'complete' },
+      domain: { submitted: 'Example.com', normalized: 'https://example.com' },
+      capabilityStates: {},
+      investigationState: {
+        id: 'investigation-1',
+        submittedUrl: 'Example.com',
+        normalizedUrl: 'https://example.com',
+        redirectChain: [],
+        createdAt: '2026-01-01T00:00:00.000Z',
+        capabilities: [],
+        observationTimeline: [],
+        evidence: [
+          { id: 'low-evidence', kind: 'observed', capability: 'homepage', value: 'low', source: {} },
+          { id: 'high-evidence', kind: 'observed', capability: 'wordpress', value: 'high', source: {} },
+        ],
+        findings: [
+          { id: 'low', capability: 'homepage', summary: 'Low signal', evidenceIds: ['low-evidence'], confidence: 'low' },
+          { id: 'high', capability: 'wordpress', summary: 'High signal', evidenceIds: ['high-evidence'], confidence: 'high' },
+        ],
+      },
+    }, false);
+
+    expect(readModel.investigation?.findings.map(({ id, evidenceIds }) => ({ id, evidenceIds }))).toEqual([
+      { id: 'high', evidenceIds: ['high-evidence'] },
+      { id: 'low', evidenceIds: ['low-evidence'] },
+    ]);
+  });
 });
