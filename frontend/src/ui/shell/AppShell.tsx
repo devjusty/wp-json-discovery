@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { BrandMark } from '../brand/BrandMark';
 
 export type ShellNavigationItem = Readonly<{
   id: string;
@@ -27,7 +28,10 @@ export function AppShell({ navigation, commands, children, title = 'WP JSON Disc
   return (
     <div className="investigation-shell">
       <header className="investigation-shell__header">
-        <p className="investigation-shell__eyebrow">{title}</p>
+        <div className="investigation-shell__brand">
+          <BrandMark className="investigation-shell__mark" />
+          <p className="investigation-shell__eyebrow">{title}</p>
+        </div>
         <nav aria-label={navigationLabel} className="investigation-shell__nav">
           {navigation.items.map((item) => (
             <button

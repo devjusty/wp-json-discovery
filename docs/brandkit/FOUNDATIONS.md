@@ -1,7 +1,8 @@
 # Brand foundations
 
 Visual specimen: [`wp-json-discovery-foundations.png`](./wp-json-discovery-foundations.png)  
-Implementable CSS: [`tokens.css`](./tokens.css)
+Implementable CSS: [`tokens.css`](./tokens.css)  
+**Wired into:** `frontend/src/index.css`, `frontend/src/theme.css` (dark-first investigator shell).
 
 Dark-first investigative utility. Do not introduce purple glow, marketing gradients, or light-first defaults for the investigator shell.
 

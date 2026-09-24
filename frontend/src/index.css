@@ -1,116 +1,135 @@
 :root {
-  --font-body: "IBM Plex Sans Variable", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  /* —— Brand primitives (docs/brandkit/tokens.css) —— */
+  --brand-charcoal: #0b0c0e;
+  --brand-panel: #14161a;
+  --brand-cream: #e8e4dc;
+  --brand-steel: #8b9099;
+  --brand-signal: #5eb8c4;
+  --brand-ember: #c97b6b;
+  --brand-surface-well: #0e1013;
 
-  --font-size-caption: 0.78rem;
-  --font-size-sm: 0.85rem;
+  --brand-font-sans: "IBM Plex Sans Variable", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --brand-font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --brand-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --brand-duration-fast: 120ms;
+  --brand-duration-normal: 200ms;
+  --brand-duration-pulse: 1.4s;
+
+  --font-body: var(--brand-font-sans);
+  --font-mono: var(--brand-font-mono);
+
+  --font-size-caption: 0.75rem;
+  --font-size-sm: 0.875rem;
   --font-size-md: 0.95rem;
   --font-size-base: 1rem;
-  --font-size-lg: 1.15rem;
-  --font-size-xl: 1.5rem;
-  --font-size-hero: 2.4rem;
+  --font-size-lg: 1.25rem;
+  --font-size-xl: 1.75rem;
+  --font-size-hero: 2.5rem;
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
   --space-4: 1rem;
   --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
 
-  --color-ink: #e6edf7;
-  --color-ink-dark: #c7d3e5;
-  --color-ink-strong: #f2f7ff;
-  --color-ink-muted: #aebcd2;
-  --color-ink-soft: #8b9bb3;
-  --color-ink-pale: #6f809a;
+  --color-ink: var(--brand-cream);
+  --color-ink-dark: color-mix(in srgb, var(--brand-cream) 78%, var(--brand-steel));
+  --color-ink-strong: var(--brand-cream);
+  --color-ink-muted: var(--brand-steel);
+  --color-ink-soft: color-mix(in srgb, var(--brand-steel) 85%, var(--brand-charcoal));
+  --color-ink-pale: color-mix(in srgb, var(--brand-steel) 65%, var(--brand-charcoal));
 
-  --color-surface: #111827;
-  --color-surface-muted: #0f172a;
-  --color-surface-strong: #1b2437;
-  --color-surface-tint: #1a2233;
-  --color-surface-elevated: #202b41;
+  --color-surface: var(--brand-panel);
+  --color-surface-muted: var(--brand-charcoal);
+  --color-surface-strong: color-mix(in srgb, var(--brand-panel) 70%, var(--brand-steel));
+  --color-surface-tint: color-mix(in srgb, var(--brand-panel) 88%, var(--brand-cream));
+  --color-surface-elevated: color-mix(in srgb, var(--brand-panel) 82%, var(--brand-steel));
 
-  --color-border: #2f3b53;
-  --color-border-strong: #445779;
-  --color-border-soft: #37455f;
+  --color-border: color-mix(in srgb, var(--brand-steel) 28%, transparent);
+  --color-border-strong: color-mix(in srgb, var(--brand-steel) 48%, transparent);
+  --color-border-soft: color-mix(in srgb, var(--brand-steel) 20%, transparent);
 
-  --color-primary: #60a5fa;
-  --color-primary-strong: #3b82f6;
-  --color-accent: #22d3ee;
-  --color-primary-light: #7dd3fc;
+  --color-primary: var(--brand-signal);
+  --color-primary-strong: color-mix(in srgb, var(--brand-signal) 78%, var(--brand-charcoal));
+  --color-accent: var(--brand-signal);
+  --color-primary-light: color-mix(in srgb, var(--brand-signal) 70%, var(--brand-cream));
 
-  --color-success-bg: #0f2a21;
-  --color-success-border: #1f6a56;
-  --color-success-text: #4ade80;
+  --color-success-bg: color-mix(in srgb, var(--brand-ember) 18%, var(--brand-charcoal));
+  --color-success-border: color-mix(in srgb, var(--brand-ember) 45%, var(--brand-charcoal));
+  --color-success-text: var(--brand-ember);
 
-  --color-info-bg: #102338;
-  --color-info-border: #244f7a;
+  --color-info-bg: color-mix(in srgb, var(--brand-signal) 16%, var(--brand-charcoal));
+  --color-info-border: color-mix(in srgb, var(--brand-signal) 40%, var(--brand-charcoal));
 
-  --color-warning-bg: #35240f;
-  --color-warning-border: #7b4a1f;
-  --color-warning-text: #fb923c;
+  --color-warning-bg: color-mix(in srgb, var(--brand-ember) 22%, var(--brand-charcoal));
+  --color-warning-border: color-mix(in srgb, var(--brand-ember) 50%, var(--brand-charcoal));
+  --color-warning-text: color-mix(in srgb, var(--brand-ember) 85%, var(--brand-cream));
 
-  --color-danger-bg: #31151d;
-  --color-danger-soft: #2a1219;
-  --color-danger-border: #7a2a3b;
-  --color-danger-border-strong: #8f3247;
-  --color-danger-strong: #fb7185;
-  --color-danger-deep: #fecdd3;
+  --color-danger-bg: color-mix(in srgb, var(--brand-ember) 24%, var(--brand-charcoal));
+  --color-danger-soft: color-mix(in srgb, var(--brand-ember) 16%, var(--brand-charcoal));
+  --color-danger-border: color-mix(in srgb, var(--brand-ember) 55%, var(--brand-charcoal));
+  --color-danger-border-strong: color-mix(in srgb, var(--brand-ember) 70%, var(--brand-cream));
+  --color-danger-strong: color-mix(in srgb, var(--brand-ember) 75%, var(--brand-cream));
+  --color-danger-deep: color-mix(in srgb, var(--brand-ember) 40%, var(--brand-cream));
 
-  --color-indigo-bg: #1d2342;
-  --color-indigo-border: #3f4a8a;
-  --color-indigo-text: #c7d2fe;
-  --color-indigo-strong: #818cf8;
+  --color-indigo-bg: color-mix(in srgb, var(--brand-signal) 12%, var(--brand-charcoal));
+  --color-indigo-border: color-mix(in srgb, var(--brand-signal) 35%, var(--brand-charcoal));
+  --color-indigo-text: color-mix(in srgb, var(--brand-signal) 55%, var(--brand-cream));
+  --color-indigo-strong: var(--brand-signal);
 
-  --color-sidebar-bg: #0b1220;
-  --color-sidebar-text: #d9e4f5;
-  --color-sidebar-muted: #95a7c2;
+  --color-sidebar-bg: var(--brand-charcoal);
+  --color-sidebar-text: var(--brand-cream);
+  --color-sidebar-muted: var(--brand-steel);
 
-  --color-input-bg: #121c2d;
-  --color-input-bg-soft: #111a2a;
-  --color-input-border: #3b4c67;
-  --color-input-border-hover: #5d7498;
-  --color-input-border-focus: #60a5fa;
+  --color-input-bg: var(--brand-surface-well);
+  --color-input-bg-soft: var(--brand-panel);
+  --color-input-border: color-mix(in srgb, var(--brand-steel) 40%, transparent);
+  --color-input-border-hover: color-mix(in srgb, var(--brand-steel) 62%, transparent);
+  --color-input-border-focus: var(--brand-signal);
 
-  --color-modal-backdrop: rgba(2, 6, 23, 0.72);
+  --color-modal-backdrop: color-mix(in srgb, var(--brand-charcoal) 72%, transparent);
 
-  --overlay-surface-subtle: rgba(148, 163, 184, 0.1);
-  --overlay-surface-soft: rgba(148, 163, 184, 0.12);
-  --overlay-surface-muted: rgba(148, 163, 184, 0.2);
-  --overlay-surface-strong: rgba(148, 163, 184, 0.4);
-  --overlay-surface-border: rgba(148, 163, 184, 0.45);
-  --overlay-brand-soft: rgba(59, 130, 246, 0.2);
-  --overlay-brand-border: rgba(59, 130, 246, 0.6);
-  --overlay-brand-tint: rgba(96, 165, 250, 0.14);
-  --overlay-brand-focus: rgba(96, 165, 250, 0.2);
-  --overlay-brand-strong: rgba(96, 165, 250, 0.9);
-  --overlay-slate-panel: rgba(11, 18, 32, 0.84);
-  --overlay-slate-soft: rgba(71, 85, 105, 0.14);
+  --overlay-surface-subtle: color-mix(in srgb, var(--brand-steel) 10%, transparent);
+  --overlay-surface-soft: color-mix(in srgb, var(--brand-steel) 12%, transparent);
+  --overlay-surface-muted: color-mix(in srgb, var(--brand-steel) 20%, transparent);
+  --overlay-surface-strong: color-mix(in srgb, var(--brand-steel) 40%, transparent);
+  --overlay-surface-border: color-mix(in srgb, var(--brand-steel) 45%, transparent);
+  --overlay-brand-soft: color-mix(in srgb, var(--brand-signal) 20%, transparent);
+  --overlay-brand-border: color-mix(in srgb, var(--brand-signal) 55%, transparent);
+  --overlay-brand-tint: color-mix(in srgb, var(--brand-signal) 14%, transparent);
+  --overlay-brand-focus: color-mix(in srgb, var(--brand-signal) 22%, transparent);
+  --overlay-brand-strong: color-mix(in srgb, var(--brand-signal) 90%, transparent);
+  --overlay-slate-panel: color-mix(in srgb, var(--brand-charcoal) 84%, transparent);
+  --overlay-slate-soft: color-mix(in srgb, var(--brand-steel) 14%, transparent);
 
-  --shadow-elev-1: 0 6px 18px rgba(15, 23, 42, 0.05);
-  --shadow-elev-2: 0 10px 30px rgba(15, 23, 42, 0.08);
-  --shadow-elev-3: 0 12px 34px rgba(15, 23, 42, 0.2);
-  --shadow-elev-4: 0 8px 20px rgba(15, 23, 42, 0.25);
-  --shadow-elev-5: 0 24px 54px rgba(15, 23, 42, 0.3);
+  --shadow-elev-1: 0 6px 18px color-mix(in srgb, var(--brand-charcoal) 35%, transparent);
+  --shadow-elev-2: 0 10px 30px color-mix(in srgb, var(--brand-charcoal) 45%, transparent);
+  --shadow-elev-3: 0 12px 34px color-mix(in srgb, var(--brand-charcoal) 50%, transparent);
+  --shadow-elev-4: 0 8px 20px color-mix(in srgb, var(--brand-charcoal) 45%, transparent);
+  --shadow-elev-5: 0 24px 54px color-mix(in srgb, var(--brand-charcoal) 55%, transparent);
 
-  --ring-focus-soft: 0 0 0 3px rgba(96, 165, 250, 0.2);
-  --ring-focus-strong: 0 0 0 4px rgba(37, 99, 235, 0.15);
+  --ring-focus-soft: 0 0 0 3px color-mix(in srgb, var(--brand-signal) 28%, transparent);
+  --ring-focus-strong: 0 0 0 3px color-mix(in srgb, var(--brand-signal) 35%, transparent);
 
-  --inset-highlight-subtle: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  --inset-highlight-soft: inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  --inset-highlight-strong: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --inset-highlight-subtle: inset 0 1px 0 color-mix(in srgb, var(--brand-cream) 6%, transparent);
+  --inset-highlight-soft: inset 0 1px 0 color-mix(in srgb, var(--brand-cream) 10%, transparent);
+  --inset-highlight-strong: inset 0 1px 0 color-mix(in srgb, var(--brand-cream) 14%, transparent);
 
-  --shadow-card: 0 14px 34px rgba(2, 6, 23, 0.4);
-  --shadow-card-strong: 0 20px 44px rgba(2, 6, 23, 0.56);
+  --shadow-card: 0 14px 34px color-mix(in srgb, var(--brand-charcoal) 55%, transparent);
+  --shadow-card-strong: 0 20px 44px color-mix(in srgb, var(--brand-charcoal) 65%, transparent);
 
-  --radius-md: 0px;
-  --radius-lg: 0px;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
 
-  --control-border-radius: 0px;
+  --control-border-radius: var(--radius-sm);
   --control-padding-y: 0.7rem;
   --control-padding-x: 0.85rem;
 
   font-family: var(--font-body);
-  line-height: 1.5;
+  line-height: 1.45;
   font-weight: 400;
   color: var(--color-ink);
   background-color: var(--color-surface-muted);
@@ -129,15 +148,18 @@
 body {
   margin: 0;
   min-width: 320px;
-  background: linear-gradient(180deg, #0b1220 0%, #111827 48%, #0f172a 100%);
+  background:
+    radial-gradient(120% 80% at 50% -10%, color-mix(in srgb, var(--brand-signal) 8%, transparent), transparent 55%),
+    linear-gradient(180deg, var(--brand-charcoal) 0%, var(--brand-panel) 52%, var(--brand-charcoal) 100%);
 }
 
 a {
   color: var(--color-primary);
+  transition: color var(--brand-duration-fast) var(--brand-ease-out);
 }
 
 a:hover {
-  color: var(--color-primary-strong);
+  color: var(--color-primary-light);
 }
 
 button {
@@ -150,4 +172,12 @@ kbd,
 samp,
 .font-mono {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+  letter-spacing: -0.01em;
 }

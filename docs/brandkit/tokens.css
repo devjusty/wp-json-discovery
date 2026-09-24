@@ -2,8 +2,7 @@
  * WP JSON Discovery — brand foundations (locked for redesign)
  *
  * Visual source: docs/brandkit/wp-json-discovery-foundations.png
- * Do not wire into frontend/src/theme.css until the redesign lands;
- * this file is the contract the redesign should implement against.
+ * Implemented in frontend/src/index.css + frontend/src/theme.css (dark-first).
  */
 
 :root {

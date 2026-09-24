@@ -3,8 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import LoginButton from '../atoms/LoginButton.jsx';
 import UserMenu from '../molecules/UserMenu';
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Telescope01Icon } from "@hugeicons/core-free-icons";
+import { BrandMark } from '../../ui/brand/BrandMark';
 
 type AppLayoutProps = {
   title: string;
@@ -33,7 +32,7 @@ function AppLayout({ title, subtitle, headerActions, sidebar, children, onNaviga
             onClick={onNavigate ? () => onNavigate('scan') : undefined}
             aria-label={onNavigate ? `Back to main dashboard: ${title}` : undefined}
           >
-            <HugeiconsIcon icon={Telescope01Icon} />
+            <BrandMark className="app__header-mark" />
             <h1>{title}</h1>
           </BrandTag>
 
