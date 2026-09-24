@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { scanSessionSchema } from '@wp-json-discovery/contracts';
+import { createInvestigation } from '../domain/investigation/model.ts';
 
 import {
   createInvestigationSession,
@@ -8,7 +9,8 @@ import {
   getInvestigatorSelection,
   recoverInvestigationSession,
   retryInvestigationCapability,
-  runInvestigationSession
+  runInvestigationSession,
+  createInvestigatorWorkflow
 } from './investigationSession.js';
 
 const session = createInvestigationSession({
@@ -23,6 +25,76 @@ const runners = {
 };
 
 describe('investigation session', () => {
+  it('normalizes submitted identity while retaining domain and redirects in workflow read model', async () => {
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => null, getAccessToken: async () => null },
+      runner: { run: async () => ({ findings: [] }) },
+      localStore: memoryStore(),
+      remoteStore: memoryStore(),
+      normalize: () => 'https://example.com',
+      redirectChain: ['https://example.com/start', 'https://example.com'],
+    });
+
+    const result = await workflow.start(' Example.com/start ');
+
+    expect(result.investigation).toMatchObject({
+      submittedUrl: ' Example.com/start ',
+      normalizedUrl: 'https://example.com',
+      redirectChain: ['https://example.com/start', 'https://example.com'],
+    });
+  });
+
+  it('exposes command callbacks and read model without leaking persistence details', async () => {
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => null, getAccessToken: async () => null },
+      runner: { run: async ({ capability }) => ({ capability, findings: [] }) },
+      localStore: memoryStore(),
+      remoteStore: memoryStore(),
+    });
+
+    const started = await workflow.start('example.com');
+
+    expect(started.readModel.investigation.submittedUrl).toBe('example.com');
+    expect(started.commands).toEqual(expect.objectContaining({
+      retry: expect.any(Function),
+      resume: expect.any(Function),
+      claim: expect.any(Function),
+    }));
+  });
+
+  it('persists authenticated workflow results remotely and claims local work after sign-in', async () => {
+    const local = memoryStore();
+    const remote = memoryStore();
+    const investigation = createInvestigation({
+      id: 'remote-inv', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: ['https://example.com'], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [{ name: 'wordpress', status: 'queued' }],
+    });
+    let remoteSaves = 0;
+    const originalRemoteSave = remote.save;
+    remote.save = async (value) => { remoteSaves += 1; return originalRemoteSave(value); };
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => ({ findings: [] }) },
+      localStore: local,
+      remoteStore: remote,
+      remoteStart: async () => investigation,
+    });
+
+    await workflow.start('example.com');
+    expect(remoteSaves).toBeGreaterThan(0);
+    expect(await local.list()).toHaveLength(0);
+
+    const claimed = createInvestigation({ ...investigation, id: 'claim-inv', capabilities: [] });
+    await local.save(claimed);
+    const claimWorkflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      localStore: local,
+      remoteStore: { ...remote, claim: async () => claimed },
+    });
+    await expect(claimWorkflow.claim('claim-inv')).resolves.toMatchObject({ investigation: claimed });
+  });
+
   it('emits identity and capability progress before final completion', async () => {
     const changes = [];
     const result = await runInvestigationSession(session, runners, (next) => changes.push(next), { active: true });
@@ -508,4 +580,14 @@ function createTerminalSession() {
 function expectValidSession(value) {
   const validation = scanSessionSchema.safeParse(value);
   expect(validation.success, JSON.stringify(validation.error?.issues)).toBe(true);
+}
+
+function memoryStore() {
+  let value = null;
+  return {
+    async save(next) { value = next; },
+    async get(id) { return value?.id === id ? value : null; },
+    async list() { return value ? [value] : []; },
+    async claim(id) { return value?.id === id ? value : null; },
+  };
 }

@@ -6,6 +6,13 @@ import {
 import { normalizeScanError } from './scanSession.js';
 import { applyInvestigationEvent, canRetryCapability } from '../domain/investigation/lifecycle.ts';
 import { selectInvestigationStatus } from '../domain/investigation/selectors.ts';
+import { createInvestigatorReadModel } from '../adapters/investigatorReadModel.ts';
+import { domainToSession } from '../adapters/persistence/sessionMapping.ts';
+import { createLegacyCapabilityRunner } from '../adapters/capabilities/legacyCapabilityRunner.ts';
+import { createLocalInvestigationStore } from '../adapters/persistence/localInvestigationStore.ts';
+import { createRemoteInvestigationStore } from '../adapters/persistence/remoteInvestigationStore.ts';
+import { createInvestigationTransport } from '../adapters/http/investigationTransport.ts';
+import { normalizeDomain } from '../utils/format.js';
 
 const DEPENDENCY_ERROR = {
   code: 'dependency_failed',
@@ -159,6 +166,90 @@ export function recoverInvestigationSession(session) {
 
 export function getInvestigatorSelection() {
   return normalizeSelection({ capabilityIds: ['wordpress', 'homepage'] });
+}
+
+/**
+ * Binds application commands to the investigator UI. Pages receive results and
+ * commands, never persistence or capability-transition details.
+ */
+export function createInvestigatorWorkflow({
+  auth,
+  localStore = undefined,
+  remoteStore = undefined,
+  runner = createLegacyCapabilityRunner(),
+  normalize = normalizeDomain,
+  redirectChain = undefined,
+  remoteStart = undefined,
+}) {
+  const resolvedAuth = auth ?? { getUserId: () => null, getAccessToken: async () => null };
+  const resolvedLocalStore = localStore ?? createLocalInvestigationStore();
+  const resolvedRemoteStore = remoteStore ?? createRemoteInvestigationStore({
+    authSession: {
+      ...resolvedAuth,
+      getAccessToken: async () => (await resolvedAuth.getAccessToken()) ?? 'authenticated',
+    },
+  });
+  localStore = resolvedLocalStore;
+  remoteStore = resolvedRemoteStore;
+  auth = resolvedAuth;
+  const dependencies = { auth, localStore, remoteStore, runner };
+
+  const present = (result) => {
+    const session = domainToSession(result.investigation);
+    return {
+      ...result,
+      session,
+      readModel: createInvestigatorReadModel(session, Boolean(auth?.getUserId?.())),
+      commands: {
+        retry: (capability) => retry(result.investigation, capability),
+        resume: () => resume(result.investigation.id),
+        claim: () => claim(result.investigation.id),
+      },
+    };
+  };
+
+  const start = async (submittedUrl, capabilities = getInvestigatorSelection()) => {
+    const selection = normalizeSelection(capabilities);
+    const { startInvestigation: startCommand } = await import('../application/investigation/start.ts');
+    const result = await startCommand({
+      domain: { submittedUrl, normalizedUrl: normalize(submittedUrl) },
+      redirectChain: redirectChain ?? [normalize(submittedUrl)],
+      capabilities: selection.capabilityIds.map((name) => ({
+        name,
+        options: selection.options[name],
+        dependencies: getCapabilityDependencies()[name] ?? [],
+      })),
+      remoteStart: auth.getUserId?.() ? (remoteStart ?? createInvestigationTransport().start) : undefined,
+    }, dependencies);
+    return present(result);
+  };
+
+  const retry = async (investigation, capability) => {
+    const { retryCapability: retryCommand } = await import('../application/investigation/retry.ts');
+    return present(await retryCommand({ investigation, capability }, {
+      auth,
+      store: auth?.getUserId?.() ? remoteStore : localStore,
+      localStore,
+      runner,
+    }));
+  };
+
+  const resume = async (id) => {
+    const { resumeInvestigation: resumeCommand } = await import('../application/investigation/resume.ts');
+    return present(await resumeCommand(id, {
+      auth,
+      store: auth?.getUserId?.() ? remoteStore : localStore,
+      localStore,
+      runner,
+    }));
+  };
+
+  const claim = async (id) => {
+    const { claimInvestigation: claimCommand } = await import('../application/investigation/claim.ts');
+    return present(await claimCommand(id, { auth, localStore, remoteStore }));
+  };
+
+  return { start, retry, resume, claim, list: () => (auth?.getUserId?.() ? remoteStore : localStore).list() };
 }
 
 export function getContextualCapabilityIds(session) {

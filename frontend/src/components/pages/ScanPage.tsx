@@ -29,7 +29,8 @@ import {
   getInvestigatorSelection,
   recoverInvestigationSession,
   retryInvestigationCapability,
-  runInvestigationSession
+  runInvestigationSession,
+  createInvestigatorWorkflow
 } from '../../services/investigationSession.js';
 import {
   getCapabilityRunners,
@@ -108,6 +109,16 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeS
   const startInFlightRef = useRef(false);
   const persistenceQueueRef = useRef(Promise.resolve());
   const persistenceRevisionRef = useRef(0);
+  const investigatorWorkflow = useMemo(() => (
+    typeof createInvestigatorWorkflow === 'function'
+      ? createInvestigatorWorkflow({
+        auth: {
+          getUserId: () => isAuthenticated ? 'authenticated' : null,
+          getAccessToken: async () => isAuthenticated ? 'authenticated' : null,
+        },
+      })
+      : null
+  ), [isAuthenticated]);
 
   const persistInvestigatorSession = useCallback(async (nextSession, identity) => {
     const snapshot = {
@@ -184,6 +195,20 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeS
     startInFlightRef.current = true;
     setIsStartingInvestigation(true);
     setInvestigatorError('');
+    if (investigatorWorkflow) {
+      try {
+        const result = await investigatorWorkflow.start(submittedValue, scanSettings);
+        setInvestigatorSession(result.session);
+        onDomainChange(result.investigation.submittedUrl);
+        setInvestigatorDomain(result.investigation.normalizedUrl);
+      } catch (error) {
+        setInvestigatorError(error.message ?? 'Investigation could not start. Check domain and try again.');
+      } finally {
+        startInFlightRef.current = false;
+        setIsStartingInvestigation(false);
+      }
+      return;
+    }
     const identity = { submitted: submittedValue, normalized: normalizeDomain(normalizedValue) };
     onDomainChange(identity.submitted);
     setInvestigatorDomain(identity.normalized);
@@ -220,7 +245,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeS
       startInFlightRef.current = false;
       setIsStartingInvestigation(false);
     }
-  }, [isAuthenticated, persistInvestigatorSession]);
+  }, [investigatorWorkflow, isAuthenticated, persistInvestigatorSession, scanSettings]);
 
   const handleRecentDomainRescan = useCallback((value) => {
     return handleInvestigatorSubmit(value, value);
@@ -252,6 +277,17 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeS
   const handleRetryInvestigatorCapability = useCallback(async (id) => {
     if (!investigatorSession || retryingCapabilityId) return;
     setRetryingCapabilityId(id);
+    if (investigatorWorkflow?.retry && investigatorSession.investigationState) {
+      try {
+        const result = await investigatorWorkflow.retry(investigatorSession.investigationState, id);
+        setInvestigatorSession(result.session);
+      } catch (error) {
+        setInvestigatorError(error.message ?? `Could not retry ${id}. Try again.`);
+      } finally {
+        setRetryingCapabilityId(null);
+      }
+      return;
+    }
     const token = { active: true };
     const identity = investigatorSession.domain;
     const onChange = (changedSession) => {
@@ -267,7 +303,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeS
     } finally {
       setRetryingCapabilityId(null);
     }
-  }, [investigatorSession, persistInvestigatorSession, retryingCapabilityId]);
+  }, [investigatorSession, investigatorWorkflow, persistInvestigatorSession, retryingCapabilityId]);
 
   useEffect(() => {
     setInvestigatorRetryCapability(() => handleRetryInvestigatorCapability);
@@ -279,6 +315,15 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeS
     setClaimError('');
     if (typeof window.confirm === 'function' && !window.confirm('Import this investigation?')) return;
     try {
+      if (investigatorWorkflow?.claim && anonymousSnapshot.record?.session?.investigationId) {
+        const result = await investigatorWorkflow.claim(anonymousSnapshot.record.session.investigationId);
+        removeAnonymousInvestigation();
+        setAnonymousSnapshot(null);
+        setInvestigatorSession(result.session);
+        onDomainChange(result.investigation.submittedUrl);
+        setInvestigatorDomain(result.investigation.normalizedUrl);
+        return;
+      }
       const payload = createClaimPayload(anonymousSnapshot);
       if (!payload) return;
       const record = await claimAnonymousInvestigation(payload.domain, payload.anonymousRecord);
@@ -297,7 +342,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeS
     } catch (error) {
       setClaimError(error.message ?? 'Import failed. Your local investigation remains available.');
     }
-  }, [anonymousSnapshot, persistInvestigatorSession]);
+  }, [anonymousSnapshot, investigatorWorkflow, persistInvestigatorSession]);
 
   const visibleSection = !isAdmin && (activeSection === 'unsupported' || activeSection === 'recon')
     ? 'overview'

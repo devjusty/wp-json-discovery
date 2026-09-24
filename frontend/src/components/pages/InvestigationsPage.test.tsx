@@ -9,13 +9,18 @@ import { loadAnonymousInvestigation } from '../../services/anonymousInvestigatio
 const mockedFetchInvestigations = vi.mocked(fetchInvestigations);
 const mockedLoadAnonymousInvestigation = vi.mocked(loadAnonymousInvestigation);
 
-vi.mock('../../api/client.js', () => ({
-  fetchInvestigations: vi.fn()
+vi.mock('../../services/anonymousInvestigations.js', () => ({
+  loadAnonymousInvestigation: vi.fn(),
+  saveAnonymousInvestigation: vi.fn(),
 }));
 
-vi.mock('../../services/anonymousInvestigations.js', () => ({
-  loadAnonymousInvestigation: vi.fn()
-}));
+vi.mock('../../api/client.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../api/client.js')>();
+  return {
+    ...actual,
+    fetchInvestigations: vi.fn(),
+  };
+});
 
 const summary = {
   id: 'inv-remote',

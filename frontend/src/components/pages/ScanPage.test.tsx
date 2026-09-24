@@ -142,7 +142,8 @@ vi.mock('../../services/investigationSession.js', () => ({
   getCapabilityRunners: vi.fn(() => ({})),
   runInvestigationSession: mocks.runInvestigationSession,
   recoverInvestigationSession: mocks.recoverInvestigationSession,
-  retryInvestigationCapability: mocks.retryInvestigationCapability
+  retryInvestigationCapability: mocks.retryInvestigationCapability,
+  createInvestigatorWorkflow: undefined
 }));
 
 vi.mock('../../services/scanCapabilities.js', () => ({

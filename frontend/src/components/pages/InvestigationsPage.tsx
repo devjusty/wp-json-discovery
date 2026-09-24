@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import AppLayout from '../templates/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,10 @@ import {
 import { fetchInvestigations } from '../../api/client.js';
 import { loadAnonymousInvestigation } from '../../services/anonymousInvestigations.js';
 import { formatDate } from '../../utils/format.js';
+import type { Investigation } from '../../domain/investigation/model';
+import type { InvestigationStore } from '../../application/ports/investigation-store';
+import { createLocalInvestigationStore } from '../../adapters/persistence/localInvestigationStore';
+import { createRemoteInvestigationStore } from '../../adapters/persistence/remoteInvestigationStore';
 
 type InvestigationSummary = {
   id: string;
@@ -51,6 +55,7 @@ type InvestigationsPageProps = {
   onResumeLocal?: () => void;
   onResumeInvestigation?: (investigationId: string) => void;
   embedded?: boolean;
+  investigationStore?: InvestigationStore;
 };
 
 function InvestigationsPage({
@@ -60,20 +65,45 @@ function InvestigationsPage({
   onResumeLocal,
   onResumeInvestigation,
   embedded = false,
+  investigationStore,
 }: InvestigationsPageProps) {
   const [localSnapshot] = useState(() => loadAnonymousInvestigation() as LocalSnapshot | null);
+  const stores = useMemo(() => {
+    if (investigationStore) return { active: investigationStore, local: investigationStore };
+    const auth = {
+      getUserId: () => isAuthenticated ? 'authenticated' : null,
+      getAccessToken: async () => isAuthenticated ? 'authenticated' : null,
+    };
+    return {
+      active: isAuthenticated
+        ? createRemoteInvestigationStore({ authSession: auth })
+        : createLocalInvestigationStore(),
+      local: createLocalInvestigationStore(),
+    };
+  }, [investigationStore, isAuthenticated]);
   const investigationsQuery = useQuery({
     queryKey: ['investigations'],
-    queryFn: () => fetchInvestigations() as unknown as Promise<{ investigations: InvestigationSummary[] }>,
-    enabled: isAuthenticated,
+    queryFn: async () => {
+      try {
+        return await stores.active.list();
+      } catch {
+        // Keep old API-only records visible while migration data is being upgraded.
+        if (isAuthenticated) {
+          const result = await fetchInvestigations() as unknown as { investigations: InvestigationSummary[] };
+          return result.investigations;
+        }
+        return [];
+      }
+    },
+    enabled: true,
     retry: false,
   });
   const localRow = localSnapshot ? toLocalRow(localSnapshot) : null;
-  const remoteRows: InvestigationRow[] = (investigationsQuery.data?.investigations ?? []).map((summary) => ({
-    ...summary,
-    resumable: Boolean(summary.latestSessionId),
-  }));
-  const rows = localRow ? [localRow, ...remoteRows] : remoteRows;
+  const remoteRows: InvestigationRow[] = (investigationsQuery.data ?? []).map((summary) => toRow(summary));
+  const storeRows = !isAuthenticated ? remoteRows.map((row) => ({ ...row, local: true })) : remoteRows;
+  const rows = isAuthenticated
+    ? (localRow ? [localRow, ...storeRows] : storeRows)
+    : (storeRows.length > 0 ? storeRows : localRow ? [localRow] : []);
 
   return (
     <AppLayout title="Investigations" subtitle={undefined} sidebar={undefined} headerActions={headerActions} onNavigate={onNavigate} embedded={embedded}>
@@ -133,7 +163,7 @@ function InvestigationsPage({
                 ))}
               </TableBody>
             </Table>
-          ) : null}
+           ) : null}
         </CardContent>
       </Card>
     </AppLayout>
@@ -158,6 +188,26 @@ function toLocalRow(snapshot: LocalSnapshot): InvestigationRow {
     findingsCount,
     local: true,
     resumable: true,
+  };
+}
+
+function toRow(value: Investigation | InvestigationSummary): InvestigationRow {
+  if ('submittedUrl' in value) {
+    const completed = value.capabilities.filter(({ status }) => status === 'success').length;
+    const hasActive = value.capabilities.some(({ status }) => status === 'queued' || status === 'running');
+    return {
+      id: value.id,
+      domain: { normalized: value.normalizedUrl },
+      updatedAt: value.createdAt,
+      selectedCapabilityCount: value.capabilities.length,
+      completedCapabilityCount: completed,
+      findingsCount: value.findings.length,
+      resumable: hasActive || value.capabilities.some(({ status, error }) => status === 'failed' && error?.retryable),
+    };
+  }
+  return {
+    ...value,
+    resumable: Boolean(value.latestSessionId),
   };
 }
 
