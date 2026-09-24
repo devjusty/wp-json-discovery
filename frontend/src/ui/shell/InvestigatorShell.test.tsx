@@ -40,6 +40,12 @@ describe('InvestigatorShell', () => {
     expect(onNavigate).toHaveBeenCalledWith('admin');
   });
 
+  it('provides exactly one main landmark while loading without report content', () => {
+    render(<InvestigatorShell readModel={{ title: 'example.com', status: undefined, sections: [], capabilities: [] }} commands={{ onSectionChange: vi.fn() }} />);
+
+    expect(screen.getAllByRole('main')).toHaveLength(1);
+  });
+
   it('exposes partial state and scoped retry', async () => {
     const user = userEvent.setup();
     const onRetry = vi.fn();
@@ -134,6 +140,23 @@ describe('InvestigatorShell', () => {
 
     expect(screen.getByText('Selected evidence')).toBeInTheDocument();
     expect(screen.queryByText('Other evidence')).not.toBeInTheDocument();
+  });
+
+  it('passes raw response body through production report composition, collapsed by default', async () => {
+    const user = userEvent.setup();
+    const investigation = {
+      ...createInvestigationReadModel(),
+      evidence: [{ id: 'raw', kind: 'observed' as const, capability: 'wordpress', value: 'payload', source: { rawBody: '{"secret":false}' } }],
+    };
+    render(<InvestigatorShell
+      readModel={{ title: 'example.com', status: 'complete', sections: [{ id: 'evidence', label: 'Evidence' }], capabilities: [], investigation }}
+      activeSection="evidence"
+      commands={{ onSectionChange: vi.fn() }}
+    />);
+
+    expect(screen.queryByText('{"secret":false}')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Show raw body' }));
+    expect(screen.getByText('{"secret":false}')).toBeInTheDocument();
   });
 });
 

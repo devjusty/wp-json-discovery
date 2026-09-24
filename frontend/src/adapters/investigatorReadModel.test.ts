@@ -382,4 +382,37 @@ describe('createInvestigatorReadModel', () => {
       { id: 'low', evidenceIds: ['low-evidence'] },
     ]);
   });
+
+  it('maps validated finding ranking fields and raw response bodies', () => {
+    const readModel = createInvestigatorReadModel({
+      status: 'completed',
+      overall: { status: 'complete' },
+      domain: { submitted: 'Example.com', normalized: 'https://example.com' },
+      capabilityStates: {
+        wordpress: {
+          status: 'success',
+          outcome: {
+            result: {
+              findings: [{
+                id: 'finding-1',
+                summary: 'Endpoint exposed',
+                consequence: 'high',
+                evidenceQuality: 'high',
+                novelty: 'medium',
+                evidence: [{ id: 'evidence-1', kind: 'observed', value: 'payload', rawBody: '{"ok":true}', source: { locator: '/wp-json' } }],
+              }],
+            },
+          },
+        },
+      },
+    }, false);
+
+    expect(readModel.investigation?.findings[0]).toMatchObject({
+      consequence: 'high',
+      evidenceQuality: 'high',
+      novelty: 'medium',
+      evidenceIds: ['evidence-1'],
+    });
+    expect(readModel.investigation?.evidence[0].source.rawBody).toBe('{"ok":true}');
+  });
 });

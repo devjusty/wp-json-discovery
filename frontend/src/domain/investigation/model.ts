@@ -44,6 +44,7 @@ export type CapabilityRunInput = Readonly<{
 export type EvidenceSource = Readonly<{
   locator?: string;
   observedAt?: string;
+  rawBody?: string;
   evidenceIds?: ReadonlyArray<string>;
   request?: Readonly<{
     method: string;
@@ -66,6 +67,9 @@ export type Finding = Readonly<{
   summary: string;
   evidenceIds: ReadonlyArray<string>;
   confidence: 'low' | 'medium' | 'high';
+  consequence?: 'low' | 'medium' | 'high';
+  evidenceQuality?: 'low' | 'medium' | 'high';
+  novelty?: 'low' | 'medium' | 'high';
 }>;
 
 export type Observation = Readonly<{
@@ -194,6 +198,9 @@ const assertEvidence = (value: unknown, index: number): void => {
   const source = assertRecord(evidence.source, `evidence[${index}].source`);
   if (source.locator !== undefined) assertNonEmptyString(source.locator, `evidence[${index}].source.locator`);
   assertOptionalTimestamp(source.observedAt, `evidence[${index}].source.observedAt`);
+  if (source.rawBody !== undefined && typeof source.rawBody !== 'string') {
+    throw new InvestigationModelError('invalid-investigation', `evidence[${index}].source.rawBody must be a string`);
+  }
   if (source.evidenceIds !== undefined) assertStringArray(source.evidenceIds, `evidence[${index}].source.evidenceIds`);
   if (source.request !== undefined) {
     const request = assertRecord(source.request, `evidence[${index}].source.request`);
@@ -213,6 +220,11 @@ const assertFinding = (value: unknown, index: number): void => {
   assertStringArray(finding.evidenceIds, `findings[${index}].evidenceIds`);
   if (!['low', 'medium', 'high'].includes(finding.confidence as Finding['confidence'])) {
     throw new InvestigationModelError('invalid-investigation', `findings[${index}].confidence is invalid`);
+  }
+  for (const field of ['consequence', 'evidenceQuality', 'novelty'] as const) {
+    if (finding[field] !== undefined && !['low', 'medium', 'high'].includes(finding[field] as string)) {
+      throw new InvestigationModelError('invalid-investigation', `findings[${index}].${field} is invalid`);
+    }
   }
 };
 

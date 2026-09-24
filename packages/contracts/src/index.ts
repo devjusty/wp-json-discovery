@@ -73,6 +73,7 @@ const investigationEvidenceSchema = z.object({
   source: z.object({
     locator: z.string().min(1).optional(),
     observedAt: timestampSchema.optional(),
+    rawBody: z.string().optional(),
     evidenceIds: z.array(identifierSchema).optional(),
     request: z.object({
       method: z.string().min(1),
@@ -95,6 +96,9 @@ const investigationFindingSchema = z.object({
   summary: z.string().min(1),
   evidenceIds: z.array(identifierSchema),
   confidence: z.enum(['low', 'medium', 'high']),
+  consequence: z.enum(['low', 'medium', 'high']).optional(),
+  evidenceQuality: z.enum(['low', 'medium', 'high']).optional(),
+  novelty: z.enum(['low', 'medium', 'high']).optional(),
 }).strict();
 
 export const investigationStateSchema = z.object({

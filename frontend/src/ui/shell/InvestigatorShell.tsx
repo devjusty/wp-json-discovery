@@ -25,7 +25,7 @@ type InvestigatorShellProps = Readonly<{
   commands: Readonly<{ onSectionChange: (sectionId: string) => void; onRetry?: (capabilityName: string) => void }>;
   activeSection?: string;
   contentLandmark?: 'main' | 'div';
-  children: ReactNode;
+  children?: ReactNode;
 }>;
 
 export function InvestigatorShell({ readModel, commands, activeSection = readModel.sections[0]?.id ?? '', contentLandmark, children }: InvestigatorShellProps) {
@@ -84,7 +84,10 @@ function InvestigatorSectionContent({ investigation, capabilities, sectionId, on
 }>) {
   if (sectionId === 'overview') return <InvestigatorOverview investigation={investigation} onInspect={onInspect} />;
   if (sectionId === 'findings') return <InvestigatorFindings investigation={investigation} onSelectEvidence={onSelectEvidence} />;
-  if (sectionId === 'evidence') return <EvidenceDisclosure evidence={selectedEvidenceIds ? investigation.evidence.filter(({ id }) => selectedEvidenceIds.includes(id)) : investigation.evidence} />;
+  if (sectionId === 'evidence') {
+    const evidence = selectedEvidenceIds ? investigation.evidence.filter(({ id }) => selectedEvidenceIds.includes(id)) : investigation.evidence;
+    return <EvidenceDisclosure evidence={evidence} rawBody={evidence.find(({ source }) => source.rawBody)?.source.rawBody} />;
+  }
   if (sectionId === 'assets') return <InvestigatorAssetsPanel investigation={investigation} />;
   if (sectionId === 'history') return <InvestigatorHistoryPanel investigation={investigation} />;
   if (sectionId === 'tools') return <InvestigatorToolsPanel capabilities={capabilities} onRetry={onRetry} />;

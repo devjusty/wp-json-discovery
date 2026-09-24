@@ -100,6 +100,9 @@ function mapResults(capabilityStates: InvestigatorSession['capabilityStates']) {
           summary: finding.summary,
           evidenceIds,
           confidence: finding.evidenceLevel === 'observed' || evidenceIds.length > 0 ? 'high' : 'medium',
+          ...(isFindingDimension(finding.consequence) ? { consequence: finding.consequence } : {}),
+          ...(isFindingDimension(finding.evidenceQuality) ? { evidenceQuality: finding.evidenceQuality } : {}),
+          ...(isFindingDimension(finding.novelty) ? { novelty: finding.novelty } : {}),
         });
       }
     });
@@ -239,6 +242,8 @@ function mapEvidence(value: unknown, capability: string, evidence: Map<string, I
     const observedAt = typeof rawSource.observedAt === 'string'
       ? rawSource.observedAt
       : typeof source.observedAt === 'string' ? source.observedAt : undefined;
+    const rawBodyValue = rawSource.rawBody ?? source.rawBody;
+    const rawBody = typeof rawBodyValue === 'string' ? rawBodyValue : undefined;
     const rawEvidenceIds = rawSource.evidenceIds ?? source.evidenceIds;
     const evidenceIds = Array.isArray(rawEvidenceIds) && rawEvidenceIds.every((id): id is string => typeof id === 'string')
       ? rawEvidenceIds
@@ -246,6 +251,7 @@ function mapEvidence(value: unknown, capability: string, evidence: Map<string, I
     const metadata = {
       ...(locator ? { locator } : {}),
       ...(observedAt ? { observedAt } : {}),
+      ...(rawBody !== undefined ? { rawBody } : {}),
       ...(evidenceIds ? { evidenceIds } : {}),
       ...(request ? { request } : {}),
     };
@@ -273,6 +279,10 @@ function mapRequest(value: unknown) {
 
 function isEvidenceKind(value: unknown): value is EvidenceKind {
   return ['observed', 'inference', 'request-trace', 'absence'].includes(value as string);
+}
+
+function isFindingDimension(value: unknown): value is 'low' | 'medium' | 'high' {
+  return value === 'low' || value === 'medium' || value === 'high';
 }
 
 function asJsonValue(value: unknown): JsonValue | undefined {
