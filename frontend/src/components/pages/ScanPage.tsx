@@ -116,7 +116,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, authSes
   }, [investigatorWorkflow, isAuthenticated, onDomainChange, setInvestigatorDomain, setInvestigatorSession]);
 
   useEffect(() => {
-    if (!isAuthenticated || selectedInvestigationId === 'local' || !investigatorWorkflow) return undefined;
+    if (!isAuthenticated || !investigatorWorkflow) return undefined;
     if (activeDomain && !selectedInvestigationId) return undefined;
     const investigationId = selectedInvestigationId || loadAuthenticatedInvestigationId();
     if (!investigationId) return undefined;

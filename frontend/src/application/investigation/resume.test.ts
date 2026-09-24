@@ -44,6 +44,26 @@ describe('resumeInvestigation', () => {
     expect(saves).toBe(0);
   });
 
+  it('recovers interrupted running capabilities into retryable failures', async () => {
+    const investigation = createInvestigation({
+      id: 'inv-interrupted', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: [], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [{ name: 'homepage', status: 'running' }],
+    });
+    let runnerCalls = 0;
+
+    const result = await resumeInvestigation('inv-interrupted', {
+      store: { get: async () => investigation, save: async () => {}, list: async () => [], claim: async () => investigation },
+      runner: { run: async () => { runnerCalls += 1; return { ok: true }; } },
+    });
+
+    expect(runnerCalls).toBe(0);
+    expect(result.investigation.capabilities[0]).toEqual(expect.objectContaining({
+      status: 'failed',
+      error: expect.objectContaining({ code: 'interrupted', retryable: true }),
+    }));
+  });
+
   it('falls back to local persistence when authenticated remote save fails', async () => {
     const investigation = createInvestigation({
       id: 'inv-offline', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',

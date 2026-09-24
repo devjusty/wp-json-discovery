@@ -228,8 +228,8 @@ function AppContent({ authSession }) {
             onNavigate={navigateTopLevel}
             isAuthenticated={isAuthenticated}
             authSession={authSession}
-            onResumeLocal={() => {
-              setSelectedInvestigationId('local');
+            onResumeLocal={(investigationId) => {
+              setSelectedInvestigationId(investigationId);
                navigateTopLevel('scan');
             }}
             onResumeInvestigation={(investigationId) => {

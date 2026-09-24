@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ScanPage from './ScanPage';
@@ -14,7 +14,15 @@ const mocks = vi.hoisted(() => {
     claim: vi.fn(),
   };
   const setInvestigatorSession = vi.fn();
-  return { workflow, createWorkflow: vi.fn(() => workflow), setInvestigatorSession };
+  const shellContext = {
+    domain: '',
+    handleDomainChange: vi.fn(),
+    setActivePage: vi.fn(),
+    activeDomain: '',
+    setInvestigatorDomain: vi.fn(),
+    selectedInvestigationId: null,
+  };
+  return { workflow, createWorkflow: vi.fn(() => workflow), setInvestigatorSession, shellContext };
 });
 
 vi.mock('../../services/investigationSession.js', () => ({
@@ -24,14 +32,7 @@ vi.mock('../../services/investigationSession.js', () => ({
 }));
 
 vi.mock('../../context/ScanContext', () => ({
-  useScanShellContext: () => ({
-    domain: '',
-    handleDomainChange: vi.fn(),
-    setActivePage: vi.fn(),
-    activeDomain: '',
-    setInvestigatorDomain: vi.fn(),
-    selectedInvestigationId: null,
-  }),
+  useScanShellContext: () => mocks.shellContext,
   useScanResultsContext: () => ({
     session: null,
     investigatorSession: null,
@@ -92,7 +93,12 @@ function renderPage() {
 describe('ScanPage workflow boundary', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.shellContext.selectedInvestigationId = null;
     mocks.workflow.start.mockResolvedValue({
+      investigation,
+      session: { domain: { normalized: investigation.normalizedUrl }, selectedCapabilities: [], capabilityStates: {}, overall: { status: 'complete' } },
+    });
+    mocks.workflow.resume.mockResolvedValue({
       investigation,
       session: { domain: { normalized: investigation.normalizedUrl }, selectedCapabilities: [], capabilityStates: {}, overall: { status: 'complete' } },
     });
@@ -142,5 +148,19 @@ describe('ScanPage workflow boundary', () => {
 
     expect(mocks.workflow.claim).toHaveBeenCalledWith('anonymous-inv');
     expect(mocks.setInvestigatorSession).toHaveBeenCalled();
+  });
+
+  it('resumes selected authenticated investigation instead of sentinel state', async () => {
+    mocks.shellContext.selectedInvestigationId = 'selected-investigation';
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ScanPage
+          authSession={{ getUserId: () => 'user-1', getAccessToken: async () => 'token' }}
+          isAuthenticated
+        />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => expect(mocks.workflow.resume).toHaveBeenCalledWith('selected-investigation'));
   });
 });

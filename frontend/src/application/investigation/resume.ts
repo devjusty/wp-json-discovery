@@ -2,6 +2,8 @@ import type { Investigation } from '../../domain/investigation/model';
 import type { CapabilityRunner } from '../ports/capability-runner';
 import type { InvestigationStore } from '../ports/investigation-store';
 import type { AuthSession } from '../ports/auth-session';
+import { createPersistableSession, domainToSession } from '../../adapters/persistence/sessionMapping';
+import { recoverInvestigationSession } from '../../services/investigationSession.js';
 import {
   createPersistenceContext,
   InvestigationCommandError,
@@ -21,6 +23,21 @@ export async function resumeInvestigation(
   }
   if (!investigation) throw new InvestigationCommandError('not-found', 'Investigation not found.');
   const persistence = createPersistenceContext(dependencies);
-  const result = await runCapabilities(investigation, { store: persistence.store, runner: dependencies.runner, onProgress: dependencies.onProgress });
+  const recoveredSession = recoverInvestigationSession(domainToSession(investigation));
+  const recovered = createPersistableSession(recoveredSession, {
+    submitted: investigation.submittedUrl,
+    normalized: investigation.normalizedUrl,
+  }).investigationState;
+  const resumable = {
+    ...recovered,
+    capabilities: recovered.capabilities.map((capability) => {
+      const original = investigation.capabilities.find(({ name }) => name === capability.name);
+      if (original?.status !== 'queued' || capability.status !== 'failed') return capability;
+      const resumableCapability = { ...capability, status: 'queued' as const };
+      delete resumableCapability.error;
+      return resumableCapability;
+    }),
+  };
+  const result = await runCapabilities(resumable, { store: persistence.store, runner: dependencies.runner, onProgress: dependencies.onProgress });
   return persistence.result(result);
 }

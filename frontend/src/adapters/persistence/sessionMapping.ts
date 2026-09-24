@@ -36,6 +36,14 @@ export function domainToSession(investigation: Investigation) {
     value: { submitted: investigation.submittedUrl, normalized: investigation.normalizedUrl },
     enumerable: false,
   });
+  Object.defineProperty(session, 'selection', {
+    value: {
+      capabilityIds: capabilities.map(({ name }) => name),
+      options: Object.fromEntries(capabilities.map(({ name, options }) => [name, options ?? {}])),
+    },
+    enumerable: false,
+    configurable: true,
+  });
   return session;
 }
 

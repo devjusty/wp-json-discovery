@@ -43,6 +43,7 @@ type LocalSnapshot = {
     session: {
       completedAt: string | null;
       selectedCapabilities: unknown[];
+      investigationId: string;
       capabilityStates: Record<string, { status: string; outcome?: { result?: unknown; error?: { retryable?: boolean } } }>;
     };
   };
@@ -54,7 +55,7 @@ type InvestigationsPageProps = {
   headerActions?: ReactNode;
   onNavigate?: (page: string) => void;
   isAuthenticated: boolean;
-  onResumeLocal?: () => void;
+  onResumeLocal?: (investigationId: string) => void;
   onResumeInvestigation?: (investigationId: string) => void;
   embedded?: boolean;
   investigationStore?: InvestigationStore;
@@ -149,9 +150,9 @@ function InvestigationsPage({
                           variant="secondary"
                           size="sm"
                           aria-label={`Resume ${row.domain.normalized.replace(/^https?:\/\//, '')}`}
-                          onClick={() => row.local
-                            ? onResumeLocal?.()
-                            : onResumeInvestigation?.(row.id)}
+                           onClick={() => row.local
+                             ? onResumeLocal?.(row.id)
+                             : onResumeInvestigation?.(row.id)}
                         >
                           Resume
                         </Button>
@@ -178,7 +179,7 @@ function toLocalRow(snapshot: LocalSnapshot): InvestigationRow {
   }, 0);
 
   return {
-    id: 'local-investigation',
+    id: session.investigationId,
     domain: snapshot.domain,
     updatedAt: snapshot.record.persistedAt,
     selectedCapabilityCount: session.selectedCapabilities.length,

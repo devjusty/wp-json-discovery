@@ -97,7 +97,7 @@ describe('InvestigationsPage', () => {
     expect(screen.getByText('1')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /resume local\.example/i }));
-    expect(onResumeLocal).toHaveBeenCalledTimes(1);
+    expect(onResumeLocal).toHaveBeenCalledWith('local-investigation');
   });
 
   it('renders authenticated summaries and resumes by persisted id', async () => {
