@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { AdminInbox, type AdminInboxItem } from './AdminInbox';
 
@@ -54,10 +54,16 @@ describe('AdminInbox', () => {
       'maintenance:database',
     ]);
 
-    expect(screen.getByText('Failed scan for example.com')).toBeInTheDocument();
-    expect(screen.getByText('Timeout after 30 seconds.')).toBeInTheDocument();
-    expect(screen.getByText('FAILED')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Rescan' })).toBeInTheDocument();
+    for (const fixture of fixtures) {
+      const item = items.find((element) => element.getAttribute('data-item-id') === fixture.id);
+
+      expect(item).toBeDefined();
+      expect(within(item as HTMLElement).getByText(fixture.status.toUpperCase())).toBeInTheDocument();
+      expect(within(item as HTMLElement).getByText(fixture.evidence as string)).toBeInTheDocument();
+      expect(within(item as HTMLElement).getAllByRole('button')).toHaveLength(1);
+      expect(within(item as HTMLElement).getByRole('button', { name: fixture.action.label })).toBeInTheDocument();
+    }
+
     expect(screen.queryByRole('button', { name: /bulk|select all|delete all/i })).not.toBeInTheDocument();
   });
 
