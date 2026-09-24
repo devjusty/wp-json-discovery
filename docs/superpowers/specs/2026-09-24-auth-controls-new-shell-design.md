@@ -37,11 +37,13 @@ The existing auth components already contain the required Auth0 behavior. The ch
 
 The shell's visual treatment controls spacing and responsive behavior. Auth components remain responsible only for auth-driven rendering and actions.
 
+Auth controls belong under the current `ui/` presentation structure rather than the legacy atomic-design folders. Their Auth0 behavior remains unchanged; this move establishes the correct ownership for new-shell UI without introducing a new auth abstraction.
+
 ## Component Behavior
 
 ### LoginButton
 
-- Rename `frontend/src/components/atoms/LoginButton.jsx` to `LoginButton.tsx`.
+- Move `frontend/src/components/atoms/LoginButton.jsx` to `frontend/src/ui/auth/LoginButton.tsx`.
 - Type as a zero-prop component.
 - While Auth0 is loading, render a disabled outline button labeled `Loading...`.
 - When unauthenticated and loaded, render an outline `Log in` button.
@@ -50,7 +52,7 @@ The shell's visual treatment controls spacing and responsive behavior. Auth comp
 
 ### UserMenu
 
-- Retain `frontend/src/components/molecules/UserMenu.tsx`.
+- Move `frontend/src/components/molecules/UserMenu.tsx` to `frontend/src/ui/auth/UserMenu.tsx`.
 - Keep the optional typed `onNavigate` callback.
 - Render nothing unless Auth0 reports both an authenticated session and a user.
 - Show the user's picture when available; otherwise show name, nickname, email, or `User`.
