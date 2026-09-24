@@ -119,6 +119,52 @@ describe('createInvestigatorReadModel', () => {
     expect(readModel.investigation?.evidence).toEqual(provenance.map((item) => ({ ...item, capability: 'wordpress' })));
   });
 
+  it('preserves capability execution metadata and unavailable error details', () => {
+    const readModel = createInvestigatorReadModel({
+      domain: { submitted: 'https://example.com', normalized: 'https://example.com' },
+      selectedCapabilities: [{
+        id: 'wordpress',
+        dependencies: ['homepage'],
+        options: { apiVersion: 'v2' },
+        metadata: { source: 'selection' },
+      }],
+      capabilityStates: {
+        wordpress: {
+          status: 'unavailable',
+          reason: 'Dependency unavailable',
+          metadata: { source: 'runtime' },
+          startedAt: '2026-01-01T00:00:00.000Z',
+          completedAt: '2026-01-01T00:01:00.000Z',
+          outcome: { error: { code: 'dependency_failed', message: 'Homepage failed', retryable: false } },
+        },
+      },
+      overall: { status: 'blocked' },
+    }, false);
+
+    expect(readModel.investigation?.capabilities).toEqual([{
+      name: 'wordpress',
+      status: 'unavailable',
+      dependencies: ['homepage'],
+      options: { apiVersion: 'v2' },
+      metadata: { source: 'runtime' },
+      reason: 'Dependency unavailable',
+      startedAt: '2026-01-01T00:00:00.000Z',
+      completedAt: '2026-01-01T00:01:00.000Z',
+      error: { code: 'dependency_failed', message: 'Homepage failed', retryable: false },
+    }]);
+  });
+
+  it('maps completed lifecycle status to complete UI status', () => {
+    const readModel = createInvestigatorReadModel({
+      status: 'completed',
+      overall: { status: 'unknown' },
+      domain: { submitted: 'https://example.com', normalized: 'https://example.com' },
+      capabilityStates: {},
+    }, false);
+
+    expect(readModel.status).toBe('complete');
+  });
+
   it('omits aggregate status when lifecycle does not identify one', () => {
     const readModel = createInvestigatorReadModel({
       domain: { submitted: 'https://example.com', normalized: 'https://example.com' },

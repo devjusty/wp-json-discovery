@@ -11,9 +11,24 @@ type InvestigatorSession = {
   domain?: { submitted?: string; normalized?: string; redirectChain?: string[] };
   capabilityStates?: Record<string, {
     status?: string;
+    dependencies?: ReadonlyArray<string>;
+    options?: Record<string, unknown>;
+    metadata?: unknown;
+    reason?: string;
+    startedAt?: string;
+    completedAt?: string;
     outcome?: { result?: unknown; error?: { code?: string; message?: string; retryable?: boolean } };
   }>;
-  selectedCapabilities?: ReadonlyArray<{ id: string; dependencies?: ReadonlyArray<string> }>;
+  selectedCapabilities?: ReadonlyArray<{
+    id: string;
+    dependencies?: ReadonlyArray<string>;
+    options?: Record<string, unknown>;
+    metadata?: unknown;
+    reason?: string;
+    startedAt?: string;
+    completedAt?: string;
+  }>;
+  selection?: { options?: Record<string, Record<string, unknown>> };
 };
 
 export type InvestigatorReadModel = Readonly<{
@@ -38,22 +53,7 @@ export function createInvestigatorReadModel(
     normalizedUrl: domain,
     redirectChain: session?.domain?.redirectChain?.length ? session.domain.redirectChain : [domain],
     createdAt: session?.startedAt || '1970-01-01T00:00:00.000Z',
-     capabilities: Object.entries(session?.capabilityStates ?? {}).flatMap(([name, state]) => {
-       const status = normalizeCapabilityStatus(state.status);
-       if (!status || status === 'idle') return [];
-       const error = state.outcome?.error;
-       return [{
-         name,
-        status,
-        ...(status === 'failed' ? {
-          error: {
-            code: error?.code || 'capability_failed',
-            message: error?.message || 'Capability failed.',
-            retryable: error?.retryable === true,
-          },
-        } : {}),
-       }];
-     }),
+     capabilities: mapCapabilityRuns(session),
     evidence: mapped.evidence,
     findings: mapped.findings,
   }) : undefined;
@@ -109,6 +109,39 @@ function mapCapabilities(capabilityStates: InvestigatorSession['capabilityStates
   });
 }
 
+function mapCapabilityRuns(session: InvestigatorSession | null) {
+  const selections = new Map((session?.selectedCapabilities ?? []).map((selection) => [selection.id, selection]));
+  return Object.entries(session?.capabilityStates ?? {}).flatMap(([name, state]) => {
+    const status = normalizeCapabilityStatus(state.status);
+    if (!status || status === 'idle') return [];
+    const selection = selections.get(name);
+    const error = mapCapabilityError(state.outcome?.error, status);
+    const options = mapJsonRecord(state.options ?? selection?.options ?? session?.selection?.options?.[name]);
+    const metadata = asJsonValue(state.metadata ?? selection?.metadata);
+    return [{
+      name,
+      status,
+      ...(selection?.dependencies ? { dependencies: [...selection.dependencies] } : {}),
+      ...(options ? { options } : {}),
+      ...(metadata !== undefined ? { metadata } : {}),
+      ...(state.reason || selection?.reason ? { reason: state.reason || selection?.reason } : {}),
+      ...(state.startedAt || selection?.startedAt ? { startedAt: state.startedAt || selection?.startedAt } : {}),
+      ...(state.completedAt || selection?.completedAt ? { completedAt: state.completedAt || selection?.completedAt } : {}),
+      ...(error ? { error } : {}),
+    }];
+  });
+}
+
+function mapCapabilityError(value: unknown, status: InvestigatorCapabilityStatus) {
+  const error = asRecord(value);
+  if (typeof error.code !== 'string' && typeof error.message !== 'string') return undefined;
+  return {
+    code: typeof error.code === 'string' ? error.code : 'capability_failed',
+    message: typeof error.message === 'string' ? error.message : 'Capability failed.',
+    retryable: status === 'failed' && error.retryable === true,
+  };
+}
+
 function mapEvidence(value: unknown, capability: string, evidence: Map<string, Investigation['evidence'][number]>) {
   if (!Array.isArray(value)) return [];
   return value.flatMap((rawEvidence) => {
@@ -119,11 +152,17 @@ function mapEvidence(value: unknown, capability: string, evidence: Map<string, I
       ? rawSource.locator
       : typeof source.locator === 'string' ? source.locator : undefined;
     const request = mapRequest(rawSource.request ?? source.request);
+    const observedAt = typeof rawSource.observedAt === 'string'
+      ? rawSource.observedAt
+      : typeof source.observedAt === 'string' ? source.observedAt : undefined;
+    const rawEvidenceIds = rawSource.evidenceIds ?? source.evidenceIds;
+    const evidenceIds = Array.isArray(rawEvidenceIds) && rawEvidenceIds.every((id): id is string => typeof id === 'string')
+      ? rawEvidenceIds
+      : undefined;
     const metadata = {
       ...(locator ? { locator } : {}),
-      ...(typeof rawSource.observedAt === 'string' ? { observedAt: rawSource.observedAt } : {}),
-      ...(Array.isArray(rawSource.evidenceIds) && rawSource.evidenceIds.every((id) => typeof id === 'string')
-        ? { evidenceIds: rawSource.evidenceIds as string[] } : {}),
+      ...(observedAt ? { observedAt } : {}),
+      ...(evidenceIds ? { evidenceIds } : {}),
       ...(request ? { request } : {}),
     };
     const item = {
@@ -170,6 +209,14 @@ function asJsonValue(value: unknown): JsonValue | undefined {
   return undefined;
 }
 
+function mapJsonRecord(value: unknown): Readonly<Record<string, JsonValue>> | undefined {
+  const record = asRecord(value);
+  const mapped = Object.entries(record).map(([key, nested]) => [key, asJsonValue(nested)] as const);
+  return mapped.every(([, nested]) => nested !== undefined)
+    ? Object.fromEntries(mapped) as Readonly<Record<string, JsonValue>>
+    : undefined;
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
@@ -186,6 +233,7 @@ function normalizeInvestigationStatus(
   capabilityStates?: InvestigatorSession['capabilityStates'],
 ): InvestigatorStatus | undefined {
   if (status === 'complete' || status === 'partial' || status === 'failed' || status === 'blocked') return status;
+  if (lifecycleStatus === 'completed') return 'complete';
   if (lifecycleStatus === 'running') return 'running';
   if (lifecycleStatus === 'queued' || lifecycleStatus === 'idle') return 'queued';
   const progress = Object.values(capabilityStates ?? {}).map(({ status: capabilityStatus }) => normalizeCapabilityStatus(capabilityStatus));

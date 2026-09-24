@@ -123,6 +123,18 @@ describe('InvestigatorShell', () => {
     expect(screen.getByRole('listitem')).toHaveTextContent('wordpress success');
     expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
   });
+
+  it('targets evidence selected by finding instead of showing all evidence', async () => {
+    const user = userEvent.setup();
+    render(<FindingEvidenceShell />);
+
+    const navigation = screen.getByRole('navigation', { name: 'Investigation sections' });
+    await user.click(within(navigation).getByRole('button', { name: 'Findings' }));
+    await user.click(screen.getByRole('button', { name: 'View evidence' }));
+
+    expect(screen.getByText('Selected evidence')).toBeInTheDocument();
+    expect(screen.queryByText('Other evidence')).not.toBeInTheDocument();
+  });
 });
 
 function createInvestigationReadModel(): Investigation {
@@ -186,6 +198,27 @@ function RetryingReportShell() {
       commands={{ onSectionChange: setActiveSection, onRetry: () => setStatus('success') }}
     >
       <p>{status}</p>
+    </InvestigatorShell>
+  );
+}
+
+function FindingEvidenceShell() {
+  const [activeSection, setActiveSection] = useState('overview');
+  const investigation = {
+    ...createInvestigationReadModel(),
+    evidence: [
+      { id: 'selected', kind: 'observed' as const, capability: 'wordpress', value: 'Selected evidence', source: {} },
+      { id: 'other', kind: 'observed' as const, capability: 'wordpress', value: 'Other evidence', source: {} },
+    ],
+    findings: [{ id: 'finding', capability: 'wordpress', summary: 'Signal', evidenceIds: ['selected'], confidence: 'high' as const }],
+  };
+  return (
+    <InvestigatorShell
+      readModel={{ title: 'example.com', status: 'complete', sections: ['overview', 'findings', 'evidence'].map((id) => ({ id, label: id[0].toUpperCase() + id.slice(1) })), capabilities: [], investigation }}
+      activeSection={activeSection}
+      commands={{ onSectionChange: setActiveSection }}
+    >
+      <p>report</p>
     </InvestigatorShell>
   );
 }

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { Investigation } from '../../domain/investigation/model';
 import type { InvestigatorCapabilityStatus, InvestigatorStatus } from '../../adapters/investigatorReadModel';
 import { AppShell, type ShellNavigation } from './AppShell';
@@ -29,6 +29,7 @@ type InvestigatorShellProps = Readonly<{
 }>;
 
 export function InvestigatorShell({ readModel, commands, activeSection = readModel.sections[0]?.id ?? '', contentLandmark, children }: InvestigatorShellProps) {
+  const [selectedEvidenceIds, setSelectedEvidenceIds] = useState<ReadonlyArray<string> | null>(null);
   const navigation: ShellNavigation = { items: readModel.sections, activeId: activeSection };
   const isPartial = readModel.status === 'partial' || readModel.status === 'failed';
   const successfulCapabilityExists = readModel.capabilities.some(({ status }) => status === 'success');
@@ -37,9 +38,18 @@ export function InvestigatorShell({ readModel, commands, activeSection = readMod
   const activeSectionLabel = activeSectionDefinition?.label ?? 'Investigation';
   const activeSectionHeadingId = `investigator-section-${activeSectionDefinition?.id ?? 'content'}`;
 
+  const handleSectionChange = (sectionId: string) => {
+    setSelectedEvidenceIds(null);
+    commands.onSectionChange(sectionId);
+  };
+  const handleSelectEvidence = (evidenceIds: ReadonlyArray<string>) => {
+    setSelectedEvidenceIds(evidenceIds);
+    commands.onSectionChange('evidence');
+  };
+
   return (
-    <AppShell navigation={navigation} commands={{ onNavigate: commands.onSectionChange }} title={readModel.title} navigationLabel="Investigator navigation" contentLandmark={contentLandmark}>
-      <div className="investigator-shell__section-selector"><InvestigatorSectionSelector sections={readModel.sections} activeSection={activeSection} onChange={commands.onSectionChange} /></div>
+    <AppShell navigation={navigation} commands={{ onNavigate: handleSectionChange }} title={readModel.title} navigationLabel="Investigator navigation" contentLandmark={contentLandmark}>
+      <div className="investigator-shell__section-selector"><InvestigatorSectionSelector sections={readModel.sections} activeSection={activeSection} onChange={handleSectionChange} /></div>
       {isPartial ? <div className="investigator-partial" role="status">
         <strong>{readModel.status === 'failed' ? 'Investigation failed' : 'Partial investigation'}</strong>
         {successfulCapabilityExists ? <span>Successful evidence remains available.</span> : null}
@@ -50,7 +60,7 @@ export function InvestigatorShell({ readModel, commands, activeSection = readMod
         )) : null}
       </div> : null}
       {readModel.investigation ? (
-        <InvestigatorSectionContent investigation={readModel.investigation} capabilities={readModel.capabilities} sectionId={activeSection} onInspect={commands.onSectionChange} onRetry={commands.onRetry} />
+        <InvestigatorSectionContent investigation={readModel.investigation} capabilities={readModel.capabilities} sectionId={activeSection} selectedEvidenceIds={selectedEvidenceIds} onInspect={handleSectionChange} onSelectEvidence={handleSelectEvidence} onRetry={commands.onRetry} />
       ) : (
         <section className="investigator-section-placeholder" aria-labelledby={activeSectionHeadingId} data-active="true">
           <p className="investigation-shell__eyebrow">Active investigation section</p>
@@ -63,16 +73,18 @@ export function InvestigatorShell({ readModel, commands, activeSection = readMod
   );
 }
 
-function InvestigatorSectionContent({ investigation, capabilities, sectionId, onInspect, onRetry }: Readonly<{
+function InvestigatorSectionContent({ investigation, capabilities, sectionId, onInspect, onSelectEvidence, selectedEvidenceIds, onRetry }: Readonly<{
   investigation: Investigation;
   capabilities: InvestigatorShellReadModel['capabilities'];
   sectionId: string;
   onInspect: (sectionId: string) => void;
+  onSelectEvidence: (evidenceIds: ReadonlyArray<string>) => void;
+  selectedEvidenceIds: ReadonlyArray<string> | null;
   onRetry?: (capabilityName: string) => void;
 }>) {
   if (sectionId === 'overview') return <InvestigatorOverview investigation={investigation} onInspect={onInspect} />;
-  if (sectionId === 'findings') return <InvestigatorFindings investigation={investigation} onSelectEvidence={() => onInspect('evidence')} />;
-  if (sectionId === 'evidence') return <EvidenceDisclosure evidence={investigation.evidence} />;
+  if (sectionId === 'findings') return <InvestigatorFindings investigation={investigation} onSelectEvidence={onSelectEvidence} />;
+  if (sectionId === 'evidence') return <EvidenceDisclosure evidence={selectedEvidenceIds ? investigation.evidence.filter(({ id }) => selectedEvidenceIds.includes(id)) : investigation.evidence} />;
   if (sectionId === 'assets') return <InvestigatorAssetsPanel investigation={investigation} />;
   if (sectionId === 'history') return <InvestigatorHistoryPanel investigation={investigation} />;
   if (sectionId === 'tools') return <InvestigatorToolsPanel capabilities={capabilities} onRetry={onRetry} />;
