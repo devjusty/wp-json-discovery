@@ -42,6 +42,13 @@ describe('session mapping adapter', () => {
       .toEqual(expect.arrayContaining([{ name: 'sitemap', status: 'success', options, result }]));
   });
 
+  it('uses latest update time when closing a terminal session', () => {
+    const session = domainToSession({ ...investigation, updatedAt: '2026-09-23T12:05:00.000Z' });
+
+    expect(session.startedAt).toBe('2026-09-23T12:00:00.000Z');
+    expect(session.completedAt).toBe('2026-09-23T12:05:00.000Z');
+  });
+
   it.each(['queued', 'running'])('clears stale result and error fields when retry becomes %s', (status) => {
     const session = createPersistableSession({
       id: 'session-1',

@@ -8,7 +8,18 @@ export function sanitizeDomain(input) {
     return null;
   }
 
-  const trimmed = input.trim().toLowerCase();
+  const raw = input.trim();
+  let trimmed = raw.toLowerCase();
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const url = new URL(raw);
+      if (url.username || url.password || url.port || !['http:', 'https:'].includes(url.protocol)) return null;
+      trimmed = url.hostname.toLowerCase();
+    } catch {
+      return null;
+    }
+  }
+  trimmed = trimmed.replace(/^www\./, '');
   if (!trimmed || trimmed.length > 253) {
     return null;
   }

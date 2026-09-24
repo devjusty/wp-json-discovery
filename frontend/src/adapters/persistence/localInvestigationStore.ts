@@ -11,7 +11,7 @@ import {
   loadAnonymousInvestigation,
   saveAnonymousInvestigation,
 } from '../../services/anonymousInvestigations.js';
-import { domainToSession } from './sessionMapping';
+import { domainToSession, materializeInvestigationState } from './sessionMapping';
 
 type LocalInvestigationPersistence = {
   load: (id: string) => Promise<Investigation | null>;
@@ -147,10 +147,13 @@ function snapshotToDomain(value: unknown): Investigation {
     });
   }
 
-  if (snapshot.investigation === undefined) {
-    throw new ContractInvalidError('Anonymous investigation is missing validated full state');
-  }
-  const investigation = parseState(snapshot.investigation, {
+  const state = snapshot.investigation ?? materializeInvestigationState(
+    record.data.session,
+    domain.data,
+    record.data.session.selectedCapabilities,
+    record.data.persistedAt,
+  );
+  const investigation = parseState(state, {
     id: record.data.session.investigationId,
     submitted: domain.data.submitted,
     normalized: domain.data.normalized,

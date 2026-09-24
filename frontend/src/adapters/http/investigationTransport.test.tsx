@@ -106,7 +106,24 @@ describe('investigation transport', () => {
     await expect(transport.get('inv-1')).rejects.toMatchObject({ code: 'contract-invalid' });
   });
 
-  it('rejects start responses without full state instead of projecting empty fields', async () => {
+  it('reconstructs legacy authenticated sessions without embedded state', async () => {
+    const session = validSessionRecord().session;
+    const transport = createInvestigationTransport({
+      get: async () => investigationRecord('inv-1', fullInvestigation(), {
+        ...session,
+        investigationState: undefined,
+      }),
+      list: async () => ({ investigations: [] }),
+      save: async () => validSessionRecord(),
+    });
+
+    await expect(transport.get('inv-1')).resolves.toMatchObject({
+      id: 'inv-1',
+      capabilities: [{ name: 'wordpress', status: 'success' }],
+    });
+  });
+
+  it('reconstructs start responses without embedded full state', async () => {
     const transport = createInvestigationTransport({
       start: async () => ({
         recordType: 'investigation',
@@ -122,7 +139,7 @@ describe('investigation transport', () => {
     });
 
     await expect(transport.start({ submitted: 'Example.com', normalized: 'https://example.com' }, []))
-      .rejects.toMatchObject({ code: 'contract-invalid' });
+      .resolves.toMatchObject({ id: 'inv-1', normalizedUrl: 'https://example.com' });
   });
 
   it('rejects start responses with a different requested domain', async () => {
@@ -216,6 +233,7 @@ describe('investigation transport', () => {
       findingsCount: 0,
       status: 'complete',
       resumable: false,
+      latestSessionId: 'session-1',
     } as const;
     const get = vi.fn(async () => { throw new Error('must not hydrate summary-only row'); });
     const transport = createInvestigationTransport({
@@ -272,7 +290,7 @@ describe('investigation transport', () => {
       save: async () => validSessionRecord(),
     });
 
-    await expect(transport.list()).resolves.toEqual([
+    await expect(transport.list({ hydrate: true })).resolves.toEqual([
       summaryOnly,
       { ...hydratedState, updatedAt: hydratedState.createdAt },
       notFoundSummary,
@@ -329,6 +347,23 @@ describe('investigation transport', () => {
 
     expect(savedSession.capabilityStates.wordpress.outcome.result).toEqual(full.capabilities[0].result);
     expect(savedSession.investigationState.findings).toHaveLength(1);
+  });
+
+  it('persists latest update time for resumed terminal sessions', async () => {
+    const full = { ...fullInvestigation(), updatedAt: '2026-09-23T12:05:00.000Z' };
+    let persistedAt;
+    const transport = createInvestigationTransport({
+      get: async () => null,
+      list: async () => ({ investigations: [] }),
+      save: async (_id, session) => {
+        persistedAt = (session as { completedAt?: string }).completedAt;
+        return { recordType: 'session', session, persistedAt: full.updatedAt };
+      },
+    });
+
+    await transport.save(full);
+
+    expect(persistedAt).toBe(full.updatedAt);
   });
 
   it('round-trips capability options through session transport', async () => {
@@ -441,7 +476,7 @@ describe('investigation transport', () => {
       save: async () => validSessionRecord(),
     });
 
-    await expect(transport.list()).rejects.toMatchObject({ code: 'contract-invalid' });
+    await expect(transport.list({ hydrate: true })).rejects.toMatchObject({ code: 'contract-invalid' });
   });
 
   it('rejects list hydration when hydrated URL identity differs from its summary', async () => {
@@ -461,7 +496,7 @@ describe('investigation transport', () => {
       save: async () => validSessionRecord(),
     });
 
-    await expect(transport.list()).rejects.toMatchObject({ code: 'contract-invalid' });
+    await expect(transport.list({ hydrate: true })).rejects.toMatchObject({ code: 'contract-invalid' });
   });
 
   it('rejects claim when anonymous payload belongs to another investigation', async () => {

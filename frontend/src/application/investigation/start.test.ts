@@ -17,6 +17,7 @@ const makeDeps = () => {
       save: async () => { throw new Error('remote should not be used'); },
       get: async () => null, list: async () => [], claim: async () => { throw new Error('unused'); },
     },
+    remoteStart: undefined,
     saved,
   };
 };
@@ -77,6 +78,24 @@ describe('startInvestigation', () => {
     expect(result.investigation.id).toBeTruthy();
     expect(result.persistence).toEqual({
       remote: { code: 'persistence-failed', message: 'Unable to save investigation.' },
+      local: 'saved',
+    });
+    expect(deps.saved).toHaveLength(1);
+  });
+
+  it('falls back to a local investigation when remote allocation fails', async () => {
+    const deps = makeDeps();
+    deps.auth.getUserId = () => 'user-1';
+    deps.remoteStart = async () => { throw new Error('remote allocation unavailable'); };
+
+    const result = await startInvestigation({
+      domain: { submittedUrl: 'example.com', normalizedUrl: 'https://example.com' },
+      capabilities: [],
+    }, deps);
+
+    expect(result.investigation.normalizedUrl).toBe('https://example.com');
+    expect(result.persistence).toEqual({
+      remote: { code: 'persistence-failed', message: 'Unable to allocate investigation.' },
       local: 'saved',
     });
     expect(deps.saved).toHaveLength(1);

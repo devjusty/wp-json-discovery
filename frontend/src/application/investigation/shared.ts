@@ -104,9 +104,10 @@ export const createPersistenceContext = (dependencies: {
   auth?: AuthSession;
   store: InvestigationStore;
   localStore?: InvestigationStore;
+  remoteFailure?: PersistenceMetadata['remote'];
 }) => {
   const authenticated = Boolean(dependencies.auth?.getUserId?.());
-  let remoteFailure: PersistenceMetadata['remote'];
+  let remoteFailure: PersistenceMetadata['remote'] = dependencies.remoteFailure;
   let localSaved = false;
   const remoteStore = dependencies.store.kind === 'remote'
     || (dependencies.store.kind === undefined && dependencies.store !== dependencies.localStore);
@@ -127,7 +128,7 @@ export const createPersistenceContext = (dependencies: {
       ...dependencies.store,
       async save(value: Investigation) {
         await dependencies.store.save(value);
-        if (!authenticated) localSaved = true;
+        if (!authenticated || remoteFailure) localSaved = true;
       },
     };
 

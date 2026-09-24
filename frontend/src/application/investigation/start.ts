@@ -40,13 +40,22 @@ export async function startInvestigation(
   }
   const now = dependencies.now?.() ?? new Date().toISOString();
   const authenticated = Boolean(dependencies.auth.getUserId());
-  const investigation = authenticated && dependencies.remoteStart
-    ? await dependencies.remoteStart(
-      { submitted: input.domain.submittedUrl, normalized: input.domain.normalizedUrl },
-       input.capabilities,
-       input.redirectChain ?? [input.domain.normalizedUrl],
-    )
-    : createInvestigation({
+  let remoteFailure;
+  let usingRemote = authenticated;
+  let investigation;
+  if (authenticated && dependencies.remoteStart) {
+    try {
+      investigation = await dependencies.remoteStart(
+        { submitted: input.domain.submittedUrl, normalized: input.domain.normalizedUrl },
+        input.capabilities,
+        input.redirectChain ?? [input.domain.normalizedUrl],
+      );
+    } catch {
+      remoteFailure = { code: 'persistence-failed', message: 'Unable to allocate investigation.' } as const;
+      usingRemote = false;
+    }
+  }
+  investigation ??= createInvestigation({
       id: dependencies.createId?.() ?? globalThis.crypto.randomUUID(),
       submittedUrl: input.domain.submittedUrl,
       normalizedUrl: input.domain.normalizedUrl,
@@ -56,8 +65,9 @@ export async function startInvestigation(
     });
   const persistence = createPersistenceContext({
     auth: dependencies.auth,
-    store: authenticated ? dependencies.remoteStore : dependencies.localStore,
+    store: usingRemote ? dependencies.remoteStore : dependencies.localStore,
     localStore: authenticated ? dependencies.localStore : undefined,
+    remoteFailure,
   });
   await dependencies.onAllocated?.(investigation);
   const store = persistence.store;

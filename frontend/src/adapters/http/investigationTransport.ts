@@ -27,7 +27,7 @@ import {
 import { createInvestigation } from '../../domain/investigation/model';
 import type { Investigation } from '../../domain/investigation/model';
 import { ContractInvalidError } from '../contractErrors';
-import { domainToSession } from '../persistence/sessionMapping';
+import { domainToSession, materializeInvestigationState } from '../persistence/sessionMapping';
 
 export { ContractInvalidError } from '../contractErrors';
 
@@ -39,7 +39,7 @@ export type InvestigationTransport = {
   ): Promise<Investigation>;
   save(investigation: Investigation): Promise<void>;
   get(id: string): Promise<Investigation | null>;
-  list(): Promise<Array<Investigation | InvestigationSummary>>;
+  list(options?: { hydrate?: boolean }): Promise<Array<Investigation | InvestigationSummary>>;
   claim(id: string): Promise<Investigation>;
 };
 
@@ -91,7 +91,7 @@ export const createInvestigationTransport = (
     const outbound = parseSession({
       recordType: 'session',
       session: domainToSession(state),
-      persistedAt: state.createdAt,
+      persistedAt: state.updatedAt ?? state.createdAt,
     });
     const result = await call(
       source.save(investigation.id, outbound.session),
@@ -113,8 +113,9 @@ export const createInvestigationTransport = (
       throw asContractError(error, 'get');
     }
   },
-  async list() {
+  async list(options = {}) {
     const summaries = mapList(await call(source.list(), 'list'));
+    if (!options.hydrate) return summaries;
     const hydrated = await Promise.all(summaries.map(async summary => {
       if (!summary.latestSessionId) return summary;
       try {
@@ -226,6 +227,18 @@ function recordToDomain(record: InvestigationRecord): Investigation {
   if (session?.investigationState !== undefined) {
     return {
       ...parseState(session.investigationState, { id: record.investigation.id, ...record.investigation.domain }),
+      updatedAt: record.updatedAt,
+    };
+  }
+  if (session) {
+    const state = materializeInvestigationState(
+      session,
+      record.investigation.domain,
+      session.selectedCapabilities,
+      record.createdAt,
+    );
+    return {
+      ...parseState(state, { id: record.investigation.id, ...record.investigation.domain }),
       updatedAt: record.updatedAt,
     };
   }

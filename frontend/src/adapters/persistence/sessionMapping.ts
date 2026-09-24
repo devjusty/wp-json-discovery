@@ -9,13 +9,14 @@ export function domainToSession(investigation: Investigation) {
   const active = capabilities.some(({ status }) => ['queued', 'running'].includes(status));
   const status = active ? 'running' : hasFailure && !hasSuccess ? 'failed' : 'completed';
   const timestamp = investigation.createdAt;
+  const latestTimestamp = investigation.updatedAt ?? timestamp;
 
   const session = {
     id: `${investigation.id}-session`,
     investigationId: investigation.id,
     status,
     startedAt: timestamp,
-    completedAt: status === 'running' ? null : timestamp,
+    completedAt: status === 'running' ? null : latestTimestamp,
     selectedCapabilities: capabilities.map(({ name, dependencies = [], options }) => ({
       id: name,
       dependencies: dependencies.filter(dependency => selectedIds.has(dependency)),
@@ -57,7 +58,12 @@ export function createPersistableSession(session, domain: DomainIdentity) {
   return persistable;
 }
 
-function materializeInvestigationState(session, domain: DomainIdentity, selectedCapabilities) {
+export function materializeInvestigationState(
+  session,
+  domain: DomainIdentity,
+  selectedCapabilities = session.selectedCapabilities ?? [],
+  createdAtFallback?: string,
+) {
   const source = session.investigationState;
   const sourceCapabilities = new Map((source?.capabilities ?? []).map((capability) => [capability.name, capability]));
   const capabilities = selectedCapabilities.map(({ id: name, dependencies, options }) => {
@@ -92,7 +98,7 @@ function materializeInvestigationState(session, domain: DomainIdentity, selected
     submittedUrl: domain.submitted,
     normalizedUrl: domain.normalized,
     redirectChain: source?.redirectChain ?? [],
-    createdAt: source?.createdAt ?? session.startedAt ?? new Date().toISOString(),
+    createdAt: source?.createdAt ?? session.startedAt ?? createdAtFallback ?? new Date().toISOString(),
     capabilities,
     observationTimeline: source?.observationTimeline ?? [],
     evidence: source?.evidence ?? [],

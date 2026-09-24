@@ -24,6 +24,33 @@ describe('production route landmark composition', () => {
     expect(screen.getAllByRole('button', { name: 'New scan' })).toHaveLength(1);
   });
 
+  it.each(['overview', 'findings', 'evidence', 'assets', 'history', 'tools'])('renders canonical content for investigator section %s', (section) => {
+    render(
+      <InvestigatorShell
+        readModel={{
+          title: 'example.com',
+          sections: [{ id: section, label: section, description: `${section} description` }],
+          capabilities: [],
+          investigation: {
+            id: 'inv-1',
+            submittedUrl: 'example.com',
+            normalizedUrl: 'https://example.com',
+            redirectChain: ['https://example.com'],
+            createdAt: '2026-09-23T12:00:00.000Z',
+            capabilities: [],
+            observationTimeline: [],
+            evidence: [],
+            findings: [],
+          },
+        }}
+        commands={{ onSectionChange: vi.fn() }}
+        activeSection={section}
+      />,
+    );
+
+    expect(screen.getByRole('main')).not.toBeEmptyDOMElement();
+  });
+
   it('renders exactly one main landmark for admin route', () => {
     render(
       <AdminShell
