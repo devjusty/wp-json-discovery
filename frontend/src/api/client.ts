@@ -2,6 +2,7 @@ import {
   apiEnvelopeSchema,
   investigationListSchema,
   investigationRecordSchema,
+  scanSessionSchema,
   sessionRecordSchema
 } from '@wp-json-discovery/contracts';
 import type {
@@ -27,6 +28,30 @@ type RequestResult = {
 
 let globalGetAccessToken: TokenProvider | null = null;
 let globalAuthUser: AuthUserProvider | null = null;
+
+export class ApiError extends Error {
+  readonly code: string;
+  readonly details: unknown;
+  readonly retryable: boolean;
+  readonly status: number;
+  readonly requestId?: string;
+
+  constructor(message: string, options: {
+    code: string;
+    details?: unknown;
+    retryable?: boolean;
+    status?: number;
+    requestId?: string;
+  }) {
+    super(message);
+    this.name = 'ApiError';
+    this.code = options.code;
+    this.details = options.details;
+    this.retryable = options.retryable ?? false;
+    this.status = options.status ?? 0;
+    this.requestId = options.requestId;
+  }
+}
 
 export function setTokenProvider(fn: TokenProvider | null) {
   globalGetAccessToken = fn;
@@ -68,7 +93,7 @@ async function readResponseBody(response: Response, contentType: string): Promis
   return response.text();
 }
 
-export async function request(path: string, options: RequestInit = {}): Promise<RequestResult> {
+export async function request(path: string, options: RequestInit = {}, tokenProvider: TokenProvider | null = null): Promise<RequestResult> {
   const url = `${API_BASE_URL}${path}`;
 
   try {
@@ -82,7 +107,8 @@ export async function request(path: string, options: RequestInit = {}): Promise<
       headers.set('x-wpjd-admin-key', ADMIN_API_KEY);
     }
 
-    if (globalGetAccessToken && (
+    const getAccessToken = tokenProvider ?? globalGetAccessToken;
+    if (getAccessToken && (
       path.startsWith('/api/user/') ||
       path.startsWith('/api/admin/') ||
       path === '/api/logs' ||
@@ -94,7 +120,7 @@ export async function request(path: string, options: RequestInit = {}): Promise<
       || path.startsWith('/api/investigations')
     )) {
       try {
-        const token = await globalGetAccessToken();
+        const token = await getAccessToken();
         if (token) {
           headers.set('authorization', `Bearer ${token}`);
         }
@@ -320,63 +346,126 @@ export async function clearUserSavedScans() {
 
 export async function startInvestigation(
   domain: DomainIdentity,
-  selectedCapabilities: StartInvestigationRequest['selectedCapabilities']
+  selectedCapabilities: StartInvestigationRequest['selectedCapabilities'],
+  tokenProvider: TokenProvider | null = null,
+  redirectChain: StartInvestigationRequest['redirectChain'] = [domain.normalized],
 ): Promise<InvestigationRecord> {
   return requestInvestigation('/api/investigations', {
     method: 'POST',
-    body: JSON.stringify({ domain, selectedCapabilities })
-  });
+    body: JSON.stringify({ domain, selectedCapabilities, redirectChain })
+  }, undefined, tokenProvider);
 }
 
-export async function fetchInvestigation(investigationId: string): Promise<InvestigationRecord> {
-  return requestInvestigation(`/api/investigations/${encodeURIComponent(investigationId)}`);
+export async function fetchInvestigation(investigationId: string, tokenProvider: TokenProvider | null = null): Promise<InvestigationRecord> {
+  return requestInvestigation(`/api/investigations/${encodeURIComponent(investigationId)}`, undefined, undefined, tokenProvider);
 }
 
 /** @returns {Promise<import('@wp-json-discovery/contracts').InvestigationList>} */
-export async function fetchInvestigations(): Promise<InvestigationList> {
+export async function fetchInvestigations(tokenProvider: TokenProvider | null = null): Promise<InvestigationList> {
   // Collection endpoint uses same envelope parser with different payload schema.
-  return requestInvestigation('/api/investigations', undefined, investigationListSchema);
+  return requestInvestigation('/api/investigations', undefined, investigationListSchema, tokenProvider);
 }
 
 export async function saveInvestigationSession(
   investigationId: string,
-  session: unknown
+  session: unknown,
+  tokenProvider: TokenProvider | null = null,
 ): Promise<SessionRecord> {
+  const parsedSession = scanSessionSchema.safeParse(session);
+  if (!parsedSession.success) {
+    throw new ApiError('Invalid investigation session request', {
+      code: 'contract-invalid',
+      details: parsedSession.error,
+    });
+  }
+  if (!parsedSession.data.investigationState) {
+    throw new ApiError('Investigation session is missing full state', {
+      code: 'contract-invalid',
+      details: { field: 'investigationState' },
+    });
+  }
   return requestInvestigation(
-    `/api/investigations/${encodeURIComponent(investigationId)}/sessions/${encodeURIComponent((session as { id: string }).id)}`,
-    { method: 'POST', body: JSON.stringify({ session }) },
-    sessionRecordSchema
+    `/api/investigations/${encodeURIComponent(investigationId)}/sessions/${encodeURIComponent(parsedSession.data.id)}`,
+    { method: 'POST', body: JSON.stringify({ session: parsedSession.data }) },
+    sessionRecordSchema,
+    tokenProvider,
   );
 }
 
 export async function claimAnonymousInvestigation(
   domain: DomainIdentity,
-  anonymousRecord: unknown
+  anonymousRecord: unknown,
+  tokenProvider: TokenProvider | null = null,
 ): Promise<InvestigationRecord> {
   return requestInvestigation('/api/investigations/claim', {
     method: 'POST',
     body: JSON.stringify({ domain, anonymousRecord })
-  });
+  }, undefined, tokenProvider);
+}
+
+export function createInvestigationApiClient(tokenProvider: TokenProvider) {
+  return {
+    start: (domain: DomainIdentity, selectedCapabilities: StartInvestigationRequest['selectedCapabilities'], redirectChain?: StartInvestigationRequest['redirectChain']) => startInvestigation(domain, selectedCapabilities, tokenProvider, redirectChain),
+    get: (id: string) => fetchInvestigation(id, tokenProvider),
+    list: () => fetchInvestigations(tokenProvider),
+    save: (id: string, session: unknown) => saveInvestigationSession(id, session, tokenProvider),
+    claim: (domain: DomainIdentity, anonymousRecord: unknown) => claimAnonymousInvestigation(domain, anonymousRecord, tokenProvider),
+  };
 }
 
 async function requestInvestigation<T>(
   path: string,
   options?: RequestInit,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  dataSchema: { safeParse: (data: unknown) => any } = investigationRecordSchema
+  dataSchema: { safeParse: (data: unknown) => any } = investigationRecordSchema,
+  tokenProvider: TokenProvider | null = null,
 ): Promise<T> {
-  const result = await request(path, options);
+  const result = await request(path, options, tokenProvider);
   const envelope = apiEnvelopeSchema.safeParse(result.data);
 
-  if (!envelope.success) throw new Error('Invalid investigation response');
-  if (!result.ok || envelope.data.status === 'error') {
-    throw new Error(envelope.data.status === 'error'
-      ? envelope.data.error.message
-      : 'Investigation request failed');
+  if (!envelope.success) {
+    throw new ApiError('Invalid investigation response', {
+      code: 'INVALID_RESPONSE',
+      details: result.data,
+      status: result.status,
+    });
   }
-  if (envelope.data.status !== 'success') throw new Error('Investigation request incomplete');
+  if (envelope.data.status === 'error') {
+    throw new ApiError(envelope.data.error.message, {
+      code: envelope.data.error.code,
+      details: envelope.data.error.details,
+      retryable: envelope.data.error.retryable,
+      status: result.status,
+      requestId: envelope.data.requestId,
+    });
+  }
+  if (!result.ok) {
+    throw new ApiError('Investigation request failed', {
+      code: 'REQUEST_FAILED',
+      details: envelope.data,
+      status: result.status,
+      requestId: envelope.data.requestId,
+    });
+  }
+  if (envelope.data.status === 'partial') {
+    const [firstError] = envelope.data.errors;
+    throw new ApiError(firstError.message, {
+      code: firstError.code,
+      details: envelope.data.errors,
+      retryable: firstError.retryable,
+      status: result.status,
+      requestId: envelope.data.requestId,
+    });
+  }
 
   const record = dataSchema.safeParse(envelope.data.data);
-  if (!record.success) throw new Error('Invalid investigation response');
+  if (!record.success) {
+    throw new ApiError('Invalid investigation response', {
+      code: 'INVALID_RESPONSE',
+      details: record.error,
+      status: result.status,
+      requestId: envelope.data.requestId,
+    });
+  }
   return record.data as T;
 }

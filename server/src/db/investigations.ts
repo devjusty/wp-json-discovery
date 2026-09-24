@@ -7,6 +7,7 @@ import {
   sessionRecordSchema,
   startInvestigationRequestSchema,
 } from '@wp-json-discovery/contracts';
+import { ValidationError } from '../utils/errors.js';
 import { executeBatch, executeTransaction, queryAll, queryOne } from './client.js';
 
 function parse(schema, value) {
@@ -41,6 +42,8 @@ function investigationSummary(row) {
     selectedCapabilityCount: 0,
     completedCapabilityCount: 0,
     findingsCount: 0,
+    status: 'incomplete',
+    resumable: false,
   };
 
   if (row.snapshot_json) {
@@ -61,6 +64,14 @@ function investigationSummary(row) {
         summary.findingsCount += state.outcome.result.findings.length;
       }
     }
+    summary.status = session.overall.status;
+    const states = Object.values(session.capabilityStates);
+    summary.resumable = states.some((state) => (
+      // @ts-expect-error -- scanSessionSchema validates capability state records
+      ['queued', 'running'].includes(state.status)
+      // @ts-expect-error -- scanSessionSchema validates capability state records
+      || (state.status === 'failed' && state.outcome?.error?.retryable === true)
+    ));
   }
 
   return summary;
@@ -91,6 +102,48 @@ function sessionRecord(session, persistedAt) {
   return parse(sessionRecordSchema, { recordType: 'session', session, persistedAt });
 }
 
+function investigationState(id, domain, selectedCapabilities, createdAt, redirectChain = [domain.normalized]) {
+  return {
+    id,
+    submittedUrl: domain.submitted,
+    normalizedUrl: domain.normalized,
+    redirectChain,
+    createdAt,
+    capabilities: selectedCapabilities.map(({ id: name, dependencies, options }) => ({
+      name,
+      status: 'queued',
+      ...(dependencies?.length ? { dependencies } : {}),
+      ...(options ? { options } : {}),
+    })),
+    observationTimeline: [],
+    evidence: [],
+    findings: [],
+  };
+}
+
+function reconstructedInvestigationState(id, domain, session, createdAt) {
+  return {
+    ...investigationState(id, domain, session.selectedCapabilities, createdAt),
+    capabilities: session.selectedCapabilities.map(({ id: name, dependencies, options }) => {
+      const capabilityState = session.capabilityStates[name];
+      const status = capabilityState.status === 'idle' ? 'queued' : capabilityState.status;
+      const capability = {
+        name,
+        status,
+        ...(dependencies?.length ? { dependencies } : {}),
+        ...(options ? { options } : {}),
+      };
+      if (status === 'success' && Object.prototype.hasOwnProperty.call(capabilityState.outcome ?? {}, 'result')) {
+        return { ...capability, result: capabilityState.outcome.result };
+      }
+      if (status === 'failed' || status === 'unavailable') {
+        return { ...capability, error: capabilityState.outcome.error };
+      }
+      return capability;
+    }),
+  };
+}
+
 export async function createInvestigation(ownerId, request) {
   if (typeof ownerId !== 'string' || ownerId.length === 0) {
     throw new Error('Authenticated owner is required');
@@ -111,6 +164,13 @@ export async function createInvestigation(ownerId, request) {
       { status: 'idle', retry: { status: 'not-retryable' } },
     ])),
     overall: { status: 'incomplete' },
+    investigationState: investigationState(
+      id,
+      input.domain,
+      input.selectedCapabilities,
+      now,
+      input.redirectChain?.length ? input.redirectChain : [input.domain.normalized],
+    ),
   });
 
   await executeBatch([
@@ -138,25 +198,44 @@ export async function saveInvestigationSession(ownerId, investigationId, snapsho
   }
 
   const investigation = await queryOne(
-    'select id from investigations where id = ? and owner_id = ?',
+    'select id, submitted_domain, normalized_domain from investigations where id = ? and owner_id = ?',
     [investigationId, ownerId]
   );
   if (!investigation) return null;
+  if (session.investigationState && (
+    session.investigationState.id !== investigation.id
+    || session.investigationState.submittedUrl !== investigation.submitted_domain
+    || session.investigationState.normalizedUrl !== investigation.normalized_domain
+  )) {
+    throw new ValidationError('Investigation state identity does not match stored investigation');
+  }
 
   const persistedAt = new Date().toISOString();
+  const persistedSession = parse(scanSessionSchema, {
+    ...session,
+    investigationState: {
+      ...(session.investigationState ?? reconstructedInvestigationState(
+        investigation.id,
+        { submitted: investigation.submitted_domain, normalized: investigation.normalized_domain },
+        session,
+        persistedAt
+      )),
+      id: investigation.id,
+    },
+  });
   await executeTransaction(async (transaction) => {
     await transaction.execute({
       sql: `insert into investigation_sessions
         (id, investigation_id, session_id, sequence, snapshot_json, persisted_at)
        values (?, ?, ?, (select coalesce(max(sequence), 0) + 1 from investigation_sessions where investigation_id = ?), ?, ?)`,
-      args: [randomUUID(), investigationId, session.id, investigationId, JSON.stringify(session), persistedAt],
+      args: [randomUUID(), investigationId, persistedSession.id, investigationId, JSON.stringify(persistedSession), persistedAt],
     });
     await transaction.execute({
       sql: 'update investigations set updated_at = ? where id = ? and owner_id = ?',
       args: [persistedAt, investigationId, ownerId],
     });
   });
-  return sessionRecord(session, persistedAt);
+  return sessionRecord(persistedSession, persistedAt);
 }
 
 export async function getInvestigationForUser(userId, investigationId) {
@@ -192,9 +271,23 @@ export async function claimAnonymousInvestigation(userId, anonymousRecord) {
   const input = parse(claimInvestigationRequestSchema, anonymousRecord);
   const sourceSession = parse(sessionRecordSchema, input.anonymousRecord);
   const investigationId = randomUUID();
+  const sourceState = sourceSession.session.investigationState;
+  if (sourceState && (
+    sourceState.submittedUrl !== input.domain.submitted
+    || sourceState.normalizedUrl !== input.domain.normalized
+  )) {
+    throw new ValidationError('Anonymous investigation identity does not match embedded investigation state');
+  }
+  const state = sourceState ?? reconstructedInvestigationState(
+    sourceSession.session.investigationId,
+    input.domain,
+    sourceSession.session,
+    sourceSession.persistedAt
+  );
   const importedSession = parse(scanSessionSchema, {
     ...sourceSession.session,
     investigationId,
+    investigationState: { ...state, id: investigationId },
   });
   const now = new Date().toISOString();
 
@@ -239,3 +332,11 @@ export async function claimAnonymousInvestigation(userId, anonymousRecord) {
 
   return canonicalInvestigationId ? readInvestigation(canonicalInvestigationId, userId) : null;
 }
+
+export const investigationRepository = {
+  create: createInvestigation,
+  list: listInvestigationsForUser,
+  get: getInvestigationForUser,
+  saveSession: saveInvestigationSession,
+  claim: claimAnonymousInvestigation,
+};

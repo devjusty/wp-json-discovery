@@ -55,6 +55,23 @@ describe('investigation repository', () => {
     expect(loaded.sessionIds).toContain(saved.session.id);
   });
 
+  it('persists complete investigation state on initial authenticated sessions', async () => {
+    const record = await createInvestigation('user-mapping', {
+      domain: { submitted: 'Initial.example', normalized: 'https://initial.example' },
+      selectedCapabilities: [{ id: 'homepage', dependencies: [] }],
+    });
+
+    expect(record.latestSession.investigationState).toEqual(expect.objectContaining({
+      id: record.investigation.id,
+      submittedUrl: 'Initial.example',
+      normalizedUrl: 'https://initial.example',
+      capabilities: [{ name: 'homepage', status: 'queued' }],
+      observationTimeline: [],
+      evidence: [],
+      findings: [],
+    }));
+  });
+
   it('does not return another user investigation', async () => {
     const record = await createInvestigation('owner-a', {
       domain: { submitted: 'example.org', normalized: 'https://example.org' },
@@ -72,6 +89,38 @@ describe('investigation repository', () => {
 
     await expect(saveInvestigationSession('snapshot-owner', record.investigation.id, { id: 'bad' }))
       .rejects.toThrow();
+  });
+
+  it('rejects session state identity mismatches before persistence', async () => {
+    const record = await createInvestigation('snapshot-owner', {
+      domain: { submitted: 'state-check.example', normalized: 'https://state-check.example' },
+      selectedCapabilities: [],
+    });
+    const before = await queryOne(
+      'select count(1) as count from investigation_sessions where investigation_id = ?',
+      [record.investigation.id]
+    );
+    const invalid = {
+      ...session(record.investigation.id, 'mismatched-state-session'),
+      investigationState: {
+        id: record.investigation.id,
+        submittedUrl: 'other.example',
+        normalizedUrl: 'https://other.example',
+        redirectChain: [],
+        createdAt: timestamp,
+        capabilities: [],
+        observationTimeline: [],
+        evidence: [],
+        findings: [],
+      },
+    };
+
+    await expect(saveInvestigationSession('snapshot-owner', record.investigation.id, invalid))
+      .rejects.toMatchObject({ statusCode: 400 });
+    expect(await queryOne(
+      'select count(1) as count from investigation_sessions where investigation_id = ?',
+      [record.investigation.id]
+    )).toEqual(before);
   });
 
   it('does not persist an anonymous start', async () => {
@@ -114,6 +163,108 @@ describe('investigation repository', () => {
     expect(claimed.investigation.ownerId).toBe('claimed-user');
     expect(claimed.investigation.domain).toEqual({ submitted: 'anonymous.example', normalized: 'https://anonymous.example' });
     expect(claimed.sessionIds).toEqual(['browser-local-session']);
+  });
+
+  it('rewrites claimed full-state identity with canonical investigation ID', async () => {
+    const sourceId = 'full-state-browser-investigation';
+    const claimed = await claimAnonymousInvestigation('claimed-user', {
+      domain: { submitted: 'full-state.example', normalized: 'https://full-state.example' },
+      anonymousRecord: {
+        recordType: 'session',
+        session: {
+          ...session(sourceId, 'full-state-browser-session'),
+          investigationState: {
+            id: sourceId,
+            submittedUrl: 'full-state.example',
+            normalizedUrl: 'https://full-state.example',
+            redirectChain: [],
+            createdAt: timestamp,
+            capabilities: [],
+            observationTimeline: [],
+            evidence: [],
+            findings: [],
+          },
+        },
+        persistedAt: timestamp,
+      },
+    });
+
+    expect(claimed.latestSession.investigationState.id).toBe(claimed.investigation.id);
+    expect(claimed.latestSession.investigationId).toBe(claimed.investigation.id);
+  });
+
+  it('materializes complete state when claiming a legacy session without embedded state', async () => {
+    const claimed = await claimAnonymousInvestigation('claimed-user', {
+      domain: { submitted: 'legacy.example', normalized: 'https://legacy.example' },
+      anonymousRecord: {
+        recordType: 'session',
+        session: session('legacy-browser-investigation', 'legacy-browser-session'),
+        persistedAt: timestamp,
+      },
+    });
+
+    expect(claimed.latestSession.investigationState).toEqual(expect.objectContaining({
+      id: claimed.investigation.id,
+      submittedUrl: 'legacy.example',
+      normalizedUrl: 'https://legacy.example',
+      observationTimeline: [],
+      evidence: [],
+      findings: [],
+    }));
+  });
+
+  it('reconstructs claimed state from legacy capability outcomes', async () => {
+    const claimed = await claimAnonymousInvestigation('claimed-user', {
+      domain: { submitted: 'legacy-results.example', normalized: 'https://legacy-results.example' },
+      anonymousRecord: {
+        recordType: 'session',
+        session: {
+          ...session('legacy-results-investigation', 'legacy-results-session'),
+          selectedCapabilities: [{ id: 'homepage', dependencies: [] }],
+          capabilityStates: {
+            homepage: {
+              status: 'success',
+              outcome: { status: 'success', result: { title: 'Recovered' }, error: null },
+              retry: { status: 'not-retryable' },
+            },
+          },
+        },
+        persistedAt: timestamp,
+      },
+    });
+
+    expect(claimed.latestSession.investigationState.capabilities).toEqual([{
+      name: 'homepage', status: 'success', result: { title: 'Recovered' },
+    }]);
+  });
+
+  it('rejects claim identity mismatches before persistence', async () => {
+    const before = await queryOne('select count(1) as count from investigations');
+    const sourceId = 'mismatched-browser-investigation';
+
+    await expect(claimAnonymousInvestigation('claimed-user', {
+      domain: { submitted: 'envelope.example', normalized: 'https://envelope.example' },
+      anonymousRecord: {
+        recordType: 'session',
+        session: {
+          ...session(sourceId, 'mismatched-browser-session'),
+          investigationState: {
+            id: sourceId,
+            submittedUrl: 'embedded.example',
+            normalizedUrl: 'https://embedded.example',
+            redirectChain: [],
+            createdAt: timestamp,
+            capabilities: [],
+            observationTimeline: [],
+            evidence: [],
+            findings: [],
+          },
+        },
+        persistedAt: timestamp,
+      },
+    })).rejects.toMatchObject({ statusCode: 400 });
+
+    expect(await queryOne('select count(1) as count from investigations')).toEqual(before);
   });
 
   it('returns one canonical investigation for concurrent claims by the same user', async () => {
@@ -251,6 +402,8 @@ describe('investigation repository', () => {
         selectedCapabilityCount: 3,
         completedCapabilityCount: 2,
         findingsCount: 2,
+        status: 'incomplete',
+        resumable: true,
       },
       {
         id: older.investigation.id,
@@ -261,6 +414,8 @@ describe('investigation repository', () => {
         selectedCapabilityCount: 1,
         completedCapabilityCount: 0,
         findingsCount: 0,
+        status: 'incomplete',
+        resumable: false,
       },
     ] });
     expect(JSON.stringify(list)).not.toContain('owner_id');
@@ -313,6 +468,8 @@ describe('investigation repository', () => {
       selectedCapabilityCount: 0,
       completedCapabilityCount: 0,
       findingsCount: 0,
+      status: 'incomplete',
+      resumable: false,
     }]);
   });
 

@@ -4,12 +4,20 @@ import {
   normalizeSelection
 } from './scanCapabilities.js';
 import { normalizeScanError } from './scanSession.js';
-
-const DEPENDENCY_ERROR = {
-  code: 'dependency_failed',
-  message: 'Required capability did not complete.',
-  retryable: false
-};
+import { canRetryCapability } from '../domain/investigation/lifecycle.ts';
+import { createInvestigatorReadModel } from '../adapters/investigatorReadModel.ts';
+import { createPersistableSession, domainToSession } from '../adapters/persistence/sessionMapping.ts';
+import { createLegacyCapabilityRunner } from '../adapters/capabilities/legacyCapabilityRunner.ts';
+import { createLocalInvestigationStore } from '../adapters/persistence/localInvestigationStore.ts';
+import { createRemoteInvestigationStore } from '../adapters/persistence/remoteInvestigationStore.ts';
+import { createInvestigationTransport } from '../adapters/http/investigationTransport.ts';
+import { createInvestigationApiClient } from '../api/client.ts';
+import { normalizeDomain } from '../utils/format.js';
+import { saveAuthenticatedInvestigationId } from './anonymousInvestigations.js';
+import { InvestigationCommandError } from '../application/investigation/shared.ts';
+import { retryWithCoordinator, runCapabilities } from '../application/investigation/shared.ts';
+import { createInvestigation } from '../domain/investigation/model.ts';
+export { recoverInvestigationSession } from '../application/investigation/recovery.js';
 
 const RUNNER_UNAVAILABLE = {
   code: 'runner_unavailable',
@@ -17,18 +25,16 @@ const RUNNER_UNAVAILABLE = {
   retryable: true
 };
 
-const INTERRUPTED_ERROR = {
-  code: 'interrupted',
-  message: 'Capability was interrupted before it completed.',
-  retryable: true
-};
-
 export function createInvestigationSession({ investigationId, domain, selection }) {
   const normalizedSelection = normalizeSelection(selection);
   const dependencies = getCapabilityDependencies();
+  const sourceOptions = selection?.options ?? {};
   const selectedCapabilities = normalizedSelection.capabilityIds.map((id) => ({
     id,
-    dependencies: [...(dependencies[id] ?? [])]
+    dependencies: [...(dependencies[id] ?? [])],
+    ...(Object.keys(sourceOptions[id] ?? {}).length > 0
+      ? { options: { ...normalizedSelection.options[id] } }
+      : {})
   }));
   const session = {
     id: investigationId,
@@ -40,7 +46,23 @@ export function createInvestigationSession({ investigationId, domain, selection 
     capabilityStates: Object.fromEntries(
       selectedCapabilities.map(({ id }) => [id, createCapabilityState()])
     ),
-    overall: { status: 'incomplete' }
+    overall: { status: 'incomplete' },
+    investigationState: {
+      id: investigationId,
+      submittedUrl: domain.submitted,
+      normalizedUrl: domain.normalized,
+      redirectChain: [domain.normalized],
+      createdAt: new Date().toISOString(),
+      capabilities: selectedCapabilities.map(({ id: name, dependencies, options }) => ({
+        name,
+        status: 'queued',
+        dependencies: [...dependencies],
+        ...(options ? { options: { ...options } } : {}),
+      })),
+      observationTimeline: [],
+      evidence: [],
+      findings: [],
+    }
   };
 
   // Domain identity is execution context, not persisted session state.
@@ -50,102 +72,288 @@ export function createInvestigationSession({ investigationId, domain, selection 
 }
 
 export async function runInvestigationSession(session, runners, onChange, token) {
-  let current = cloneSession(session);
+  const current = cloneSession(session);
   if (!isActive(token)) return current;
-
-  while (hasPendingCapabilities(current)) {
-    if (!isActive(token)) return current;
-
-    const pendingIds = getPendingIds(current);
-    const blockedIds = pendingIds.filter((id) => hasFailedDependency(current, id));
-    for (const id of blockedIds) {
-      current = updateCapability(current, id, unavailableState(DEPENDENCY_ERROR, getFailedDependency(current, id)));
-      notify(onChange, current, token);
-    }
-
-    const runnableIds = getPendingIds(current).filter((id) => hasSuccessfulDependencies(current, id));
-    if (runnableIds.length === 0) continue;
-
-    for (const id of runnableIds) {
-      if (!isActive(token)) return current;
-      current = updateCapability(current, id, { status: 'queued', retry: { status: 'not-retryable' } });
-      notify(onChange, current, token);
-    }
-
-    for (const id of runnableIds) {
-      if (!isActive(token)) return current;
-      current = updateCapability(current, id, {
-        status: 'running',
-        retry: { status: 'not-retryable' }
-      });
-      notify(onChange, current, token);
-    }
-
-    const settled = await Promise.allSettled(
-      runnableIds.map((id) => Promise.resolve().then(() => runCapability(current, id, runners)))
-    );
-
-    settled.forEach((outcome, index) => {
-      const id = runnableIds[index];
-      current = outcome.status === 'fulfilled'
-        ? updateCapability(current, id, successState(outcome.value))
-        : updateCapability(current, id, errorState(outcome.reason));
-      if (isActive(token)) notify(onChange, current, token);
-    });
-  }
-
-  return finalize(current);
+  notify(onChange, queuedProgress(current), token);
+  const investigation = toInvestigation(current);
+  const result = await runCapabilities(investigation, {
+    store: compatibilityStore,
+    runner: createCompatibilityRunner(current, runners),
+    onProgress: (next) => notify(onChange, toLegacySession(next, current), token),
+  });
+  return toLegacySession(result, current);
 }
 
 export async function retryInvestigationCapability(session, capabilityId, runners, onChange, token) {
-  let current = cloneSession(session);
-  const state = current.capabilityStates[capabilityId];
-  if (!state || !['failed', 'unavailable'].includes(state.status) || !isActive(token)) return current;
-  if (!hasSuccessfulDependencies(current, capabilityId)) {
-    current = updateCapability(current, capabilityId, unavailableState(DEPENDENCY_ERROR, getFailedDependency(current, capabilityId)));
-    notify(onChange, current, token);
-    return current;
+  const current = cloneSession(session);
+  if (!current.capabilityStates[capabilityId] || !canRetryCapability(current, capabilityId) || !isActive(token)) return current;
+  try {
+    const result = await retryWithCoordinator(toInvestigation(current), capabilityId, {
+      store: compatibilityStore,
+      runner: createCompatibilityRunner(current, runners),
+      onProgress: (next) => notify(onChange, toLegacySession(next, current), token),
+    });
+    return toLegacySession(result, current);
+  } catch (error) {
+    if (error instanceof InvestigationCommandError && error.code === 'invalid-command') return current;
+    throw error;
   }
-
-  current = updateCapability(current, capabilityId, { status: 'queued', retry: { status: 'not-retryable' } });
-  notify(onChange, current, token);
-  if (!isActive(token)) return current;
-  current = updateCapability(current, capabilityId, { status: 'running', retry: { status: 'not-retryable' } });
-  notify(onChange, current, token);
-
-  const outcome = await Promise.allSettled([
-    Promise.resolve().then(() => runCapability(current, capabilityId, runners))
-  ]);
-  current = updateCapability(current, capabilityId,
-    outcome[0].status === 'fulfilled' ? successState(outcome[0].value) : errorState(outcome[0].reason));
-  if (isActive(token)) notify(onChange, current, token);
-  return finalize(current);
 }
 
-export function recoverInvestigationSession(session) {
-  const activeSession = ['queued', 'running'].includes(session.status);
-  const interruptedIds = Object.entries(session.capabilityStates)
-    .filter(([, state]) => activeSession
-      ? !['success', 'failed', 'unavailable'].includes(state.status)
-      : ['queued', 'running'].includes(state.status))
-    .map(([id]) => id);
-  if (!activeSession && interruptedIds.length === 0) return session;
+// Compatibility adapter for legacy scan callers. State transitions and execution live in application/investigation/shared.ts.
+const compatibilityStore = {
+  kind: 'local',
+  async save() {},
+  async get() { return null; },
+  async list() { return []; },
+};
 
-  let recovered = cloneSession(session);
-  recovered.startedAt ??= new Date().toISOString();
-  for (const id of interruptedIds) {
-    recovered = updateCapability(recovered, id, {
-      status: 'failed',
-      outcome: { status: 'failed', result: null, error: { ...INTERRUPTED_ERROR } },
-      retry: { status: 'not-retryable' }
-    });
-  }
+function toInvestigation(session) {
+  const persistable = createPersistableSession(session, session.domain);
+  const state = {
+    ...persistable.investigationState,
+    capabilities: persistable.investigationState.capabilities.map((capability) => {
+      const selected = session.selectedCapabilities.find(({ id }) => id === capability.name);
+      if (selected?.dependencies?.length) return capability;
+      const { dependencies: _dependencies, ...withoutDependencies } = capability;
+      return withoutDependencies;
+    }),
+  };
+  return createInvestigation(state);
+}
 
-  return finalize(recovered);
+function createCompatibilityRunner(session, runners) {
+  return {
+    run: async ({ investigation, capability, options }) => {
+      const runner = runners?.[capability];
+      if (typeof runner !== 'function') {
+        throw Object.assign(new Error(RUNNER_UNAVAILABLE.message), RUNNER_UNAVAILABLE);
+      }
+      try {
+        return await runner({
+          domain: investigation.normalizedUrl,
+          domainIdentity: session.domain,
+          options: options ?? {},
+        });
+      } catch (cause) {
+        const normalized = normalizeScanError(cause);
+        throw Object.assign(new Error(normalized.message), normalized);
+      }
+    },
+  };
+}
+
+function queuedProgress(session) {
+  const next = cloneSession(session);
+  next.status = 'queued';
+  next.selectedCapabilities.forEach(({ id }) => {
+    if (next.capabilityStates[id]?.status === 'idle') next.capabilityStates[id] = { status: 'queued', retry: { status: 'not-retryable' } };
+  });
+  return next;
+}
+
+function toLegacySession(investigation, source) {
+  const next = domainToSession(investigation);
+  next.id = source.id;
+  next.selectedCapabilities = next.selectedCapabilities.map((capability) => {
+    const sourceCapability = source.selectedCapabilities.find(({ id }) => id === capability.id);
+    return sourceCapability ? { ...capability, dependencies: [...(sourceCapability.dependencies ?? capability.dependencies ?? [])] } : capability;
+  });
+  next.capabilityStates = Object.fromEntries(Object.entries(next.capabilityStates).map(([id, state]) => {
+    const sourceState = source.capabilityStates[id];
+    if (sourceState?.dependency) return [id, { ...state, dependency: sourceState.dependency }];
+    if (state.status === 'unavailable' && state.outcome?.error?.code === 'dependency_failed') {
+      const dependencies = next.selectedCapabilities.find(({ id: candidate }) => candidate === id)?.dependencies ?? [];
+      const dependencyId = dependencies.find((dependency) => ['failed', 'unavailable'].includes(next.capabilityStates[dependency]?.status)) ?? dependencies[0];
+      if (dependencyId) {
+        return [id, {
+          ...state,
+          dependency: { status: 'failed', dependencyId, error: state.outcome.error },
+        }];
+      }
+    }
+    return [id, state];
+  }));
+  return next;
 }
 
 export function getInvestigatorSelection() {
   return normalizeSelection({ capabilityIds: ['wordpress', 'homepage'] });
+}
+
+function normalizeInvestigationIdentity(input, normalize) {
+  const trimmed = typeof input === 'string' ? input.trim() : input;
+  if (typeof trimmed === 'string' && /^https?:\/\//i.test(trimmed)) {
+    try {
+      const url = new URL(trimmed);
+      if (url.username || url.password || url.port || !url.hostname) {
+        throw new InvestigationCommandError('invalid-command', 'Investigation domain URL is invalid.');
+      }
+      return normalize(url.hostname);
+    } catch (error) {
+      if (error instanceof InvestigationCommandError) throw error;
+      throw new InvestigationCommandError('invalid-command', 'Investigation domain URL is invalid.', error);
+    }
+  }
+  return normalize(input);
+}
+
+/**
+ * Binds application commands to the investigator UI. Pages receive results and
+ * commands, never persistence or capability-transition details.
+ */
+export function createInvestigatorWorkflow({
+  auth,
+  localStore = undefined,
+  remoteStore = undefined,
+  runner = createLegacyCapabilityRunner(),
+  normalize = normalizeDomain,
+  redirectChain = undefined,
+  remoteStart = undefined,
+  onProgress = undefined,
+}) {
+  if (!auth || typeof auth.getUserId !== 'function' || typeof auth.getAccessToken !== 'function') {
+    throw new Error('Investigation workflow requires an AuthSession.');
+  }
+  const resolvedLocalStore = localStore ?? createLocalInvestigationStore();
+  const resolvedRemoteStore = remoteStore ?? createRemoteInvestigationStore({ authSession: auth });
+  const authenticatedTransport = createInvestigationTransport(
+    createInvestigationApiClient(() => auth.getAccessToken()),
+  );
+  localStore = resolvedLocalStore;
+  remoteStore = resolvedRemoteStore;
+  const dependencies = { auth, localStore, remoteStore, runner };
+  const storeAffinity = new Map();
+  const defaultAffinity = () => (auth?.getUserId?.() ? 'remote' : 'local');
+  const storeForAffinity = (affinity) => affinity === 'local' ? localStore : remoteStore;
+  const affinityFromResult = (result, fallback) => result.persistence.remote && result.persistence.local === 'saved'
+    ? 'local'
+    : fallback;
+
+  const present = (result, affinity = storeAffinity.get(result.investigation.id) ?? result.investigation.storeAffinity ?? defaultAffinity()) => {
+    storeAffinity.set(result.investigation.id, affinity);
+    const investigation = { ...result.investigation };
+    Object.defineProperty(investigation, 'storeAffinity', { value: affinity, enumerable: false, configurable: true });
+    const session = domainToSession(investigation);
+    Object.defineProperty(session, 'storeAffinity', { value: affinity, enumerable: false, configurable: true });
+    return {
+      ...result,
+      investigation,
+      session,
+      readModel: createInvestigatorReadModel(session, Boolean(auth?.getUserId?.())),
+      commands: {
+        retry: (capability) => retry(investigation, capability),
+        resume: () => resume(investigation.id),
+        claim: () => claim(investigation.id),
+      },
+    };
+  };
+
+  function rememberAuthenticatedInvestigation(investigation) {
+    if (auth.getUserId?.()) saveAuthenticatedInvestigationId(investigation.id);
+  }
+
+  const start = async (submittedUrl, capabilities = getInvestigatorSelection()) => {
+    const selection = normalizeSelection(capabilities);
+    const normalizedIdentity = normalizeInvestigationIdentity(submittedUrl, normalize);
+    const { startInvestigation: startCommand } = await import('../application/investigation/start.ts');
+    const result = await startCommand({
+      domain: { submittedUrl, normalizedUrl: normalizedIdentity },
+      redirectChain: redirectChain ?? [normalizedIdentity],
+      capabilities: selection.capabilityIds.map((name) => ({
+        name,
+        options: selection.options[name],
+        dependencies: getCapabilityDependencies()[name] ?? [],
+      })),
+       onProgress,
+    }, {
+      ...dependencies,
+      onAllocated: rememberAuthenticatedInvestigation,
+      remoteStart: auth.getUserId?.()
+        ? (remoteStart ?? ((identity, selectedCapabilities, chain) => authenticatedTransport.start(
+          identity,
+          selectedCapabilities.map(({ name, dependencies = [], options }) => ({
+            id: name,
+            dependencies,
+            ...(options ? { options } : {}),
+          })),
+          chain,
+        )))
+        : undefined,
+    });
+    rememberAuthenticatedInvestigation(result.investigation);
+    return present(result, affinityFromResult(result, defaultAffinity()));
+  };
+
+  const retry = async (investigation, capability) => {
+    const { retryCapability: retryCommand } = await import('../application/investigation/retry.ts');
+    const affinity = storeAffinity.get(investigation.id) ?? investigation.storeAffinity ?? defaultAffinity();
+    const result = await retryCommand({ investigation, capability }, {
+      auth,
+      store: storeForAffinity(affinity),
+      localStore,
+       runner,
+       onProgress,
+    });
+    return present(result, affinityFromResult(result, affinity));
+  };
+
+  const resume = async (id) => {
+    const { resumeInvestigation: resumeCommand } = await import('../application/investigation/resume.ts');
+    let affinity = storeAffinity.get(id);
+    let probeFailure;
+    if (!affinity && auth?.getUserId?.()) {
+      try {
+        affinity = await localStore.get(id) ? 'local' : 'remote';
+      } catch (cause) {
+        probeFailure = new InvestigationCommandError('persistence-failed', 'Unable to load investigation.', cause);
+        affinity = 'remote';
+      }
+    }
+    affinity ??= defaultAffinity();
+    try {
+      const result = await resumeCommand(id, {
+       auth,
+       store: storeForAffinity(affinity),
+       localStore,
+        runner,
+        onProgress,
+       });
+       return present(result, affinityFromResult(result, affinity));
+    } catch (cause) {
+      if (probeFailure && cause?.code === 'not-found') throw probeFailure;
+      throw cause;
+    }
+  };
+
+  const claim = async (id) => {
+    const { claimInvestigation: claimCommand } = await import('../application/investigation/claim.ts');
+    const result = await claimCommand(id, { auth, localStore, remoteStore });
+    rememberAuthenticatedInvestigation(result.investigation);
+    return present(result);
+  };
+
+  const run = async (investigation) => {
+    const { createPersistenceContext, runCapabilities } = await import('../application/investigation/shared.ts');
+    const authenticated = Boolean(auth.getUserId?.());
+    const affinity = storeAffinity.get(investigation.id) ?? investigation.storeAffinity ?? defaultAffinity();
+    const persistence = createPersistenceContext({
+      auth,
+      store: storeForAffinity(affinity),
+      localStore: authenticated ? localStore : undefined,
+    });
+    rememberAuthenticatedInvestigation(investigation);
+    await persistence.store.save(investigation);
+    const result = await runCapabilities(investigation, {
+      store: persistence.store,
+      runner,
+      onProgress,
+    });
+    const commandResult = persistence.result(result);
+    return present(commandResult, affinityFromResult(commandResult, affinity));
+  };
+
+  return { start, run, retry, resume, claim, list: () => (auth?.getUserId?.() ? remoteStore : localStore).list() };
 }
 
 export function getContextualCapabilityIds(session) {
@@ -153,19 +361,61 @@ export function getContextualCapabilityIds(session) {
 }
 
 export function addInvestigationCapability(session, capabilityId, options = {}) {
-  if (session.selectedCapabilities.some(({ id }) => id === capabilityId)) return cloneSession(session);
+  if (session.selectedCapabilities.some(({ id }) => id === capabilityId)) {
+    const next = cloneSession(session);
+    const state = next.capabilityStates[capabilityId];
+    next.selectedCapabilities = next.selectedCapabilities.map((capability) => capability.id === capabilityId
+      ? { ...capability, options: { ...options } }
+      : capability);
+    Object.defineProperty(next, 'selection', {
+      value: cloneSelection({
+        ...next.selection,
+        options: { ...next.selection.options, [capabilityId]: { ...options } },
+      }),
+      enumerable: false,
+      configurable: true,
+    });
+    if (state && ['success', 'failed'].includes(state.status)) {
+      next.capabilityStates[capabilityId] = createCapabilityState();
+      if (next.investigationState) {
+        next.investigationState = {
+          ...next.investigationState,
+          capabilities: next.investigationState.capabilities.map((capability) => {
+            if (capability.name !== capabilityId) return capability;
+            const reset = { ...capability, status: 'queued' };
+            delete reset.result;
+            delete reset.error;
+            reset.options = { ...options };
+            return reset;
+          }),
+        };
+      }
+    }
+    return next;
+  }
   const next = cloneSession(session);
-  const capabilitySelection = getCapabilitySelection(capabilityId);
+  const capabilitySelection = getCapabilitySelection(capabilityId, options);
   if (!capabilitySelection) return cloneSession(session);
   next.selectedCapabilities = [...next.selectedCapabilities, capabilitySelection];
   next.capabilityStates = {
     ...next.capabilityStates,
     [capabilityId]: createCapabilityState()
   };
+  if (session.investigationState) {
+    next.investigationState = {
+      ...session.investigationState,
+      capabilities: [...session.investigationState.capabilities, {
+        name: capabilityId,
+        status: 'queued',
+        dependencies: [...(capabilitySelection.dependencies ?? [])],
+        ...(capabilitySelection.options ? { options: { ...capabilitySelection.options } } : {}),
+      }],
+    };
+  }
   Object.defineProperty(next, 'selection', {
     value: cloneSelection({
       capabilityIds: [...session.selection.capabilityIds, capabilityId],
-      options: { ...session.selection.options, [capabilityId]: options }
+      options: { ...session.selection.options, [capabilityId]: capabilitySelection.options ?? {} }
     }),
     enumerable: false,
     configurable: true
@@ -177,107 +427,20 @@ function createCapabilityState() {
   return { status: 'idle', retry: { status: 'not-retryable' } };
 }
 
-function runCapability(session, id, runners) {
-  if (typeof runners?.[id] !== 'function') throw Object.assign(new Error(RUNNER_UNAVAILABLE.message), RUNNER_UNAVAILABLE);
-  return runners[id]({
-    domain: session.domain.normalized,
-    domainIdentity: session.domain,
-    options: session.selection.options[id]
-  });
-}
-
-function successState(result) {
-  return { status: 'success', outcome: { status: 'success', result, error: null }, retry: { status: 'not-retryable' } };
-}
-
-function errorState(error) {
-  const normalized = normalizeScanError(error);
-  return normalized.code === 'runner_unavailable'
-    ? unavailableState(normalized)
-    : { status: 'failed', outcome: { status: 'failed', result: null, error: normalized }, retry: { status: 'not-retryable' } };
-}
-
-function unavailableState(error, dependencyId) {
-  const normalizedError = { ...error, retryable: dependencyId ? false : error.retryable === true };
-  const state = {
-    status: 'unavailable',
-    outcome: { status: 'unavailable', result: null, error: normalizedError },
-    retry: { status: 'not-retryable' }
-  };
-  if (dependencyId) state.dependency = { status: 'failed', dependencyId, error: normalizedError };
-  return state;
-}
-
-function updateCapability(session, id, state) {
-  const next = {
-    ...session,
-    capabilityStates: { ...session.capabilityStates, [id]: state }
-  };
-  Object.defineProperty(next, 'domain', { value: cloneDomain(session.domain), enumerable: false });
-  Object.defineProperty(next, 'selection', { value: cloneSelection(session.selection), enumerable: false, configurable: true });
-  if (state.status === 'queued' && session.status === 'idle') {
-    next.status = 'queued';
-    next.startedAt = null;
-    next.completedAt = null;
-  } else if (state.status === 'queued' || state.status === 'running') {
-    next.status = 'running';
-    next.startedAt ??= new Date().toISOString();
-    next.completedAt = null;
-  }
-  if (Object.values(next.capabilityStates).every(({ status: capabilityStatus }) => capabilityStatus === 'success')) {
-    next.status = 'completed';
-    next.completedAt = new Date().toISOString();
-    next.overall = { status: 'complete' };
-  }
-  return next;
-}
-
-function finalize(session) {
-  const complete = Object.values(session.capabilityStates).every(({ status }) => status === 'success');
-  const next = {
-    ...session,
-    status: complete ? 'completed' : 'failed',
-    completedAt: new Date().toISOString(),
-    overall: { status: complete ? 'complete' : 'incomplete' }
-  };
-  Object.defineProperty(next, 'domain', { value: cloneDomain(session.domain), enumerable: false });
-  Object.defineProperty(next, 'selection', { value: cloneSelection(session.selection), enumerable: false, configurable: true });
-  return next;
-}
-
-function getPendingIds(session) {
-  return session.selectedCapabilities
-    .map(({ id }) => id)
-    .filter((id) => session.capabilityStates[id].status === 'idle');
-}
-
-function hasPendingCapabilities(session) {
-  return getPendingIds(session).length > 0;
-}
-
-function getDependencies(session, id) {
-  return session.selectedCapabilities.find((capability) => capability.id === id)?.dependencies ?? [];
-}
-
-function hasFailedDependency(session, id) {
-  return getDependencies(session, id).some((dependencyId) => ['failed', 'unavailable'].includes(session.capabilityStates[dependencyId]?.status));
-}
-
-function hasSuccessfulDependencies(session, id) {
-  return getDependencies(session, id).every((dependencyId) => session.capabilityStates[dependencyId]?.status === 'success');
-}
-
-function getFailedDependency(session, id) {
-  return getDependencies(session, id).find((dependencyId) => ['failed', 'unavailable'].includes(session.capabilityStates[dependencyId]?.status));
-}
-
 function cloneSession(session) {
   const next = {
     ...session,
-    selectedCapabilities: session.selectedCapabilities.map((capability) => getCapabilitySelection(capability.id) ?? ({
-      ...capability,
-      dependencies: [...(capability.dependencies ?? [])]
-    })),
+    selectedCapabilities: session.selectedCapabilities.map((capability) => {
+      const registered = getCapabilitySelection(capability.id);
+      return registered
+        ? {
+          ...registered,
+          ...capability,
+          dependencies: [...(capability.dependencies ?? registered.dependencies ?? [])],
+          ...(capability.options ? { options: { ...capability.options } } : {}),
+        }
+        : { ...capability, dependencies: [...(capability.dependencies ?? [])] };
+    }),
     capabilityStates: Object.fromEntries(Object.entries(session.capabilityStates).map(([id, state]) => {
       const clonedState = {
         status: state.status,

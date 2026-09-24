@@ -1,30 +1,45 @@
 import {
   domainIdentitySchema,
+  investigationStateSchema,
   sessionRecordSchema
 } from '@wp-json-discovery/contracts';
+import { ContractInvalidError } from '../adapters/contractErrors.ts';
 
 const STORAGE_KEY = 'wpjd:anonymous-investigation:v1';
 const STORAGE_VERSION = 1;
 const AUTHENTICATED_ID_KEY = 'wpjd:authenticated-investigation:v1';
 const TERMINAL_STATUSES = new Set(['failed', 'unavailable', 'completed', 'success']);
 
-export function loadAnonymousInvestigation() {
+export function loadAnonymousInvestigation(options = {}) {
+  let raw;
   try {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    const snapshot = validateSnapshot(stored);
-    if (!snapshot) {
-      localStorage.removeItem(STORAGE_KEY);
-      return null;
-    }
-    return snapshot;
+    raw = localStorage.getItem(STORAGE_KEY);
   } catch {
     removeAnonymousInvestigation();
     return null;
   }
+  if (raw === null) return null;
+
+  let stored;
+  try {
+    stored = JSON.parse(raw);
+  } catch (cause) {
+    if (options.strict) throw new ContractInvalidError('Invalid anonymous investigation snapshot', cause);
+    removeAnonymousInvestigation();
+    return null;
+  }
+
+  const snapshot = validateSnapshot(stored);
+  if (!snapshot) {
+    if (options.strict) throw new ContractInvalidError('Invalid anonymous investigation snapshot');
+    removeAnonymousInvestigation();
+    return null;
+  }
+  return snapshot;
 }
 
 export function saveAnonymousInvestigation(snapshot) {
-  const current = loadAnonymousInvestigation();
+  const current = loadAnonymousInvestigation({ strict: true });
   const next = normalizeSnapshot(snapshot, current ? getNextRevision(current.revision) : 1);
   if (!next) return;
   if (current && !shouldReplace(current, next)) return;
@@ -34,7 +49,8 @@ export function saveAnonymousInvestigation(snapshot) {
       version: STORAGE_VERSION,
       revision: next.revision,
       domain: next.domain,
-      record: next.record
+      record: next.record,
+      ...(next.investigation ? { investigation: next.investigation } : {})
     }));
   } catch {
     // Storage may be unavailable in private browsing or restricted contexts.
@@ -83,8 +99,16 @@ function normalizeSnapshot(snapshot, revisionFallback = 0) {
     session: snapshot.session,
     persistedAt: snapshot.persistedAt
   });
-  if (!domain.success || !record.success) return null;
-  const normalized = { domain: domain.data, record: record.data, revision };
+  const investigation = snapshot.investigation === undefined
+    ? { success: true, data: undefined }
+    : investigationStateSchema.safeParse(snapshot.investigation);
+  if (!domain.success || !record.success || !investigation.success) return null;
+  const normalized = {
+    domain: domain.data,
+    record: record.data,
+    ...(investigation.data ? { investigation: investigation.data } : {}),
+    revision,
+  };
   Object.defineProperty(normalized, 'hasExplicitRevision', {
     value: Number.isSafeInteger(snapshot.revision),
     enumerable: false
@@ -141,7 +165,9 @@ function getStatusRank(status) {
 }
 
 function serializeSnapshot(snapshot) {
-  return JSON.stringify({ domain: snapshot.domain, record: snapshot.record });
+  return JSON.stringify({
+    domain: snapshot.domain,
+    record: snapshot.record,
+    ...(snapshot.investigation ? { investigation: snapshot.investigation } : {}),
+  });
 }
-
-export { AUTHENTICATED_ID_KEY, STORAGE_KEY };

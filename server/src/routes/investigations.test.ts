@@ -6,8 +6,9 @@ import { beforeAll, describe, expect, it } from '@jest/globals';
 import createInvestigationRoutes from './investigations.ts';
 import { errorHandler } from '../middleware/errorHandler.js';
 import { execute, queryOne } from '../db/client.js';
+import { AppError } from '../utils/errors.js';
 
-function buildApp(user = null) {
+function buildApp(user = null, application = undefined) {
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
@@ -16,7 +17,7 @@ function buildApp(user = null) {
     authenticatedRequest.user = user;
     next();
   });
-  app.use('/api/investigations', createInvestigationRoutes());
+  app.use('/api/investigations', createInvestigationRoutes(application));
   app.use(errorHandler);
   return app;
 }
@@ -78,7 +79,8 @@ describe('investigation routes', () => {
       .post('/api/investigations')
       .send({
         domain: { submitted: 'EXAMPLE.COM', normalized: 'https://forged.example.com' },
-        selectedCapabilities: [],
+       selectedCapabilities: [],
+       redirectChain: ['https://redirect.example', 'https://example.com'],
       });
 
     expect(response.status).toBe(201);
@@ -86,12 +88,27 @@ describe('investigation routes', () => {
       submitted: 'EXAMPLE.COM',
       normalized: 'example.com',
     });
+    expect(response.body.data.latestSession.investigationState.redirectChain).toEqual([
+      'https://redirect.example',
+      'https://example.com',
+    ]);
   });
 
   it('requires authentication for canonical investigation reads', async () => {
     const response = await request(buildApp()).get('/api/investigations/inv-1');
 
     expect(response.status).toBe(401);
+  });
+
+  it('delegates injected 5xx application errors to global errorHandler shape', async () => {
+    const app = buildApp({ sub: 'route-owner' }, {
+      get: async () => { throw new AppError('database unavailable', 503); },
+    });
+
+    const response = await request(app).get('/api/investigations/inv-1');
+
+    expect(response.status).toBe(503);
+    expect(response.body).toEqual({ error: 'database unavailable' });
   });
 
   it('requires authentication for investigation lists', async () => {
@@ -152,6 +169,14 @@ describe('investigation routes', () => {
     expect(start.status).toBe(201);
     expect(start.body.status).toBe('success');
     const investigationId = start.body.data.investigation.id;
+    expect(start.body.data.latestSession.investigationState).toEqual(expect.objectContaining({
+      id: investigationId,
+      submittedUrl: 'example.com',
+      normalizedUrl: 'example.com',
+    }));
+    const initialRead = await request(app).get(`/api/investigations/${investigationId}`);
+    expect(initialRead.status).toBe(200);
+    expect(initialRead.body.data.latestSession.investigationState.id).toBe(investigationId);
     const session = {
       id: `${investigationId}-session`,
       investigationId,
@@ -180,13 +205,16 @@ describe('investigation routes', () => {
         domain: { submitted: 'dependency-route.example', normalized: 'https://dependency-route.example' },
         selectedCapabilities: [
           { id: 'wordpress', dependencies: [] },
-          { id: 'sitemap', dependencies: ['wordpress'] }
+          { id: 'sitemap', dependencies: ['wordpress'], options: { sitemapUrl: '/custom.xml', maxPages: 2 } }
         ]
       });
 
     expect(response.status).toBe(201);
     expect(response.body.data.latestSession.selectedCapabilities).toContainEqual({
-      id: 'sitemap', dependencies: ['wordpress']
+      id: 'sitemap', dependencies: ['wordpress'], options: { sitemapUrl: '/custom.xml', maxPages: 2 }
+    });
+    expect(response.body.data.latestSession.investigationState.capabilities).toContainEqual({
+      name: 'sitemap', status: 'queued', dependencies: ['wordpress'], options: { sitemapUrl: '/custom.xml', maxPages: 2 }
     });
   });
 
@@ -270,6 +298,11 @@ describe('investigation routes', () => {
     expect(response.body.status).toBe('success');
     expect(response.body.data.investigation.ownerId).toBe('route-owner');
     expect(response.body.data.sessionIds).toEqual(['browser-session']);
+    expect(response.body.data.latestSession.investigationState).toEqual(expect.objectContaining({
+      id: response.body.data.investigation.id,
+      submittedUrl: 'claimed.example',
+      normalizedUrl: 'claimed.example',
+    }));
 
     const replay = await request(buildApp({ sub: 'route-other' }))
       .post('/api/investigations/claim')
@@ -295,6 +328,47 @@ describe('investigation routes', () => {
 
     expect(replay.status).toBe(404);
     expect(ownerRead.body.data.sessionIds).toEqual(['browser-session']);
+  });
+
+  it('rejects claim when envelope and embedded state identities differ', async () => {
+    const before = await queryOne('select count(1) as count from investigations');
+    const response = await request(buildApp({ sub: 'route-owner' }))
+      .post('/api/investigations/claim')
+      .send({
+        domain: { submitted: 'envelope-route.example', normalized: 'envelope-route.example' },
+        anonymousRecord: {
+          recordType: 'session',
+          session: {
+            id: 'mismatch-route-session',
+            investigationId: 'mismatch-route-investigation',
+            status: 'completed',
+            startedAt: '2026-09-10T12:00:00.000Z',
+            completedAt: '2026-09-10T12:00:00.000Z',
+            selectedCapabilities: [],
+            capabilityStates: {},
+            overall: { status: 'complete' },
+            investigationState: {
+              id: 'mismatch-route-investigation',
+              submittedUrl: 'embedded-route.example',
+              normalizedUrl: 'embedded-route.example',
+              redirectChain: [],
+              createdAt: '2026-09-10T12:00:00.000Z',
+              capabilities: [],
+              observationTimeline: [],
+              evidence: [],
+              findings: [],
+            },
+          },
+          persistedAt: '2026-09-10T12:00:00.000Z',
+        },
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual(expect.objectContaining({
+      status: 'error',
+      error: expect.objectContaining({ code: 'REQUEST_INVALID' }),
+    }));
+    expect(await queryOne('select count(1) as count from investigations')).toEqual(before);
   });
 
   it.each([

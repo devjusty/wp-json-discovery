@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import AppLayout from '../templates/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -16,9 +16,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { fetchInvestigations } from '../../api/client.js';
-import { loadAnonymousInvestigation } from '../../services/anonymousInvestigations.js';
+import { loadAnonymousInvestigation, removeAnonymousInvestigation } from '../../services/anonymousInvestigations.js';
 import { formatDate } from '../../utils/format.js';
+import type { Investigation } from '../../domain/investigation/model';
+import type { InvestigationStore } from '../../application/ports/investigation-store';
+import type { AuthSession } from '../../application/ports/auth-session';
+import { createLocalInvestigationStore } from '../../adapters/persistence/localInvestigationStore';
+import { createRemoteInvestigationStore } from '../../adapters/persistence/remoteInvestigationStore';
 
 type InvestigationSummary = {
   id: string;
@@ -28,6 +32,8 @@ type InvestigationSummary = {
   selectedCapabilityCount: number;
   completedCapabilityCount: number;
   findingsCount: number;
+  status?: string;
+  resumable?: boolean;
 };
 
 type LocalSnapshot = {
@@ -37,7 +43,8 @@ type LocalSnapshot = {
     session: {
       completedAt: string | null;
       selectedCapabilities: unknown[];
-      capabilityStates: Record<string, { status: string; outcome?: { result?: unknown } }>;
+      investigationId: string;
+      capabilityStates: Record<string, { status: string; outcome?: { result?: unknown; error?: { retryable?: boolean } } }>;
     };
   };
 };
@@ -48,8 +55,11 @@ type InvestigationsPageProps = {
   headerActions?: ReactNode;
   onNavigate?: (page: string) => void;
   isAuthenticated: boolean;
-  onResumeLocal?: () => void;
+  onResumeLocal?: (investigationId: string) => void;
   onResumeInvestigation?: (investigationId: string) => void;
+  embedded?: boolean;
+  investigationStore?: InvestigationStore;
+  authSession?: AuthSession;
 };
 
 function InvestigationsPage({
@@ -58,31 +68,63 @@ function InvestigationsPage({
   isAuthenticated,
   onResumeLocal,
   onResumeInvestigation,
+  embedded = false,
+  investigationStore,
+  authSession,
 }: InvestigationsPageProps) {
-  const [localSnapshot] = useState(() => loadAnonymousInvestigation() as LocalSnapshot | null);
+  const [{ localSnapshot, localStorageError }, setLocalState] = useState(() => {
+    try {
+      return { localSnapshot: loadAnonymousInvestigation({ strict: true }) as LocalSnapshot | null, localStorageError: '' };
+    } catch (error) {
+      return { localSnapshot: null, localStorageError: error.message ?? 'Saved investigation data could not be read.' };
+    }
+  });
+  const stores = useMemo(() => {
+    if (investigationStore) return { active: investigationStore, local: investigationStore };
+    if (isAuthenticated && !authSession) return { active: createLocalInvestigationStore(), local: createLocalInvestigationStore() };
+    return {
+      active: isAuthenticated
+        ? createRemoteInvestigationStore({ authSession })
+        : createLocalInvestigationStore(),
+      local: createLocalInvestigationStore(),
+    };
+  }, [authSession, investigationStore, isAuthenticated]);
   const investigationsQuery = useQuery({
     queryKey: ['investigations'],
-    queryFn: () => fetchInvestigations() as unknown as Promise<{ investigations: InvestigationSummary[] }>,
-    enabled: isAuthenticated,
+    queryFn: async () => {
+      try {
+        return await stores.active.list();
+      } catch {
+        throw new Error('Investigation store unavailable.');
+      }
+    },
+    enabled: true,
     retry: false,
   });
   const localRow = localSnapshot ? toLocalRow(localSnapshot) : null;
-  const remoteRows: InvestigationRow[] = (investigationsQuery.data?.investigations ?? []).map((summary) => ({
-    ...summary,
-    resumable: Boolean(summary.latestSessionId),
-  }));
-  const rows = localRow ? [localRow, ...remoteRows] : remoteRows;
+  const remoteRows: InvestigationRow[] = (investigationsQuery.data ?? []).map((summary) => toRow(summary));
+  const storeRows = !isAuthenticated ? remoteRows.map((row) => ({ ...row, local: true })) : remoteRows;
+  const rows = deduplicateRows(localRow ? [localRow, ...storeRows] : storeRows);
 
   return (
-    <AppLayout title="Investigations" subtitle={undefined} sidebar={undefined} headerActions={headerActions} onNavigate={onNavigate}>
+    <AppLayout title="Investigations" subtitle={undefined} sidebar={undefined} headerActions={headerActions} onNavigate={onNavigate} embedded={embedded}>
       <Card className="" role="region" aria-label="Investigations">
         <CardHeader className=""><CardTitle className="">Investigations</CardTitle></CardHeader>
         <CardContent className="">
-          {isAuthenticated && investigationsQuery.isLoading ? <p role="status">Loading investigations</p> : null}
-          {isAuthenticated && investigationsQuery.isError ? (
+          {investigationsQuery.isLoading ? <p role="status">Loading investigations</p> : null}
+          {investigationsQuery.isError ? (
             <div role="alert">
               <p>Could not load investigations</p>
               <Button className="" type="button" variant="secondary" size="sm" onClick={() => investigationsQuery.refetch()}>Retry</Button>
+            </div>
+          ) : null}
+          {localStorageError ? (
+            <div role="alert" aria-label="Saved investigation recovery">
+              <p>Saved investigation data could not be read. Clear it to recover local scanning.</p>
+              <Button className="" type="button" variant="secondary" size="sm" onClick={() => {
+                removeAnonymousInvestigation();
+                setLocalState({ localSnapshot: null, localStorageError: '' });
+              }}>Clear saved investigation</Button>
             </div>
           ) : null}
           {!investigationsQuery.isLoading && !investigationsQuery.isError && rows.length === 0 ? (
@@ -97,6 +139,7 @@ function InvestigationsPage({
                   <TableHead className="">Domain</TableHead>
                   <TableHead className="">Findings</TableHead>
                   <TableHead className="">Capabilities</TableHead>
+                  <TableHead className="">Status</TableHead>
                   <TableHead className="">Last activity</TableHead>
                   <TableHead className="">Actions</TableHead>
                 </TableRow>
@@ -110,6 +153,7 @@ function InvestigationsPage({
                     </TableCell>
                     <TableCell className="">{row.findingsCount}</TableCell>
                     <TableCell className="">{row.completedCapabilityCount} / {row.selectedCapabilityCount}</TableCell>
+                    <TableCell className="">{row.status ?? 'unknown'}</TableCell>
                     <TableCell className="">{formatDate(row.updatedAt)}</TableCell>
                     <TableCell className="">
                       {row.resumable ? (
@@ -119,9 +163,9 @@ function InvestigationsPage({
                           variant="secondary"
                           size="sm"
                           aria-label={`Resume ${row.domain.normalized.replace(/^https?:\/\//, '')}`}
-                          onClick={() => row.local
-                            ? onResumeLocal?.()
-                            : onResumeInvestigation?.(row.id)}
+                           onClick={() => row.local
+                             ? onResumeLocal?.(row.id)
+                             : onResumeInvestigation?.(row.id)}
                         >
                           Resume
                         </Button>
@@ -131,7 +175,7 @@ function InvestigationsPage({
                 ))}
               </TableBody>
             </Table>
-          ) : null}
+           ) : null}
         </CardContent>
       </Card>
     </AppLayout>
@@ -148,15 +192,57 @@ function toLocalRow(snapshot: LocalSnapshot): InvestigationRow {
   }, 0);
 
   return {
-    id: 'local-investigation',
+    id: session.investigationId,
     domain: snapshot.domain,
     updatedAt: snapshot.record.persistedAt,
     selectedCapabilityCount: session.selectedCapabilities.length,
     completedCapabilityCount: successfulStates.length,
     findingsCount,
+    status: deriveStatus(Object.values(session.capabilityStates).map(({ status }) => status)),
     local: true,
-    resumable: true,
+    resumable: Object.values(session.capabilityStates).some(({ status, outcome }) => (
+      ['queued', 'running'].includes(status)
+      || (status === 'failed' && outcome?.error?.retryable === true)
+    )),
   };
+}
+
+function toRow(value: Investigation | InvestigationSummary): InvestigationRow {
+  if ('submittedUrl' in value) {
+    const completed = value.capabilities.filter(({ status }) => status === 'success').length;
+    const hasActive = value.capabilities.some(({ status }) => status === 'queued' || status === 'running');
+    return {
+      id: value.id,
+      domain: { normalized: value.normalizedUrl },
+      updatedAt: value.updatedAt ?? value.createdAt,
+      selectedCapabilityCount: value.capabilities.length,
+      completedCapabilityCount: completed,
+      findingsCount: value.findings.length,
+      status: deriveStatus(value.capabilities.map(({ status }) => status)),
+      resumable: hasActive || value.capabilities.some(({ status, error }) => status === 'failed' && error?.retryable),
+    };
+  }
+  return {
+    ...value,
+    resumable: value.resumable ?? Boolean(value.latestSessionId),
+  };
+}
+
+function deriveStatus(statuses: string[]): string {
+  if (statuses.length === 0 || statuses.some((status) => ['queued', 'running'].includes(status))) return 'incomplete';
+  const successes = statuses.filter((status) => status === 'success').length;
+  if (successes === statuses.length) return 'complete';
+  if (successes > 0) return 'partial';
+  return 'failed';
+}
+
+function deduplicateRows(rows: InvestigationRow[]): InvestigationRow[] {
+  const seen = new Set<string>();
+  return rows.filter((row) => {
+    if (seen.has(row.id)) return false;
+    seen.add(row.id);
+    return true;
+  });
 }
 
 export default InvestigationsPage;

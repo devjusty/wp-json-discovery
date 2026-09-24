@@ -220,6 +220,29 @@ describe('AdminPage integration', () => {
     expect(await screen.findByRole('heading', { name: 'Theme manager' })).toBeInTheDocument();
   });
 
+  it('shows failed-domain history in the DB operational inbox', async () => {
+    vi.mocked(fetchScanHistory).mockResolvedValue({
+      items: [{
+        domain: 'failed.example.com',
+        lastStatus: 'failed',
+        lastErrorCategory: 'timeout'
+      }]
+    });
+
+    renderPage();
+
+    const inbox = await screen.findByRole('region', { name: 'Operational inbox' });
+    await waitFor(() => {
+      expect(fetchScanHistory).toHaveBeenCalledWith({
+        includeFailed: true,
+        sort: 'recent',
+        limit: 200,
+        offset: 0
+      });
+    });
+    expect(await within(inbox).findByText('Failed scan for failed.example.com')).toBeInTheDocument();
+  });
+
   it('uses navigation action from sidebar', async () => {
     const onNavigate = vi.fn();
     renderPage({ onNavigate });
@@ -228,6 +251,17 @@ describe('AdminPage integration', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Go to current scan' }));
     expect(onNavigate).toHaveBeenCalledWith('scan');
+  });
+
+  it('passes a normalized slug when promoting an inbox namespace', async () => {
+    renderPage();
+
+    const inbox = await screen.findByRole('region', { name: 'Operational inbox' });
+    await within(inbox).findByText('Unsupported namespace wc/v3');
+    await userEvent.click(within(inbox).getAllByRole('button', { name: 'Promote' })[0]);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Add plugin' });
+    expect(within(dialog).getByLabelText('ID')).toHaveValue('wc');
   });
 
   it('creates a plugin from asset-only signal without namespaces', async () => {

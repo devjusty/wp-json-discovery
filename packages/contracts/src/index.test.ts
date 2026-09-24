@@ -16,6 +16,7 @@ import {
   evidenceReferenceSchema,
   findingSchema,
   investigationIdentitySchema,
+  investigationStateSchema,
   investigationListSchema,
   investigationRecordSchema,
   investigationSummarySchema,
@@ -51,6 +52,17 @@ describe('domain identity', () => {
     expect(domainIdentitySchema.safeParse({ submitted: 'example.com' }).success).toBe(false);
   });
 
+  it('rejects whitespace-only identity strings without trimming meaningful whitespace', () => {
+    expect(domainIdentitySchema.safeParse({ submitted: '   ', normalized: 'https://example.com' }).success).toBe(false);
+    expect(domainIdentitySchema.parse({ submitted: ' Example.com ', normalized: ' https://example.com ' })).toEqual({
+      submitted: ' Example.com ', normalized: ' https://example.com ',
+    });
+    expect(startInvestigationRequestSchema.safeParse({
+      domain: { submitted: 'example.com', normalized: 'https://example.com' },
+      selectedCapabilities: [{ id: '   ', dependencies: [] }],
+    }).success).toBe(false);
+  });
+
   it('parses valid identities and throws for invalid identities', () => {
     expect(parseDomainIdentity({ submitted: 'example.com', normalized: 'https://example.com' }))
       .toEqual({ submitted: 'example.com', normalized: 'https://example.com' });
@@ -71,6 +83,9 @@ describe('capability outcomes', () => {
     expect(
       capabilityOutcomeSchema.safeParse({ status: 'success', result: { links: 3 }, error: null })
         .success,
+    ).toBe(true);
+    expect(
+      capabilityOutcomeSchema.safeParse({ status: 'success', error: null }).success,
     ).toBe(true);
     expect(
       capabilityOutcomeSchema.safeParse({
@@ -198,6 +213,45 @@ describe('scan sessions', () => {
     ).toBe(true);
   });
 
+  it('accepts typed blocked recovery fields and rejects unknown blocked fields', () => {
+    const session = {
+      id: 'session-blocked',
+      investigationId: 'investigation-1',
+      status: 'completed',
+      startedAt: timestamp,
+      completedAt: timestamp,
+      selectedCapabilities: [],
+      capabilityStates: {},
+      overall: {
+        status: 'blocked',
+        reason: 'Required capability unavailable',
+        guidance: 'Enable capability and start a new scan.',
+        command: 'scan --capability homepage',
+      },
+    };
+
+    expect(scanSessionSchema.safeParse(session).success).toBe(true);
+    expect(scanSessionSchema.safeParse({
+      ...session,
+      overall: { ...session.overall, recoveryUrl: 'https://example.com/recover' },
+    }).success).toBe(false);
+  });
+
+  it('rejects blocked recovery fields on non-blocked aggregate statuses', () => {
+    for (const status of ['complete', 'partial', 'failed', 'incomplete'] as const) {
+      expect(scanSessionSchema.safeParse({
+        id: 'session-status',
+        investigationId: 'investigation-1',
+        status: 'completed',
+        startedAt: timestamp,
+        completedAt: timestamp,
+        selectedCapabilities: [],
+        capabilityStates: {},
+        overall: { status, reason: 'Only blocked sessions explain recovery' },
+      }).success).toBe(false);
+    }
+  });
+
   it('rejects a complete session with any non-success capability', () => {
     expect(scanSessionSchema.safeParse({
       id: 'session-invalid-complete',
@@ -257,7 +311,7 @@ describe('scan sessions', () => {
     }).success).toBe(false);
   });
 
-  it('accepts retryable unavailable capabilities in session state contract', () => {
+  it('rejects retryable unavailable capabilities in session state contract', () => {
     expect(sessionCapabilityStateSchema.safeParse({
       status: 'unavailable',
       outcome: {
@@ -265,6 +319,36 @@ describe('scan sessions', () => {
         error: { code: 'RUNNER_UNAVAILABLE', message: 'Runner unavailable', retryable: true },
       },
       retry: { status: 'not-retryable' },
+    }).success).toBe(false);
+  });
+
+  it('rejects retrying and exhausted retry states for unavailable capabilities', () => {
+    for (const retry of [
+      { status: 'retrying', attempt: 1, nextAttemptAt: timestamp },
+      { status: 'exhausted', attempts: 1 },
+    ] as const) {
+      const state = {
+        status: 'unavailable' as const,
+        outcome: {
+          status: 'unavailable' as const,
+          result: null,
+          error: { code: 'NOT_SUPPORTED', message: 'Not supported', retryable: false },
+        },
+        retry,
+      };
+      expect(capabilityStateSchema.safeParse(state).success).toBe(false);
+      expect(sessionCapabilityStateSchema.safeParse(state).success).toBe(false);
+    }
+  });
+
+  it('preserves retryable failed capabilities in session state contract', () => {
+    expect(sessionCapabilityStateSchema.safeParse({
+      status: 'failed',
+      outcome: {
+        status: 'failed', result: null,
+        error: { code: 'TIMEOUT', message: 'Timed out', retryable: true },
+      },
+      retry: { status: 'retrying', attempt: 1, nextAttemptAt: timestamp },
     }).success).toBe(true);
   });
 
@@ -333,6 +417,50 @@ describe('scan sessions', () => {
 });
 
 describe('capabilities, identity, findings, and auth', () => {
+  it('allows results only on successful investigation capabilities', () => {
+    const base = {
+      id: 'investigation-1',
+      submittedUrl: 'example.com',
+      normalizedUrl: 'https://example.com',
+      redirectChain: [],
+      createdAt: timestamp,
+      observationTimeline: [],
+      evidence: [],
+      findings: [],
+    };
+    for (const capability of [
+      { name: 'queued', status: 'queued', result: {} },
+      { name: 'running', status: 'running', result: {} },
+      { name: 'failed', status: 'failed', result: {}, error: { code: 'FAILED', message: 'Failed', retryable: false } },
+      { name: 'unavailable', status: 'unavailable', result: {}, error: { code: 'UNAVAILABLE', message: 'Unavailable', retryable: false } },
+    ]) {
+      expect(investigationStateSchema.safeParse({ ...base, capabilities: [capability] }).success).toBe(false);
+    }
+    expect(investigationStateSchema.safeParse({
+      ...base,
+      capabilities: [{ name: 'success', status: 'success', result: {} }],
+    }).success).toBe(true);
+  });
+
+  it('rejects duplicate investigation capability names', () => {
+    expect(investigationStateSchema.safeParse({
+      id: 'investigation-1', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: [], createdAt: timestamp, observationTimeline: [], evidence: [], findings: [],
+      capabilities: [
+        { name: 'html', status: 'success' },
+        { name: 'html', status: 'queued' },
+      ],
+    }).success).toBe(false);
+  });
+
+  it('rejects non-JSON capability results', () => {
+    expect(capabilityStateSchema.safeParse({
+      status: 'success',
+      outcome: { status: 'success', result: BigInt(1), error: null },
+      retry: { status: 'not-retryable' },
+    }).success).toBe(false);
+  });
+
   it('accepts investigation identity with ownership', () => {
     expect(investigationIdentitySchema.safeParse({
       id: 'investigation-1', ownerId: 'user-1',
@@ -342,6 +470,18 @@ describe('capabilities, identity, findings, and auth', () => {
 
   it('accepts capability selection and public definition', () => {
     expect(capabilitySelectionSchema.safeParse({ id: 'html', dependencies: [] }).success).toBe(true);
+    expect(capabilitySelectionSchema.safeParse({
+      id: 'sitemap', dependencies: ['html'], options: { sitemapUrl: '/custom.xml', maxPages: 2 },
+    }).success).toBe(true);
+    expect(capabilitySelectionSchema.safeParse({
+      id: 'sitemap', dependencies: [], options: { maxPages: BigInt(2) },
+    }).success).toBe(false);
+    expect(capabilitySelectionSchema.safeParse({
+      id: 'sitemap', dependencies: ['html'], options: { sitemapUrl: '/custom.xml', maxPages: 2 },
+    }).success).toBe(true);
+    expect(capabilitySelectionSchema.safeParse({
+      id: 'sitemap', dependencies: [], options: { maxPages: BigInt(2) },
+    }).success).toBe(false);
     expect(capabilityDefinitionSchema.safeParse({
       id: 'wp-json', availability: 'available', status: 'failed',
       dependencies: ['html'], retry: { status: 'retrying', attempt: 1, nextAttemptAt: timestamp },
@@ -349,7 +489,11 @@ describe('capabilities, identity, findings, and auth', () => {
     expect(capabilityDefinitionSchema.safeParse({
       id: 'wp-json', availability: 'unavailable', status: 'unavailable',
       dependencies: [], retry: { status: 'retrying', attempt: 1, nextAttemptAt: timestamp },
-    }).success).toBe(true);
+    }).success).toBe(false);
+    expect(capabilityDefinitionSchema.safeParse({
+      id: 'wp-json', availability: 'unavailable', status: 'unavailable',
+      dependencies: [], retry: { status: 'exhausted', attempts: 1 },
+    }).success).toBe(false);
     expect(capabilityDefinitionSchema.safeParse({
       id: 'wp-json', availability: 'available', status: 'queued', dependencies: [],
       retry: { status: 'retrying', attempt: 1, nextAttemptAt: timestamp },
@@ -476,6 +620,20 @@ describe('capabilities, identity, findings, and auth', () => {
         overall: { status: 'incomplete' },
       }).success).toBe(true);
     }
+  });
+
+  it('rejects session state with a different investigation identity', () => {
+    const base = {
+      id: 'session-1', investigationId: 'investigation-1', status: 'completed',
+      startedAt: timestamp, completedAt: timestamp, selectedCapabilities: [], capabilityStates: {},
+      overall: { status: 'complete' },
+    };
+    const state = {
+      id: 'other-investigation', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: [], createdAt: timestamp, capabilities: [], observationTimeline: [], evidence: [], findings: [],
+    };
+    expect(scanSessionSchema.safeParse({ ...base, investigationState: state }).success).toBe(false);
+    expect(scanSessionSchema.safeParse({ ...base, investigationState: { ...state, id: 'investigation-1' } }).success).toBe(true);
   });
 
   it('keeps queued sessions incomplete and without final capability states', () => {

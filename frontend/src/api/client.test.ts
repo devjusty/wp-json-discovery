@@ -4,6 +4,7 @@ import {
   fetchInvestigation,
   fetchInvestigations,
   request,
+  ApiError,
   saveInvestigationSession,
   startInvestigation,
   setAuthUserProvider,
@@ -92,7 +93,8 @@ describe('request', () => {
     expect(url).toBe('http://localhost:4100/api/investigations');
     expect(JSON.parse(init.body as string)).toEqual({
       domain: { submitted: 'Example.com', normalized: 'https://example.com' },
-      selectedCapabilities: [{ id: 'wordpress', dependencies: [] }]
+      selectedCapabilities: [{ id: 'wordpress', dependencies: [] }],
+      redirectChain: ['https://example.com'],
     });
     expect((init.headers as Headers).get('authorization')).toBe('Bearer investigation-token');
   });
@@ -118,8 +120,22 @@ describe('request', () => {
       data: { recordType: 'session', session: { nope: true }, persistedAt: 'invalid' }
     }));
 
-    await expect(saveInvestigationSession('inv-1', validSession()))
-      .rejects.toThrow('Invalid investigation response');
+    await expect(saveInvestigationSession('inv-1', validSession())).rejects.toMatchObject({
+      name: 'ApiError',
+      code: 'INVALID_RESPONSE',
+      status: 200,
+      requestId: 'req-1',
+      details: expect.anything(),
+    });
+  });
+
+  it('rejects malformed sessions before constructing a URL', async () => {
+    const fetchSpy = vi.mocked(fetch);
+
+    await expect(saveInvestigationSession('inv-1', { id: undefined }))
+      .rejects.toMatchObject({ name: 'ApiError', code: 'contract-invalid' });
+
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('fetches investigation records through canonical URL', async () => {
@@ -159,7 +175,50 @@ describe('request', () => {
     await expect(fetchInvestigation('missing')).rejects.toThrow('Investigation not found');
 
     vi.stubGlobal('fetch', jsonResponse({ status: 'success', requestId: 'req-1', data: { nope: true } }));
-    await expect(fetchInvestigation('invalid')).rejects.toThrow('Invalid investigation response');
+    await expect(fetchInvestigation('invalid')).rejects.toMatchObject({
+      name: 'ApiError',
+      code: 'INVALID_RESPONSE',
+      status: 200,
+      requestId: 'req-1',
+      details: expect.anything(),
+    });
+  });
+
+  it('preserves typed errors from partial investigation envelopes', async () => {
+    vi.stubGlobal('fetch', jsonResponse({
+      status: 'partial',
+      requestId: 'req-partial',
+      data: { investigations: [] },
+      errors: [{ code: 'SESSION_UNAVAILABLE', message: 'Session unavailable', retryable: true }],
+    }));
+
+    await expect(fetchInvestigations()).rejects.toMatchObject({
+      name: 'ApiError',
+      code: 'SESSION_UNAVAILABLE',
+      details: [{ code: 'SESSION_UNAVAILABLE', message: 'Session unavailable', retryable: true }],
+      retryable: true,
+      status: 200,
+      requestId: 'req-partial',
+    });
+  });
+
+  it('preserves typed API error codes and details', async () => {
+    vi.stubGlobal('fetch', jsonResponse({ status: 'error', requestId: 'req-typed', error: {
+      code: 'CLAIM_MISMATCH',
+      message: 'Claim identity mismatch',
+      retryable: true,
+      details: { field: 'domain.normalized' },
+    } }, 409));
+
+    await expect(fetchInvestigation('mismatch')).rejects.toMatchObject({
+      name: 'ApiError',
+      code: 'CLAIM_MISMATCH',
+      details: { field: 'domain.normalized' },
+      retryable: true,
+      status: 409,
+      requestId: 'req-typed',
+    });
+    await expect(fetchInvestigation('mismatch')).rejects.toBeInstanceOf(ApiError);
   });
 
   it('claims an anonymous record only through explicit API call', async () => {
@@ -197,7 +256,18 @@ function validSession() {
     completedAt: null,
     selectedCapabilities: [{ id: 'wordpress', dependencies: [] }],
     capabilityStates: { wordpress: { status: 'idle', retry: { status: 'not-retryable' } } },
-    overall: { status: 'incomplete' }
+    overall: { status: 'incomplete' },
+    investigationState: {
+      id: 'inv-1',
+      submittedUrl: 'Example.com',
+      normalizedUrl: 'https://example.com',
+      redirectChain: [],
+      createdAt: '2026-09-10T12:00:00.000Z',
+      capabilities: [{ name: 'wordpress', status: 'queued' }],
+      observationTimeline: [],
+      evidence: [],
+      findings: []
+    }
   };
 }
 

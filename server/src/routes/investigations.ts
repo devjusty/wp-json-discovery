@@ -1,19 +1,6 @@
-import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
-import {
-  claimAnonymousInvestigation,
-  createInvestigation,
-  getInvestigationForUser,
-  listInvestigationsForUser,
-  saveInvestigationSession,
-} from '../db/investigations.ts';
-import {
-  claimInvestigationRequestSchema,
-  scanSessionSchema,
-  startInvestigationRequestSchema,
-} from '@wp-json-discovery/contracts';
-import { AppError, ValidationError } from '../utils/errors.js';
-import { sanitizeDomain } from '../utils/domain.js';
+import { randomUUID } from 'node:crypto';
+import { investigations } from '../application/investigations.ts';
 import { wrapAsync } from '../utils/route.js';
 
 function envelope(req, data) {
@@ -21,80 +8,48 @@ function envelope(req, data) {
 }
 
 function errorEnvelope(req, error) {
+  const code = error.code === 'validation-failed' ? 'REQUEST_INVALID'
+    : error.code === 'auth-required' ? 'AUTH_REQUIRED'
+      : error.code === 'not-found' ? 'NOT_FOUND'
+        : error.code === 'conflict' ? 'CONFLICT'
+          : error.code === 'persistence-failed' ? 'PERSISTENCE_FAILED'
+            : error.code;
   return {
     status: 'error',
     requestId: req.id ?? randomUUID(),
     error: {
-      code: error.code ?? (error.statusCode === 404 ? 'NOT_FOUND' : 'REQUEST_INVALID'),
+      code: code ?? (error.statusCode === 404 ? 'NOT_FOUND' : 'REQUEST_INVALID'),
       message: error.message,
       retryable: false,
     },
   };
 }
 
-function requireUser(req) {
-  if (!req.user?.sub) throw new AppError('Authentication required', 401);
-  return req.user.sub;
-}
-
-function validate(schema, value) {
-  const result = schema.safeParse(value);
-  if (!result.success) throw new ValidationError(result.error.issues[0]?.message ?? 'Invalid request');
-  return result.data;
-}
-
-function canonicalizeDomain(input, requireMatchingNormalized = false) {
-  const normalized = sanitizeDomain(input.domain.submitted);
-  if (!normalized) throw new ValidationError('Domain is unsafe or malformed');
-  if (requireMatchingNormalized && input.domain.normalized !== normalized) {
-    throw new ValidationError('Domain normalized identity does not match submitted domain');
-  }
-  return { submitted: input.domain.submitted, normalized };
-}
-
-export default function createInvestigationRoutes() {
+export default function createInvestigationRoutes(application = investigations) {
   const router = Router();
 
   router.post('/', wrapAsync(async (req, res) => {
-    const userId = requireUser(req);
-    const input = validate(startInvestigationRequestSchema, req.body);
-    const record = await createInvestigation(userId, {
-      ...input,
-      domain: canonicalizeDomain(input),
-    });
+    const record = await application.create(req.user?.sub, req.body);
     res.status(201).json(envelope(req, record));
   }));
 
   router.get('/', wrapAsync(async (req, res) => {
-    const records = await listInvestigationsForUser(requireUser(req));
+    const records = await application.list(req.user?.sub);
     res.json(envelope(req, records));
   }));
 
   router.get('/:id', wrapAsync(async (req, res) => {
-    const record = await getInvestigationForUser(requireUser(req), req.params.id);
-    if (!record) throw new AppError('Investigation not found', 404);
+    const record = await application.get(req.user?.sub, req.params.id);
     res.json(envelope(req, record));
   }));
 
   router.post('/:id/sessions/:sessionId', wrapAsync(async (req, res) => {
-    const userId = requireUser(req);
-    if (!req.body?.session || req.body.session.id !== req.params.sessionId) {
-      throw new ValidationError('Session id does not match request');
-    }
-    const session = validate(scanSessionSchema, req.body.session);
-    const record = await saveInvestigationSession(userId, req.params.id, session);
-    if (!record) throw new AppError('Investigation not found', 404);
+    const record = await application.saveSession(req.user?.sub, req.params.id, req.params.sessionId, req.body?.session);
     res.json(envelope(req, record));
   }));
 
   router.post('/claim', wrapAsync(async (req, res) => {
-    const userId = requireUser(req);
-    const input = validate(claimInvestigationRequestSchema, req.body);
-    const record = await claimAnonymousInvestigation(userId, {
-      ...input,
-      domain: canonicalizeDomain(input, true),
-    });
-    if (!record) throw new AppError('Anonymous investigation not found', 404);
+    const record = await application.claim(req.user?.sub, req.body);
     res.json(envelope(req, record));
   }));
 

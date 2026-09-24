@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { scanSessionSchema } from '@wp-json-discovery/contracts';
+import { createInvestigation } from '../domain/investigation/model.ts';
+import { loadAuthenticatedInvestigationId } from './anonymousInvestigations.js';
 
 import {
   createInvestigationSession,
@@ -8,7 +10,8 @@ import {
   getInvestigatorSelection,
   recoverInvestigationSession,
   retryInvestigationCapability,
-  runInvestigationSession
+  runInvestigationSession,
+  createInvestigatorWorkflow
 } from './investigationSession.js';
 
 const session = createInvestigationSession({
@@ -23,6 +26,427 @@ const runners = {
 };
 
 describe('investigation session', () => {
+  it('normalizes submitted identity while retaining domain and redirects in workflow read model', async () => {
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => null, getAccessToken: async () => null },
+      runner: { run: async () => ({ findings: [] }) },
+      localStore: memoryStore(),
+      remoteStore: memoryStore(),
+      normalize: () => 'https://example.com',
+      redirectChain: ['https://example.com/start', 'https://example.com'],
+    });
+
+    const result = await workflow.start(' Example.com/start ');
+
+    expect(result.investigation).toMatchObject({
+      submittedUrl: ' Example.com/start ',
+      normalizedUrl: 'https://example.com',
+      redirectChain: ['https://example.com/start', 'https://example.com'],
+    });
+  });
+
+  it('maps URL-shaped authenticated input to one submitted and normalized identity', async () => {
+    const remoteStart = vi.fn(async (domain) => createInvestigation({
+      id: 'auth-url',
+      submittedUrl: domain.submitted,
+      normalizedUrl: domain.normalized,
+      redirectChain: [domain.normalized],
+      createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [],
+    }));
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => ({ findings: [] }) },
+      localStore: memoryStore(),
+      remoteStore: memoryStore(),
+      remoteStart,
+    });
+
+    const result = await workflow.start('https://www.Example.com/');
+
+    expect(remoteStart).toHaveBeenCalledWith({
+      submitted: 'https://www.Example.com/',
+      normalized: 'example.com',
+    }, expect.any(Array), ['example.com']);
+    expect(result.investigation).toMatchObject({
+      submittedUrl: 'https://www.Example.com/',
+      normalizedUrl: 'example.com',
+    });
+  });
+
+  it.each([
+    'https://www.Example.com/wp-json/?context=view',
+    'http://WWW.Example.com/path?query=value',
+  ])('normalizes URL-shaped authenticated identity to hostname for %s', async (submittedUrl) => {
+    const remoteStart = vi.fn(async (domain) => createInvestigation({
+      id: 'auth-url-with-path',
+      submittedUrl: domain.submitted,
+      normalizedUrl: domain.normalized,
+      redirectChain: [domain.normalized],
+      createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [],
+    }));
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => ({ findings: [] }) },
+      localStore: memoryStore(),
+      remoteStore: memoryStore(),
+      remoteStart,
+    });
+
+    const result = await workflow.start(submittedUrl);
+
+    expect(remoteStart).toHaveBeenCalledWith({
+      submitted: submittedUrl,
+      normalized: 'example.com',
+    }, expect.any(Array), ['example.com']);
+    expect(result.investigation).toMatchObject({
+      submittedUrl,
+      normalizedUrl: 'example.com',
+      redirectChain: ['example.com'],
+    });
+  });
+
+  it('rejects malformed URL-shaped authenticated input before remote allocation', async () => {
+    const remoteStart = vi.fn();
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => ({ findings: [] }) },
+      localStore: memoryStore(),
+      remoteStore: memoryStore(),
+      remoteStart,
+    });
+
+    await expect(workflow.start('https://[malformed')).rejects.toMatchObject({ code: 'invalid-command' });
+    expect(remoteStart).not.toHaveBeenCalled();
+  });
+
+  it('exposes command callbacks and read model without leaking persistence details', async () => {
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => null, getAccessToken: async () => null },
+      runner: { run: async ({ capability }) => ({ capability, findings: [] }) },
+      localStore: memoryStore(),
+      remoteStore: memoryStore(),
+    });
+
+    const started = await workflow.start('example.com');
+
+    expect(started.readModel.investigation.submittedUrl).toBe('example.com');
+    expect(started.commands).toEqual(expect.objectContaining({
+      retry: expect.any(Function),
+      resume: expect.any(Function),
+      claim: expect.any(Function),
+    }));
+  });
+
+  it('persists authenticated workflow results remotely and claims local work after sign-in', async () => {
+    localStorage.clear();
+    const local = memoryStore();
+    const remote = memoryStore();
+    const investigation = createInvestigation({
+      id: 'remote-inv', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: ['https://example.com'], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [{ name: 'wordpress', status: 'queued' }],
+    });
+    let remoteSaves = 0;
+    const originalRemoteSave = remote.save;
+    remote.save = async (value) => { remoteSaves += 1; return originalRemoteSave(value); };
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => ({ findings: [] }) },
+      localStore: local,
+      remoteStore: remote,
+      remoteStart: async () => investigation,
+    });
+
+    await workflow.start('example.com');
+    expect(remoteSaves).toBeGreaterThan(0);
+    expect(loadAuthenticatedInvestigationId()).toBe('remote-inv');
+    expect(await local.list()).toHaveLength(0);
+
+    const claimed = createInvestigation({ ...investigation, id: 'claim-inv', capabilities: [] });
+    await local.save(claimed);
+    const claimWorkflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      localStore: local,
+      remoteStore: { ...remote, claim: async () => claimed },
+    });
+    await expect(claimWorkflow.claim('claim-inv')).resolves.toMatchObject({ investigation: claimed });
+    expect(loadAuthenticatedInvestigationId()).toBe('claim-inv');
+  });
+
+  it('resumes selected local work from local persistence while authenticated', async () => {
+    const local = memoryStore();
+    const investigation = createInvestigation({
+      id: 'local-inv', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: ['https://example.com'], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [{ name: 'homepage', status: 'queued' }],
+    });
+    await local.save(investigation);
+    const remoteGet = vi.fn(async () => { throw new Error('remote get should not run'); });
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => ({ findings: [] }) },
+      localStore: local,
+      remoteStore: { ...memoryStore(), get: remoteGet },
+    });
+
+    await expect(workflow.resume('local-inv')).resolves.toMatchObject({ investigation: { id: 'local-inv' } });
+    expect(remoteGet).not.toHaveBeenCalled();
+  });
+
+  it('falls back to remote resume when local affinity probe fails', async () => {
+    const investigation = createInvestigation({
+      id: 'remote-after-probe', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: ['https://example.com'], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [],
+    });
+    const remoteGet = vi.fn().mockResolvedValue(investigation);
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => ({ findings: [] }) },
+      localStore: { ...memoryStore(), get: vi.fn(async () => { throw new Error('local storage unavailable'); }) },
+      remoteStore: { ...memoryStore(), get: remoteGet },
+    });
+
+    await expect(workflow.resume('remote-after-probe')).resolves.toMatchObject({ investigation: { id: 'remote-after-probe' } });
+    expect(remoteGet).toHaveBeenCalledWith('remote-after-probe');
+  });
+
+  it('reports typed persistence error when probe and remote resume both fail', async () => {
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => ({ findings: [] }) },
+      localStore: { ...memoryStore(), get: vi.fn(async () => { throw new Error('local storage unavailable'); }) },
+      remoteStore: { ...memoryStore(), get: vi.fn().mockResolvedValue(null) },
+    });
+
+    await expect(workflow.resume('missing-after-probe')).rejects.toMatchObject({
+      code: 'persistence-failed',
+      message: 'Unable to load investigation.',
+    });
+  });
+
+  it('preserves local affinity for retry and contextual persistence', async () => {
+    const local = memoryStore();
+    const localSaves = [];
+    const originalLocalSave = local.save;
+    local.save = async (value) => { localSaves.push(value); return originalLocalSave(value); };
+    const remoteSave = vi.fn(async () => { throw new Error('remote store should not be used'); });
+    const investigation = createInvestigation({
+      id: 'local-affinity', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: ['https://example.com'], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [{ name: 'homepage', status: 'failed', error: { code: 'failed', message: 'Failed', retryable: true } }],
+    });
+    await local.save(investigation);
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => ({ findings: [] }) },
+      localStore: local,
+      remoteStore: { ...memoryStore(), save: remoteSave },
+    });
+
+    const resumed = await workflow.resume('local-affinity');
+    await resumed.commands.retry('homepage');
+    await workflow.run(createInvestigation({
+      ...investigation,
+      capabilities: [{ name: 'sitemap', status: 'queued' }],
+    }));
+
+    expect(localSaves.length).toBeGreaterThan(1);
+    expect(remoteSave).not.toHaveBeenCalled();
+  });
+
+  it('reruns completed capabilities while preserving completed siblings', async () => {
+    const completed = await runInvestigationSession(session, {
+      wordpress: vi.fn().mockResolvedValue({ identity: 'WordPress' }),
+      homepage: vi.fn().mockResolvedValue({ html: '<html />' }),
+    });
+    const rerun = addInvestigationCapability(completed, 'homepage');
+    const homepage = vi.fn().mockResolvedValue({ html: '<html />' });
+
+    await runInvestigationSession(rerun, { wordpress: vi.fn(), homepage });
+
+    expect(homepage).toHaveBeenCalledTimes(1);
+    expect(rerun.capabilityStates.wordpress.status).toBe('success');
+  });
+
+  it('forwards supplied options when rerunning an existing capability', async () => {
+    const sitemap = createInvestigationSession({
+      investigationId: 'sitemap-rerun',
+      domain: { submitted: 'example.com', normalized: 'https://example.com' },
+      selection: { capabilityIds: ['wordpress', 'sitemap'], options: { sitemap: { sitemapUrl: '/old.xml', maxPages: 1 } } },
+    });
+    const completed = await runInvestigationSession(sitemap, {
+      wordpress: vi.fn().mockResolvedValue({ findings: [] }),
+      sitemap: vi.fn().mockResolvedValue({ findings: [] }),
+    });
+    const rerun = addInvestigationCapability(completed, 'sitemap', { sitemapUrl: '/new.xml', maxPages: 25 });
+    const sitemapRunner = vi.fn().mockResolvedValue({ findings: [] });
+
+    await runInvestigationSession(rerun, { sitemap: sitemapRunner });
+
+    expect(sitemapRunner).toHaveBeenCalledWith(expect.objectContaining({
+      options: { sitemapUrl: '/new.xml', maxPages: 25 },
+    }));
+  });
+
+  it('records local affinity after remote fallback for resume and retry', async () => {
+    const local = memoryStore();
+    const remoteSave = vi.fn(async () => { throw new Error('remote unavailable'); });
+    const remoteGet = vi.fn(async () => { throw new Error('remote get should not run'); });
+    let attempts = 0;
+    const investigation = createInvestigation({
+      id: 'fallback-affinity', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: ['https://example.com'], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [{ name: 'homepage', status: 'queued' }],
+    });
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => { attempts += 1; if (attempts === 1) throw new Error('first attempt'); return { findings: [] }; } },
+      localStore: local,
+      remoteStore: { ...memoryStore(), save: remoteSave, get: remoteGet },
+    });
+
+    const result = await workflow.run(investigation);
+    await result.commands.retry('homepage');
+    await workflow.resume('fallback-affinity');
+
+    expect(remoteGet).not.toHaveBeenCalled();
+    expect(remoteSave).toHaveBeenCalled();
+  });
+
+  it('updates start affinity after remote fallback before retry and resume', async () => {
+    const local = memoryStore();
+    const remoteSave = vi.fn(async () => { throw new Error('remote unavailable'); });
+    const remoteGet = vi.fn(async () => { throw new Error('remote get should not run'); });
+    let attempts = 0;
+    const investigation = createInvestigation({
+      id: 'start-fallback-affinity', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: ['https://example.com'], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [{ name: 'homepage', status: 'queued' }],
+    });
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => { attempts += 1; if (attempts === 1) throw new Error('first attempt'); return { findings: [] }; } },
+      localStore: local,
+      remoteStore: { ...memoryStore(), save: remoteSave, get: remoteGet },
+      remoteStart: async () => investigation,
+    });
+
+    const result = await workflow.start('example.com');
+    await result.commands.retry('homepage');
+    await result.commands.resume();
+
+    expect(remoteGet).not.toHaveBeenCalled();
+    expect(remoteSave).toHaveBeenCalled();
+  });
+
+  it('updates resume affinity after remote fallback before the next resume', async () => {
+    const local = memoryStore();
+    const investigation = createInvestigation({
+      id: 'resume-fallback-affinity', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: ['https://example.com'], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [{ name: 'homepage', status: 'queued' }],
+    });
+    const remoteGet = vi.fn(async () => investigation);
+    const remoteSave = vi.fn(async () => { throw new Error('remote unavailable'); });
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => ({ findings: [] }) },
+      localStore: local,
+      remoteStore: { ...memoryStore(), get: remoteGet, save: remoteSave },
+    });
+
+    const result = await workflow.resume('resume-fallback-affinity');
+    await result.commands.resume();
+
+    expect(remoteGet).toHaveBeenCalledTimes(1);
+    expect(remoteSave).toHaveBeenCalled();
+  });
+
+  it('derives local affinity from active investigation across workflow recreation', async () => {
+    const local = memoryStore();
+    const investigation = createInvestigation({
+      id: 'transition-affinity', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: ['https://example.com'], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [{ name: 'homepage', status: 'queued' }],
+    });
+    const anonymous = createInvestigatorWorkflow({
+      auth: { getUserId: () => null, getAccessToken: async () => null },
+      runner: { run: async () => ({ findings: [] }) },
+      localStore: local,
+      remoteStore: memoryStore(),
+    });
+    const active = await anonymous.run(investigation);
+    const remoteSave = vi.fn(async () => { throw new Error('remote store should not be used'); });
+    const authenticated = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => ({ findings: [] }) },
+      localStore: local,
+      remoteStore: { ...memoryStore(), save: remoteSave },
+    });
+
+    await authenticated.run(active.session.investigationState);
+
+    expect(remoteSave).not.toHaveBeenCalled();
+  });
+
+  it('persists authenticated ID before capability execution begins', async () => {
+    localStorage.clear();
+    const investigation = createInvestigation({
+      id: 'early-inv', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: ['https://example.com'], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [{ name: 'wordpress', status: 'queued' }],
+    });
+    let idAtExecution = null;
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => {
+        idAtExecution = loadAuthenticatedInvestigationId();
+        throw new Error('interrupted');
+      } },
+      localStore: memoryStore(),
+      remoteStore: memoryStore(),
+      remoteStart: async () => investigation,
+    });
+
+    await workflow.start('example.com');
+
+    expect(idAtExecution).toBe('early-inv');
+  });
+
+  it('continues contextual execution through local fallback when authenticated save fails', async () => {
+    const local = memoryStore();
+    const remote = memoryStore();
+    remote.save = async () => { throw new Error('remote unavailable'); };
+    const investigation = createInvestigation({
+      id: 'contextual-run', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: ['https://example.com'], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [
+        { name: 'wordpress', status: 'success', result: { findings: [] } },
+        { name: 'sitemap', status: 'queued', dependencies: ['wordpress'], options: { sitemapUrl: '/custom.xml' } },
+      ],
+    });
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async ({ capability }) => ({ capability, findings: [] }) },
+      localStore: local,
+      remoteStore: remote,
+    });
+
+    const result = await workflow.run(investigation);
+
+    expect(result.investigation.capabilities).toContainEqual(expect.objectContaining({ name: 'sitemap', status: 'success' }));
+    expect(result.persistence).toMatchObject({
+      remote: { code: 'persistence-failed' },
+      local: 'saved',
+    });
+    expect(await local.get('contextual-run')).toEqual(expect.objectContaining({
+      capabilities: expect.arrayContaining([expect.objectContaining({ name: 'sitemap', status: 'success' })]),
+    }));
+  });
+
   it('emits identity and capability progress before final completion', async () => {
     const changes = [];
     const result = await runInvestigationSession(session, runners, (next) => changes.push(next), { active: true });
@@ -76,6 +500,55 @@ describe('investigation session', () => {
     });
   });
 
+  it('preserves normalized sitemap options in selected session capabilities and runners', async () => {
+    const sitemap = vi.fn().mockResolvedValue({ urls: [] });
+    const runSession = createInvestigationSession({
+      investigationId: 'inv-sitemap-options',
+      domain: { submitted: 'Example.com', normalized: 'https://example.com' },
+      selection: {
+        capabilityIds: ['sitemap'],
+        options: { sitemap: { sitemapUrl: ' /custom.xml ', maxPages: 2 } }
+      }
+    });
+
+    expect(runSession.selectedCapabilities).toContainEqual({
+      id: 'sitemap',
+      dependencies: ['wordpress'],
+      options: { sitemapUrl: '/custom.xml', maxPages: 2 }
+    });
+    await runInvestigationSession(runSession, { wordpress: vi.fn().mockResolvedValue({}), sitemap });
+    expect(sitemap).toHaveBeenCalledWith(expect.objectContaining({
+      options: { sitemapUrl: '/custom.xml', maxPages: 2 }
+    }));
+  });
+
+  it('preserves explicit dependency graph when cloning a session', async () => {
+    const homepage = vi.fn().mockResolvedValue({ title: 'Should not run' });
+    const explicit = createInvestigationSession({
+      investigationId: 'inv-explicit-dependency',
+      domain: sessionDomain(),
+      selection: { capabilityIds: ['wordpress', 'homepage'] }
+    });
+    explicit.selectedCapabilities.push({ id: 'deliberate-prerequisite', dependencies: [] });
+    explicit.capabilityStates['deliberate-prerequisite'] = {
+      status: 'idle',
+      retry: { status: 'not-retryable' },
+    };
+    explicit.selectedCapabilities.find(({ id }) => id === 'homepage').dependencies = ['deliberate-prerequisite'];
+
+    const result = await runInvestigationSession(explicit, {
+      wordpress: async () => { throw new Error('prerequisite failed'); },
+      homepage,
+    });
+
+    expect(homepage).not.toHaveBeenCalled();
+    expect(result.capabilityStates.wordpress.status).toBe('failed');
+    expect(result.capabilityStates.homepage).toMatchObject({
+      status: 'unavailable',
+      outcome: { error: { code: 'dependency_failed' } },
+    });
+  });
+
   it('keeps successful evidence while another capability fails', async () => {
     const result = await runInvestigationSession(session, {
       wordpress: async () => ({ exposure: { status: 'observed' } }),
@@ -85,7 +558,19 @@ describe('investigation session', () => {
     expectValidSession(result);
     expect(result.capabilityStates.wordpress.outcome.status).toBe('success');
     expect(result.capabilityStates.homepage.outcome.status).toBe('failed');
-    expect(result.overall.status).toBe('incomplete');
+    expect(result.status).toBe('completed');
+    expect(result.overall.status).toBe('partial');
+  });
+
+  it('persists failed aggregate when no selected capability succeeds', async () => {
+    const result = await runInvestigationSession(session, {
+      wordpress: async () => { throw new Error('WordPress failed'); },
+      homepage: async () => { throw new Error('Homepage failed'); }
+    });
+
+    expectValidSession(result);
+    expect(result.status).toBe('failed');
+    expect(result.overall.status).toBe('failed');
   });
 
   it('maps missing runners to unavailable outcomes', async () => {
@@ -94,7 +579,7 @@ describe('investigation session', () => {
     expectValidSession(result);
     expect(result.capabilityStates.homepage).toMatchObject({
       status: 'unavailable',
-      outcome: { status: 'unavailable', error: { code: 'runner_unavailable', retryable: true } }
+      outcome: { status: 'unavailable', error: { code: 'runner_unavailable', retryable: false } }
     });
   });
 
@@ -120,8 +605,8 @@ describe('investigation session', () => {
 
     expectValidSession(recovered);
     expect(recovered).not.toBe(interrupted);
-    expect(recovered.status).toBe('failed');
-    expect(recovered.overall).toEqual({ status: 'incomplete' });
+    expect(recovered.status).toBe('completed');
+    expect(recovered.overall).toEqual({ status: 'partial' });
     expect(recovered.capabilityStates.wordpress).toEqual(interrupted.capabilityStates.wordpress);
     expect(recovered.capabilityStates.homepage).toMatchObject({
       status: 'failed',
@@ -205,6 +690,34 @@ describe('investigation session', () => {
     });
   });
 
+  it('marks capabilities unavailable when dependencies cannot become runnable', async () => {
+    const cyclicSession = createInvestigationSession({
+      investigationId: 'inv-cycle',
+      domain: sessionDomain(),
+      selection: { capabilityIds: ['wordpress', 'homepage'] }
+    });
+    cyclicSession.selectedCapabilities = [
+      { id: 'cycle-a', dependencies: ['cycle-b'] },
+      { id: 'cycle-b', dependencies: ['cycle-a'] }
+    ];
+    cyclicSession.capabilityStates = {
+      'cycle-a': { status: 'idle', retry: { status: 'not-retryable' } },
+      'cycle-b': { status: 'idle', retry: { status: 'not-retryable' } }
+    };
+
+    const result = await runInvestigationSession(cyclicSession, {});
+
+    expectValidSession(result);
+    expect(result.capabilityStates['cycle-a']).toMatchObject({
+      status: 'unavailable',
+      outcome: { status: 'unavailable', error: { code: 'dependency_failed', retryable: false } }
+    });
+    expect(result.capabilityStates['cycle-b']).toMatchObject({
+      status: 'unavailable',
+      outcome: { status: 'unavailable', error: { code: 'dependency_failed', retryable: false } }
+    });
+  });
+
   it('suppresses work and later callbacks after cancellation', async () => {
     const onChange = vi.fn();
     const token = { active: false };
@@ -257,31 +770,30 @@ describe('investigation session', () => {
     expect(retried.capabilityStates.homepage.outcome.status).toBe('success');
   });
 
-  it('retries unavailable capability when its runner becomes available', async () => {
+  it('does not retry unavailable capability when its runner becomes available', async () => {
     const wordpress = vi.fn().mockResolvedValue({ ok: true });
     const unavailable = await runInvestigationSession(session, { wordpress });
     const homepage = vi.fn().mockResolvedValue({ assets: [] });
 
     expect(unavailable.capabilityStates.homepage.status).toBe('unavailable');
-    const changes = [];
-    const retried = await retryInvestigationCapability(unavailable, 'homepage', { wordpress, homepage }, (next) => changes.push(next));
+    const retried = await retryInvestigationCapability(unavailable, 'homepage', { wordpress, homepage });
 
     expectValidSession(retried);
-    changes.forEach(expectValidSession);
-    expect(homepage).toHaveBeenCalledOnce();
+    expect(homepage).not.toHaveBeenCalled();
     expect(wordpress).toHaveBeenCalledOnce();
     expect(retried.capabilityStates.wordpress.outcome.result).toEqual({ ok: true });
-    expect(retried.capabilityStates.homepage.outcome.status).toBe('success');
+    expect(retried.capabilityStates.homepage.status).toBe('unavailable');
   });
 
   it('preserves settled retry evidence after cancellation without notifying success', async () => {
     let release;
     const token = { active: true };
     const changes = [];
-    const unavailable = await runInvestigationSession(session, {
-      wordpress: vi.fn().mockResolvedValue({ ok: true })
+    const failed = await runInvestigationSession(session, {
+      wordpress: vi.fn().mockResolvedValue({ ok: true }),
+      homepage: vi.fn().mockRejectedValue(new Error('temporary'))
     });
-    const retried = retryInvestigationCapability(unavailable, 'homepage', {
+    const retried = retryInvestigationCapability(failed, 'homepage', {
       homepage: () => new Promise((resolve) => { release = resolve; })
     }, (next) => changes.push(next), token);
 
@@ -321,13 +833,37 @@ describe('investigation session', () => {
     expect(getContextualCapabilityIds(selectedSitemap)).toEqual([]);
   });
 
-  it('adds contextual sitemap with registry dependency', () => {
+  it('adds contextual sitemap with normalized options for execution', async () => {
     const contextual = addInvestigationCapability(session, 'sitemap', { sitemapUrl: '/sitemap.xml' });
 
-    expect(contextual.selectedCapabilities).toContainEqual({ id: 'sitemap', dependencies: ['wordpress'] });
+    expect(contextual.selectedCapabilities).toContainEqual({
+      id: 'sitemap',
+      dependencies: ['wordpress'],
+      options: { sitemapUrl: '/sitemap.xml', maxPages: 50 },
+    });
+    const sitemap = vi.fn().mockResolvedValue({ urls: [] });
+    await runInvestigationSession(contextual, {
+      wordpress: vi.fn().mockResolvedValue({}),
+      homepage: vi.fn().mockResolvedValue({}),
+      sitemap,
+    });
+    expect(sitemap).toHaveBeenCalledWith(expect.objectContaining({
+      options: { sitemapUrl: '/sitemap.xml', maxPages: 50 },
+    }));
   });
 
-  it('allows sitemap retry after its failed WordPress dependency is recovered', async () => {
+  it('updates investigatorState when adding contextual capability', () => {
+    const contextual = addInvestigationCapability(session, 'sitemap', { sitemapUrl: '/sitemap.xml' });
+
+    expect(contextual.investigationState.capabilities).toContainEqual(expect.objectContaining({
+      name: 'sitemap',
+      status: 'queued',
+      dependencies: ['wordpress'],
+      options: { sitemapUrl: '/sitemap.xml', maxPages: 50 },
+    }));
+  });
+
+  it('does not retry sitemap after its failed WordPress dependency is recovered', async () => {
     const dependentSession = addInvestigationCapability(
       createInvestigationSession({
         investigationId: 'inv-retry-dependency',
@@ -350,10 +886,10 @@ describe('investigation session', () => {
       sitemap: vi.fn().mockResolvedValue({ pages: [] })
     });
 
-    expect(retried.capabilityStates.sitemap.status).toBe('success');
+    expect(retried.capabilityStates.sitemap.status).toBe('unavailable');
   });
 
-  it('repairs persisted sitemap dependency metadata before retry', async () => {
+  it('preserves persisted sitemap dependency metadata before retry', async () => {
     const persisted = addInvestigationCapability(
       createInvestigationSession({
         investigationId: 'inv-persisted-dependency',
@@ -378,7 +914,7 @@ describe('investigation session', () => {
       sitemap: vi.fn().mockResolvedValue({ pages: [] })
     });
 
-    expect(retried.selectedCapabilities).toContainEqual({ id: 'sitemap', dependencies: ['wordpress'] });
+    expect(retried.selectedCapabilities).toContainEqual({ id: 'sitemap', dependencies: [] });
   });
 });
 
@@ -407,4 +943,14 @@ function createTerminalSession() {
 function expectValidSession(value) {
   const validation = scanSessionSchema.safeParse(value);
   expect(validation.success, JSON.stringify(validation.error?.issues)).toBe(true);
+}
+
+function memoryStore() {
+  let value = null;
+  return {
+    async save(next) { value = next; },
+    async get(id) { return value?.id === id ? value : null; },
+    async list() { return value ? [value] : []; },
+    async claim(id) { return value?.id === id ? value : null; },
+  };
 }

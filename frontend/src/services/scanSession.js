@@ -1,6 +1,7 @@
 import { scanSessionSchema } from '@wp-json-discovery/contracts';
 
 import { normalizeSelection } from './scanCapabilities.js';
+import { selectInvestigationStatus } from '../domain/investigation/selectors.ts';
 
 const DEPENDENCY_ERROR = {
   code: 'dependency_failed',
@@ -115,7 +116,9 @@ export async function executeScanSession(session, runners, onChange, token) {
 export async function retryCapability(session, id, runners, onChange, token) {
   session = cloneAcceptedLegacySession(session);
 
-  if (!session.selection.capabilityIds.includes(id) || !['failed', 'unavailable'].includes(session.capabilities[id]?.status)) {
+  if (!session.selection.capabilityIds.includes(id)
+    || session.capabilities[id]?.status !== 'failed'
+    || session.capabilities[id]?.error?.retryable !== true) {
     return cloneSession(session);
   }
 
@@ -208,7 +211,7 @@ function isValidDependencyList(ids, selectedCapabilityIds) {
 }
 
 function isValidOverallStatus(status) {
-  return ['idle', 'running', 'complete', 'incomplete'].includes(status);
+  return ['idle', 'running', 'complete', 'partial', 'failed', 'incomplete'].includes(status);
 }
 
 function isValidLegacyCapabilities(capabilities, capabilityIds) {
@@ -385,13 +388,29 @@ function updateCapability(session, id, state) {
 
 function getOverallStatus(session) {
   const states = Object.values(session.capabilities);
-  if (states.every(({ status }) => status === 'success')) {
-    return 'complete';
-  }
-  if (states.every(({ status }) => ['success', 'failed', 'unavailable'].includes(status))) {
-    return 'incomplete';
-  }
-  return states.some(({ status }) => status !== 'idle') ? 'running' : 'idle';
+  const lifecycleStatus = selectInvestigationStatus({
+    status: states.some(({ status }) => status !== 'idle') ? 'running' : 'idle',
+    startedAt: null,
+    completedAt: null,
+    selectedCapabilities: session.selection.capabilityIds.map((id) => ({ id })),
+    capabilityStates: Object.fromEntries(session.selection.capabilityIds.map((id) => {
+      const state = session.capabilities[id];
+      return [id, {
+      status: state.status,
+      outcome: state.status === 'success'
+        ? { status: 'success', result: state.result, error: null }
+        : ['failed', 'unavailable'].includes(state.status)
+          ? { status: state.status, result: null, error: state.error }
+          : undefined
+      }];
+    })),
+    overall: { status: 'incomplete' }
+  });
+
+  // Legacy sessions retain idle/running presentation while terminal semantics come from domain selector.
+  return lifecycleStatus === 'blocked' ? 'idle' : lifecycleStatus === 'incomplete'
+    ? (states.some(({ status }) => status !== 'idle') ? 'running' : 'idle')
+    : lifecycleStatus;
 }
 
 function notify(onChange, session, token) {

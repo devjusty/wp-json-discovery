@@ -54,6 +54,11 @@ describe('ScanStatusStack', () => {
     expect(screen.getByText('Identity')).toBeInTheDocument();
   });
 
+  it('ignores malformed canonical capability state data', () => {
+    expect(() => render(<ScanStatusStack session={{ domain: { normalized: 'example.com' }, capabilityStates: { broken: null, invalid: 'state' } }} />)).not.toThrow();
+    expect(screen.getByRole('heading', { name: 'Scan progress' })).toBeInTheDocument();
+  });
+
   it('derives WordPress progress from capability state', () => {
     render(<ScanStatusStack session={{
       domain: { normalized: 'example.com' },
@@ -145,7 +150,27 @@ describe('ScanStatusStack', () => {
     expect(retryCapability).toHaveBeenCalledWith('homepage');
   });
 
-  it('uses stable investigator labels and retries runner-unavailable capabilities', () => {
+  it('does not retry legacy failures with malformed retryable metadata', () => {
+    render(
+      <ScanStatusStack
+        session={{
+          domain: 'example.com',
+          overallStatus: 'incomplete',
+          capabilities: {
+            homepage: {
+              status: 'failed',
+              result: null,
+              error: { message: 'Malformed retry metadata', retryable: 'true' }
+            }
+          }
+        }}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: 'Retry Homepage' })).not.toBeInTheDocument();
+  });
+
+  it('uses stable investigator labels without retrying unavailable capabilities', () => {
     render(
       <ScanStatusStack
         session={{
@@ -162,8 +187,7 @@ describe('ScanStatusStack', () => {
 
     expect(screen.getByText('WordPress API')).toBeInTheDocument();
     expect(screen.getByText('Homepage')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /retry homepage/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /retry homepage/i })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /retry homepage/i })).not.toBeInTheDocument();
   });
 
   it('does not infer retryability from unavailable status', () => {
@@ -198,9 +222,7 @@ describe('ScanStatusStack', () => {
     expect(screen.queryByRole('button', { name: /retry homepage/i })).not.toBeInTheDocument();
   });
 
-  it('retries retryable unavailable investigator capabilities', async () => {
-    const retryCapability = vi.fn();
-    const user = userEvent.setup();
+  it('does not retry unavailable investigator capabilities even with retryable error metadata', () => {
     render(
       <ScanStatusStack
         session={{
@@ -210,11 +232,9 @@ describe('ScanStatusStack', () => {
             sitemap: { status: 'unavailable', outcome: { status: 'unavailable', result: null, error: { code: 'temporary', message: 'Try again', retryable: true } }, retry: { status: 'retryable' } }
           }
         }}
-        onRetryCapability={retryCapability}
       />
     );
 
-    await user.click(screen.getByRole('button', { name: 'Retry Sitemap' }));
-    expect(retryCapability).toHaveBeenCalledWith('sitemap');
+    expect(screen.queryByRole('button', { name: 'Retry Sitemap' })).not.toBeInTheDocument();
   });
 });

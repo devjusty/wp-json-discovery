@@ -79,6 +79,14 @@ but do not claim the redesign validation gate has passed.
   need a local Chromium install and aligned Vitest packages; server Jest ESM
   execution remains blocked. See the [R1 validation log](research/2026-09-10-r1-validation-log.md).
 
+### Task 8 baseline verification
+
+- **Blocked**: Full frontend suite has a reproducible existing
+  `AdminPage.test.tsx` failure: 544 passed, 1 failed.
+- **Passed**: Frontend typecheck, frontend production build, Storybook build,
+  contracts suite (94 passed), server suite (162 passed), browser production
+  smoke, focused adapter test, and lint (0 errors, 3 existing warnings).
+
 ### Legacy platform status
 - Completed:
   - Turso-first persistence migration (unsupported plugins, activity logs, scan history, plugin/theme registries).

@@ -2,12 +2,15 @@ import { z } from 'zod';
 
 export const CONTRACTS_PACKAGE_VERSION = '0.0.0';
 
-const identifierSchema = z.string().min(1);
+const nonBlankStringSchema = z.string().refine((value) => value.trim().length > 0, {
+  message: 'String must contain a non-whitespace character',
+});
+const identifierSchema = nonBlankStringSchema;
 const timestampSchema = z.iso.datetime({ offset: true });
 
 export const domainIdentitySchema = z.object({
-  submitted: z.string().min(1),
-  normalized: z.string().min(1),
+  submitted: nonBlankStringSchema,
+  normalized: nonBlankStringSchema,
 }).strict();
 export type DomainIdentity = z.infer<typeof domainIdentitySchema>;
 
@@ -27,6 +30,96 @@ const capabilityErrorSchema = z.object({
   retryable: z.boolean(),
 }).strict();
 
+export const jsonValueSchema: z.ZodType = z.lazy(() => z.union([
+  z.null(),
+  z.string(),
+  z.number().finite(),
+  z.boolean(),
+  z.array(jsonValueSchema),
+  z.record(z.string(), jsonValueSchema),
+]));
+
+const investigationCapabilitySchema = z.object({
+  name: identifierSchema,
+  status: z.enum(['queued', 'running', 'success', 'failed', 'unavailable']),
+  dependencies: z.array(identifierSchema).optional(),
+  options: z.record(z.string(), jsonValueSchema).optional(),
+  metadata: jsonValueSchema.optional(),
+  result: jsonValueSchema.optional(),
+  reason: z.string().optional(),
+  startedAt: timestampSchema.optional(),
+  completedAt: timestampSchema.optional(),
+  error: capabilityErrorSchema.optional(),
+}).strict().superRefine((capability, context) => {
+  if (capability.status !== 'success' && 'result' in capability) {
+    context.addIssue({ code: 'custom', message: 'Only successful capabilities may contain a result', path: ['result'] });
+  }
+  if (capability.status === 'failed' && !capability.error) {
+    context.addIssue({ code: 'custom', message: 'Failed capabilities require an error', path: ['error'] });
+  }
+  if (['queued', 'running', 'success'].includes(capability.status) && capability.error) {
+    context.addIssue({ code: 'custom', message: 'Active and successful capabilities cannot have an error', path: ['error'] });
+  }
+  if (capability.status === 'unavailable' && capability.error?.retryable) {
+    context.addIssue({ code: 'custom', message: 'Unavailable capability errors cannot be retryable', path: ['error', 'retryable'] });
+  }
+});
+
+const investigationEvidenceSchema = z.object({
+  id: identifierSchema,
+  kind: z.enum(['observed', 'inference', 'request-trace', 'absence']),
+  capability: identifierSchema,
+  value: jsonValueSchema,
+  source: z.object({
+    locator: z.string().min(1).optional(),
+    observedAt: timestampSchema.optional(),
+    rawBody: z.string().optional(),
+    evidenceIds: z.array(identifierSchema).optional(),
+    request: z.object({
+      method: z.string().min(1),
+      url: z.string().min(1),
+      status: z.number().finite().optional(),
+    }).strict().optional(),
+  }).strict(),
+}).strict();
+
+const investigationObservationSchema = z.object({
+  id: identifierSchema,
+  capability: identifierSchema,
+  observedAt: timestampSchema,
+  value: jsonValueSchema,
+}).strict();
+
+const investigationFindingSchema = z.object({
+  id: identifierSchema,
+  capability: identifierSchema,
+  summary: z.string().min(1),
+  evidenceIds: z.array(identifierSchema),
+  confidence: z.enum(['low', 'medium', 'high']),
+  consequence: z.enum(['low', 'medium', 'high', 'critical']).optional(),
+  evidenceQuality: z.enum(['low', 'medium', 'high']).optional(),
+  novelty: z.enum(['low', 'medium', 'high', 'new']).optional(),
+}).strict();
+
+export const investigationStateSchema = z.object({
+  id: identifierSchema,
+  submittedUrl: nonBlankStringSchema,
+  normalizedUrl: nonBlankStringSchema,
+  redirectChain: z.array(z.string().min(1)),
+  createdAt: timestampSchema,
+  updatedAt: timestampSchema.optional(),
+  capabilities: z.array(investigationCapabilitySchema),
+  observationTimeline: z.array(investigationObservationSchema),
+  evidence: z.array(investigationEvidenceSchema),
+  findings: z.array(investigationFindingSchema),
+}).strict().superRefine((state, context) => {
+  const names = state.capabilities.map((capability) => capability.name);
+  if (new Set(names).size !== names.length) {
+    context.addIssue({ code: 'custom', message: 'Capability names must be unique', path: ['capabilities'] });
+  }
+});
+export type InvestigationState = z.infer<typeof investigationStateSchema>;
+
 type ValidationIssue = { message: string; path: (string | number)[] };
 
 const retryStatusIssues = (
@@ -34,6 +127,9 @@ const retryStatusIssues = (
   retry: RetryState,
 ): ValidationIssue[] => {
   const issues: ValidationIssue[] = [];
+  if (status === 'unavailable' && retry.status !== 'not-retryable') {
+    issues.push({ message: 'Unavailable capabilities cannot retry or exhaust retries', path: ['retry'] });
+  }
   if (retry.status === 'retrying' && !['failed', 'unavailable'].includes(status)) {
     issues.push({ message: 'Only failed or unavailable capabilities can be retried', path: ['retry'] });
   }
@@ -75,7 +171,7 @@ const addValidationIssues = (
 };
 
 const successOutcomeSchema = z.object({
-  status: z.literal('success'), result: z.unknown(), error: z.null(),
+  status: z.literal('success'), result: jsonValueSchema.optional(), error: z.null(),
 }).strict();
 const failedOutcomeSchema = z.object({
   status: z.literal('failed'), result: z.null(), error: capabilityErrorSchema,
@@ -85,11 +181,7 @@ const unavailableOutcomeSchema = z.object({
   result: z.null(),
   error: capabilityErrorSchema.extend({ retryable: z.literal(false) }).strict(),
 }).strict();
-const sessionUnavailableOutcomeSchema = z.object({
-  status: z.literal('unavailable'),
-  result: z.null(),
-  error: capabilityErrorSchema,
-}).strict();
+const sessionUnavailableOutcomeSchema = unavailableOutcomeSchema;
 const partialOutcomeSchema = z.object({
   status: z.literal('partial'),
   result: z.unknown(),
@@ -125,6 +217,7 @@ export type RetryState = z.infer<typeof retryStateSchema>;
 export const capabilitySelectionSchema = z.object({
   id: identifierSchema,
   dependencies: z.array(identifierSchema),
+  options: z.record(z.string(), jsonValueSchema).optional(),
 }).strict();
 export type CapabilitySelection = z.infer<typeof capabilitySelectionSchema>;
 
@@ -200,10 +293,20 @@ const scanSessionFields = {
   investigationId: identifierSchema,
   selectedCapabilities: z.array(capabilitySelectionSchema),
   capabilityStates: z.record(identifierSchema, sessionCapabilityStateSchema),
-  overall: z.discriminatedUnion('status', [
-    z.object({ status: z.literal('complete') }).strict(),
-    z.object({ status: z.literal('incomplete') }).strict(),
-  ]),
+  overall: z.object({
+    status: z.enum(['complete', 'partial', 'failed', 'blocked', 'incomplete']),
+    reason: nonBlankStringSchema.optional(),
+    guidance: nonBlankStringSchema.optional(),
+    command: nonBlankStringSchema.optional(),
+  }).strict().superRefine((overall, context) => {
+    if (overall.status === 'blocked') return;
+    for (const field of ['reason', 'guidance', 'command'] as const) {
+      if (overall[field] !== undefined) {
+        context.addIssue({ code: 'custom', message: `Blocked recovery field ${field} requires blocked status`, path: [field] });
+      }
+    }
+  }),
+  investigationState: investigationStateSchema.optional(),
 };
 
 const scanSessionUnionSchema = z.discriminatedUnion('status', [
@@ -215,11 +318,19 @@ const scanSessionUnionSchema = z.discriminatedUnion('status', [
 ]);
 type ScanSessionValue = z.infer<typeof scanSessionUnionSchema>;
 
+const sessionIdentityIssues = (session: ScanSessionValue): ValidationIssue[] => {
+  if (session.investigationState && session.investigationState.id !== session.investigationId) {
+    return [{ message: 'Investigation state must match session investigation ID', path: ['investigationState', 'id'] }];
+  }
+  return [];
+};
+
 const sessionReferenceIssues = (session: ScanSessionValue): ValidationIssue[] => {
   const selectedIds = new Set(session.selectedCapabilities.map((capability) => capability.id));
   return [
     ...selectedCapabilityIssues(session, selectedIds),
     ...dependencyStateIssues(session),
+    ...sessionIdentityIssues(session),
   ];
 };
 
@@ -263,6 +374,8 @@ const sessionOverallIssues = (session: ScanSessionValue): ValidationIssue[] => {
   const issues: ValidationIssue[] = [];
   const stateIds = Object.keys(session.capabilityStates);
   const allSuccessful = Object.values(session.capabilityStates).every((state) => state.status === 'success');
+  const hasSuccessful = Object.values(session.capabilityStates).some((state) => state.status === 'success');
+  const hasFailure = Object.values(session.capabilityStates).some((state) => ['failed', 'unavailable'].includes(state.status));
   if (session.status === 'failed' && allSuccessful) {
     issues.push({ message: 'Failed sessions cannot have all-success capability states', path: ['status'] });
   }
@@ -271,6 +384,15 @@ const sessionOverallIssues = (session: ScanSessionValue): ValidationIssue[] => {
   }
   if (session.overall.status === 'incomplete' && allSuccessful && stateIds.length > 0) {
     issues.push({ message: 'Incomplete sessions require a non-success capability state', path: ['overall'] });
+  }
+  if (session.overall.status === 'partial' && (!hasSuccessful || !hasFailure)) {
+    issues.push({ message: 'Partial sessions require successful and failed or unavailable capability states', path: ['overall'] });
+  }
+  if (session.overall.status === 'failed' && (hasSuccessful || !hasFailure)) {
+    issues.push({ message: 'Failed aggregates require no successful capability states and at least one failure', path: ['overall'] });
+  }
+  if (session.overall.status === 'blocked' && stateIds.length > 0) {
+    issues.push({ message: 'Blocked aggregates cannot contain capability states', path: ['overall'] });
   }
   return issues;
 };
@@ -371,6 +493,7 @@ const apiErrorSchema = z.object({
   code: identifierSchema,
   message: z.string().min(1),
   retryable: z.boolean(),
+  details: jsonValueSchema.optional(),
 }).strict();
 
 export const apiEnvelopeSchema = z.discriminatedUnion('status', [
@@ -388,6 +511,7 @@ export type ApiEnvelope = z.infer<typeof apiEnvelopeSchema>;
 export const startInvestigationRequestSchema = z.object({
   domain: domainIdentitySchema,
   selectedCapabilities: z.array(capabilitySelectionSchema),
+  redirectChain: z.array(nonBlankStringSchema).min(1).optional(),
 }).strict().superRefine((request, context) => {
   const selectedIds = new Set(request.selectedCapabilities.map((capability) => capability.id));
   if (request.selectedCapabilities.length !== selectedIds.size) {
@@ -424,6 +548,8 @@ export const investigationSummarySchema = z.object({
   selectedCapabilityCount: z.number().int().min(0),
   completedCapabilityCount: z.number().int().min(0),
   findingsCount: z.number().int().min(0),
+  status: z.enum(['incomplete', 'complete', 'partial', 'failed', 'blocked']).optional(),
+  resumable: z.boolean().optional(),
 }).strict().superRefine((summary, context) => {
   if (Date.parse(summary.updatedAt) < Date.parse(summary.createdAt)) {
     context.addIssue({ code: 'custom', message: 'updatedAt must be on or after createdAt', path: ['updatedAt'] });

@@ -69,9 +69,8 @@ describe('SitemapSection', () => {
     expect(screen.queryByText(/found a sitemap surface/i)).not.toBeInTheDocument();
   });
 
-  it('shows section retry for retryable unavailable sitemap state', async () => {
+  it('does not show section retry for unavailable sitemap state', async () => {
     const onRetry = vi.fn();
-    const user = userEvent.setup();
     render(
       <SitemapSection
         domain="example.com"
@@ -85,8 +84,8 @@ describe('SitemapSection', () => {
     );
 
     expect(screen.getByText('Sitemap is unavailable.')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /retry sitemap/i }));
-    expect(onRetry).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('button', { name: /retry sitemap/i })).not.toBeInTheDocument();
+    expect(onRetry).not.toHaveBeenCalled();
   });
 
   it('only shows retry for retryable failures', () => {

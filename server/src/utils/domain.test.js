@@ -7,6 +7,8 @@ describe('sanitizeDomain', () => {
     ['example.com', 'example.com'],
     ['  EXAMPLE.COM  ', 'example.com'],
     ['sub.example.co.uk', 'sub.example.co.uk'],
+    ['https://www.Example.com/wp-json/?context=view', 'example.com'],
+    ['http://WWW.Example.com/path?query=value', 'example.com'],
   ])('returns normalized valid domain for %j', (input, expected) => {
     expect(sanitizeDomain(input)).toBe(expected);
   });

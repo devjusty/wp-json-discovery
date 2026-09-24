@@ -61,6 +61,6 @@ export const SubmitNormalizesDomain = {
     await userEvent.type(input, 'https://WWW.Example.com/');
     await userEvent.click(canvas.getByRole('button', { name: /start scan/i }));
 
-    await expect(args.onSubmit).toHaveBeenCalledWith('example.com');
+    await expect(args.onSubmit).toHaveBeenCalledWith('example.com', 'https://WWW.Example.com/');
   },
 };

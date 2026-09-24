@@ -49,9 +49,10 @@ type HistoryPageProps = {
   headerActions?: ReactNode;
   onRescan: (domain: string) => void;
   onUseDomain: (domain: string) => void;
+  embedded?: boolean;
 };
 
-function HistoryPage({ headerActions, onRescan, onUseDomain }: HistoryPageProps) {
+function HistoryPage({ headerActions, onRescan, onUseDomain, embedded = false }: HistoryPageProps) {
   const initialState = getInitialHistoryState();
   const [query, setQuery] = useState(initialState.query);
   const [sort, setSort] = useState<Sort>(initialState.sort);
@@ -162,6 +163,7 @@ function HistoryPage({ headerActions, onRescan, onUseDomain }: HistoryPageProps)
       title="Scan History"
       subtitle="Browse previously scanned sites and re-scan with one click."
       headerActions={headerActions}
+      embedded={embedded}
     >
       <Card>
         <CardContent>

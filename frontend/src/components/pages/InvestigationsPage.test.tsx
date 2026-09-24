@@ -3,29 +3,30 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import InvestigationsPage from './InvestigationsPage';
-import { fetchInvestigations } from '../../api/client.js';
 import { loadAnonymousInvestigation } from '../../services/anonymousInvestigations.js';
 
-const mockedFetchInvestigations = vi.mocked(fetchInvestigations);
 const mockedLoadAnonymousInvestigation = vi.mocked(loadAnonymousInvestigation);
 
-vi.mock('../../api/client.js', () => ({
-  fetchInvestigations: vi.fn()
-}));
-
 vi.mock('../../services/anonymousInvestigations.js', () => ({
-  loadAnonymousInvestigation: vi.fn()
+  loadAnonymousInvestigation: vi.fn(),
+  saveAnonymousInvestigation: vi.fn(),
 }));
 
-const summary = {
+const remoteInvestigation = {
   id: 'inv-remote',
-  domain: { submitted: 'Remote.example', normalized: 'https://remote.example' },
+  submittedUrl: 'Remote.example',
+  normalizedUrl: 'https://remote.example',
   createdAt: '2026-09-10T12:00:00.000Z',
   updatedAt: '2026-09-11T12:00:00.000Z',
-  latestSessionId: 'session-remote',
-  selectedCapabilityCount: 3,
-  completedCapabilityCount: 2,
-  findingsCount: 4
+  redirectChain: ['https://remote.example'],
+  capabilities: [
+    { name: 'html', status: 'success', result: { findings: [{ id: 'finding-1' }] } },
+    { name: 'wp-json', status: 'success', result: { findings: [{ id: 'finding-2' }, { id: 'finding-3' }, { id: 'finding-4' }] } },
+    { name: 'sitemap', status: 'queued' },
+  ],
+  observationTimeline: [],
+  evidence: [],
+  findings: [{ id: 'finding-1' }, { id: 'finding-2' }, { id: 'finding-3' }, { id: 'finding-4' }],
 };
 
 function renderPage(props = {}) {
@@ -66,7 +67,7 @@ function localSnapshot(domain = 'local.example') {
             outcome: {
               status: 'failed',
               result: null,
-              error: { code: 'failed', message: 'Failed', retryable: false }
+              error: { code: 'failed', message: 'Failed', retryable: true }
             },
             retry: { status: 'not-retryable' }
           }
@@ -82,7 +83,6 @@ describe('InvestigationsPage', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mockedLoadAnonymousInvestigation.mockReturnValue(null);
-    mockedFetchInvestigations.mockResolvedValue({ investigations: [] } as never);
   });
 
   it('renders local summary and sends local resume callback', async () => {
@@ -97,14 +97,14 @@ describe('InvestigationsPage', () => {
     expect(screen.getByText('1')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /resume local\.example/i }));
-    expect(onResumeLocal).toHaveBeenCalledTimes(1);
+    expect(onResumeLocal).toHaveBeenCalledWith('local-investigation');
   });
 
   it('renders authenticated summaries and resumes by persisted id', async () => {
-    mockedFetchInvestigations.mockResolvedValue({ investigations: [summary] } as never);
+    const investigationStore = { list: vi.fn().mockResolvedValue([remoteInvestigation]), get: vi.fn(), save: vi.fn(), claim: vi.fn() };
     const onResumeInvestigation = vi.fn();
 
-    renderPage({ isAuthenticated: true, onResumeInvestigation });
+    renderPage({ isAuthenticated: true, authSession: { getUserId: () => 'user-1', getAccessToken: async () => 'token' }, investigationStore, onResumeInvestigation });
 
     expect(await screen.findByText('remote.example')).toBeInTheDocument();
     expect(screen.getByText('4')).toBeInTheDocument();
@@ -114,20 +114,82 @@ describe('InvestigationsPage', () => {
     expect(onResumeInvestigation).toHaveBeenCalledWith('inv-remote');
   });
 
+  it('deduplicates local fallback rows ahead of remote rows by investigation id', async () => {
+    mockedLoadAnonymousInvestigation.mockReturnValue(localSnapshot('fallback.example') as never);
+    const investigationStore = {
+      list: vi.fn().mockResolvedValue([
+        { ...remoteInvestigation, id: 'local-investigation', normalizedUrl: 'https://remote-fallback.example' },
+        remoteInvestigation,
+        { ...remoteInvestigation, normalizedUrl: 'https://remote-duplicate.example' },
+      ]),
+      get: vi.fn(),
+      save: vi.fn(),
+      claim: vi.fn(),
+    };
+    const onResumeLocal = vi.fn();
+    const onResumeInvestigation = vi.fn();
+
+    renderPage({ isAuthenticated: true, authSession: { getUserId: () => 'user-1', getAccessToken: async () => 'token' }, investigationStore, onResumeLocal, onResumeInvestigation });
+
+    expect(await screen.findByText('fallback.example')).toBeInTheDocument();
+    expect(screen.queryByText('remote-fallback.example')).not.toBeInTheDocument();
+    expect(screen.queryByText('remote-duplicate.example')).not.toBeInTheDocument();
+    expect(await screen.findAllByText('remote.example')).toHaveLength(1);
+    await userEvent.click(screen.getByRole('button', { name: /resume fallback\.example/i }));
+    expect(onResumeLocal).toHaveBeenCalledWith('local-investigation');
+    expect(onResumeInvestigation).not.toHaveBeenCalledWith('local-investigation');
+  });
+
   it('shows loading and empty states', async () => {
     let resolveRequest;
-    mockedFetchInvestigations.mockReturnValue(new Promise((resolve) => { resolveRequest = resolve; }) as never);
-    renderPage({ isAuthenticated: true });
+    const investigationStore = { list: vi.fn().mockReturnValue(new Promise((resolve) => { resolveRequest = resolve; })), get: vi.fn(), save: vi.fn(), claim: vi.fn() };
+    renderPage({ isAuthenticated: true, authSession: { getUserId: () => 'user-1', getAccessToken: async () => 'token' }, investigationStore });
     expect(screen.getByText('Loading investigations')).toBeInTheDocument();
-    resolveRequest({ investigations: [] } as never);
+    resolveRequest([]);
     expect(await screen.findByText(/no investigations yet/i)).toBeInTheDocument();
 
   });
 
   it('shows API errors with a retry action', async () => {
-    mockedFetchInvestigations.mockRejectedValue(new Error('Network unavailable'));
-    renderPage({ isAuthenticated: true });
+    const investigationStore = { list: vi.fn().mockRejectedValue(new Error('Network unavailable')), get: vi.fn(), save: vi.fn(), claim: vi.fn() };
+    renderPage({ isAuthenticated: true, authSession: { getUserId: () => 'user-1', getAccessToken: async () => 'token' }, investigationStore });
     expect(await screen.findByText('Could not load investigations')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /retry/i })).toBeEnabled();
+  });
+
+  it('shows anonymous persistence errors with a retry action', async () => {
+    const investigationStore = { list: vi.fn().mockRejectedValue(new Error('Local storage unavailable')), get: vi.fn(), save: vi.fn(), claim: vi.fn() };
+    renderPage({ investigationStore });
+
+    expect(await screen.findByText('Could not load investigations')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeEnabled();
+  });
+
+  it('loads anonymous state strictly and renders recovery guidance for corrupt storage', () => {
+    const error = new Error('Invalid anonymous investigation snapshot');
+    mockedLoadAnonymousInvestigation.mockImplementation(() => { throw error; });
+
+    renderPage();
+
+    expect(mockedLoadAnonymousInvestigation).toHaveBeenCalledWith({ strict: true });
+    expect(screen.getByRole('alert')).toHaveTextContent(/saved investigation data could not be read/i);
+  });
+
+  it('renders explicit status and hides resume for terminal non-retryable states', async () => {
+    const terminalInvestigation = {
+      ...remoteInvestigation,
+      capabilities: [
+        { name: 'homepage', status: 'success', result: { findings: [] } },
+        { name: 'wordpress', status: 'unavailable', error: { code: 'blocked', message: 'Blocked', retryable: false } },
+      ],
+      findings: [],
+    };
+    const investigationStore = { list: vi.fn().mockResolvedValue([terminalInvestigation]), get: vi.fn(), save: vi.fn(), claim: vi.fn() };
+
+    renderPage({ isAuthenticated: true, authSession: { getUserId: () => 'user-1', getAccessToken: async () => 'token' }, investigationStore });
+
+    expect(await screen.findByText('partial')).toBeInTheDocument();
+    expect(screen.getByText('1 / 2')).toBeInTheDocument();
+    expect(screen.getByText('No resumable session')).toBeInTheDocument();
   });
 });

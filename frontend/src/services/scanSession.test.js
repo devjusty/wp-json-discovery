@@ -34,7 +34,7 @@ describe('scan session', () => {
 
     const completed = await execution;
 
-    expect(completed.overallStatus).toBe('incomplete');
+    expect(completed.overallStatus).toBe('partial');
     expect(completed.capabilities.wordpress).toMatchObject({
       status: 'success',
       result: { namespaces: ['wp/v2'] },
@@ -81,7 +81,7 @@ describe('scan session', () => {
       homepage: vi.fn().mockResolvedValue({ assets: [] })
     });
 
-    expect(completed.overallStatus).toBe('incomplete');
+    expect(completed.overallStatus).toBe('partial');
     expect(completed.capabilities.wordpress).toEqual({
       status: 'failed',
       result: null,
@@ -105,18 +105,28 @@ describe('scan session', () => {
     });
   });
 
-  it('retries an unavailable capability when its runner becomes available', async () => {
-    const session = createScanSession('example.com', { capabilityIds: ['homepage'] });
-    const unavailable = await executeScanSession(session, {});
-    const retried = await retryCapability(unavailable, 'homepage', {
-      homepage: vi.fn().mockResolvedValue({ assets: [] })
+  it('reports failed when every selected capability fails', async () => {
+    const session = createScanSession('example.com', { capabilityIds: ['homepage', 'wordpress'] });
+
+    const completed = await executeScanSession(session, {
+      homepage: vi.fn().mockRejectedValue(new Error('Homepage failed')),
+      wordpress: vi.fn().mockRejectedValue(new Error('WordPress failed'))
     });
 
+    expect(completed.overallStatus).toBe('failed');
+  });
+
+  it('rejects retrying an unavailable capability when its runner becomes available', async () => {
+    const session = createScanSession('example.com', { capabilityIds: ['homepage'] });
+    const unavailable = await executeScanSession(session, {});
+    const homepage = vi.fn().mockResolvedValue({ assets: [] });
+    const retried = await retryCapability(unavailable, 'homepage', { homepage });
+
     expect(retried.capabilities.homepage).toMatchObject({
-      status: 'success',
-      result: { assets: [] },
-      error: null
+      status: 'unavailable',
+      error: { code: 'runner_unavailable', retryable: false }
     });
+    expect(homepage).not.toHaveBeenCalled();
   });
 
   it('marks sitemap unavailable when its selected dependency fails without calling its runner', async () => {
@@ -151,7 +161,7 @@ describe('scan session', () => {
     });
   });
 
-  it('recovers failed dependency before retrying unavailable capability', async () => {
+  it('recovers failed dependency without retrying unavailable capability', async () => {
     const wordpress = vi.fn()
       .mockRejectedValueOnce(new Error('WordPress unavailable'))
       .mockResolvedValueOnce({ namespaces: ['wp/v2'] });
@@ -176,11 +186,10 @@ describe('scan session', () => {
     const retried = await retryCapability(recovered, 'sitemap', { wordpress, sitemap });
 
     expect(wordpress).toHaveBeenCalledTimes(2);
-    expect(sitemap).toHaveBeenCalledOnce();
+    expect(sitemap).not.toHaveBeenCalled();
     expect(retried.capabilities.sitemap).toMatchObject({
-      status: 'success',
-      result: { urls: ['/'] },
-      error: null
+      status: 'unavailable',
+      error: { code: 'dependency_failed', retryable: false }
     });
   });
 
