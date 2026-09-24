@@ -16,11 +16,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { fetchInvestigations } from '../../api/client.js';
 import { loadAnonymousInvestigation } from '../../services/anonymousInvestigations.js';
 import { formatDate } from '../../utils/format.js';
 import type { Investigation } from '../../domain/investigation/model';
 import type { InvestigationStore } from '../../application/ports/investigation-store';
+import type { AuthSession } from '../../application/ports/auth-session';
 import { createLocalInvestigationStore } from '../../adapters/persistence/localInvestigationStore';
 import { createRemoteInvestigationStore } from '../../adapters/persistence/remoteInvestigationStore';
 
@@ -56,6 +56,7 @@ type InvestigationsPageProps = {
   onResumeInvestigation?: (investigationId: string) => void;
   embedded?: boolean;
   investigationStore?: InvestigationStore;
+  authSession?: AuthSession;
 };
 
 function InvestigationsPage({
@@ -66,33 +67,26 @@ function InvestigationsPage({
   onResumeInvestigation,
   embedded = false,
   investigationStore,
+  authSession,
 }: InvestigationsPageProps) {
   const [localSnapshot] = useState(() => loadAnonymousInvestigation() as LocalSnapshot | null);
   const stores = useMemo(() => {
     if (investigationStore) return { active: investigationStore, local: investigationStore };
-    const auth = {
-      getUserId: () => isAuthenticated ? 'authenticated' : null,
-      getAccessToken: async () => isAuthenticated ? 'authenticated' : null,
-    };
+    if (isAuthenticated && !authSession) return { active: createLocalInvestigationStore(), local: createLocalInvestigationStore() };
     return {
       active: isAuthenticated
-        ? createRemoteInvestigationStore({ authSession: auth })
+        ? createRemoteInvestigationStore({ authSession })
         : createLocalInvestigationStore(),
       local: createLocalInvestigationStore(),
     };
-  }, [investigationStore, isAuthenticated]);
+  }, [authSession, investigationStore, isAuthenticated]);
   const investigationsQuery = useQuery({
     queryKey: ['investigations'],
     queryFn: async () => {
       try {
         return await stores.active.list();
       } catch {
-        // Keep old API-only records visible while migration data is being upgraded.
-        if (isAuthenticated) {
-          const result = await fetchInvestigations() as unknown as { investigations: InvestigationSummary[] };
-          return result.investigations;
-        }
-        return [];
+        throw new Error('Investigation store unavailable.');
       }
     },
     enabled: true,
@@ -198,7 +192,7 @@ function toRow(value: Investigation | InvestigationSummary): InvestigationRow {
     return {
       id: value.id,
       domain: { normalized: value.normalizedUrl },
-      updatedAt: value.createdAt,
+      updatedAt: value.updatedAt ?? value.createdAt,
       selectedCapabilityCount: value.capabilities.length,
       completedCapabilityCount: completed,
       findingsCount: value.findings.length,

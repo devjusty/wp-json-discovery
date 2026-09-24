@@ -59,6 +59,6 @@ describe('resumeInvestigation', () => {
 
     expect(result.persistence.remote).toEqual({ code: 'persistence-failed', message: 'Unable to save investigation.' });
     expect(result.persistence.local).toBe('saved');
-    expect(localSaves).toHaveLength(1);
+    expect(localSaves).toHaveLength(3);
   });
 });

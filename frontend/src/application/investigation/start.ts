@@ -8,12 +8,14 @@ import {
   type InvestigationCommandResult,
   persist,
   runCapabilities,
+  type InvestigationProgressCallback,
 } from './shared';
 
 export type StartInvestigationInput = {
   domain: { submittedUrl: string; normalizedUrl: string };
   redirectChain?: ReadonlyArray<string>;
   capabilities: ReadonlyArray<{ name: string; dependencies?: ReadonlyArray<string>; options?: Record<string, JsonValue> }>;
+  onProgress?: InvestigationProgressCallback;
 };
 
 export type InvestigationCommandDependencies = {
@@ -23,7 +25,7 @@ export type InvestigationCommandDependencies = {
   remoteStore: InvestigationStore;
   createId?: () => string;
   now?: () => string;
-  remoteStart?: (domain: { submitted: string; normalized: string }, capabilities: ReadonlyArray<{ name: string; dependencies?: ReadonlyArray<string>; options?: Record<string, JsonValue> }>) => Promise<Investigation>;
+  remoteStart?: (domain: { submitted: string; normalized: string }, capabilities: ReadonlyArray<{ name: string; dependencies?: ReadonlyArray<string>; options?: Record<string, JsonValue> }>, redirectChain: ReadonlyArray<string>) => Promise<Investigation>;
 };
 
 export type StartInvestigationResult = InvestigationCommandResult;
@@ -40,7 +42,8 @@ export async function startInvestigation(
   const investigation = authenticated && dependencies.remoteStart
     ? await dependencies.remoteStart(
       { submitted: input.domain.submittedUrl, normalized: input.domain.normalizedUrl },
-      input.capabilities,
+       input.capabilities,
+       input.redirectChain ?? [input.domain.normalizedUrl],
     )
     : createInvestigation({
       id: dependencies.createId?.() ?? globalThis.crypto.randomUUID(),
@@ -57,6 +60,10 @@ export async function startInvestigation(
   });
   const store = persistence.store;
   await persist(store, investigation);
-  const result = await runCapabilities(investigation, { store, runner: dependencies.runner });
+  const result = await runCapabilities(investigation, {
+    store,
+    runner: dependencies.runner,
+    onProgress: input.onProgress,
+  });
   return persistence.result(result);
 }

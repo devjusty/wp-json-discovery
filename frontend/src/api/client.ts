@@ -348,10 +348,11 @@ export async function startInvestigation(
   domain: DomainIdentity,
   selectedCapabilities: StartInvestigationRequest['selectedCapabilities'],
   tokenProvider: TokenProvider | null = null,
+  redirectChain: StartInvestigationRequest['redirectChain'] = [domain.normalized],
 ): Promise<InvestigationRecord> {
   return requestInvestigation('/api/investigations', {
     method: 'POST',
-    body: JSON.stringify({ domain, selectedCapabilities })
+    body: JSON.stringify({ domain, selectedCapabilities, redirectChain })
   }, undefined, tokenProvider);
 }
 
@@ -404,7 +405,7 @@ export async function claimAnonymousInvestigation(
 
 export function createInvestigationApiClient(tokenProvider: TokenProvider) {
   return {
-    start: (domain: DomainIdentity, selectedCapabilities: StartInvestigationRequest['selectedCapabilities']) => startInvestigation(domain, selectedCapabilities, tokenProvider),
+    start: (domain: DomainIdentity, selectedCapabilities: StartInvestigationRequest['selectedCapabilities'], redirectChain?: StartInvestigationRequest['redirectChain']) => startInvestigation(domain, selectedCapabilities, tokenProvider, redirectChain),
     get: (id: string) => fetchInvestigation(id, tokenProvider),
     list: () => fetchInvestigations(tokenProvider),
     save: (id: string, session: unknown) => saveInvestigationSession(id, session, tokenProvider),

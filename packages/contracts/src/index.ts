@@ -510,6 +510,7 @@ export type ApiEnvelope = z.infer<typeof apiEnvelopeSchema>;
 export const startInvestigationRequestSchema = z.object({
   domain: domainIdentitySchema,
   selectedCapabilities: z.array(capabilitySelectionSchema),
+  redirectChain: z.array(nonBlankStringSchema).min(1).optional(),
 }).strict().superRefine((request, context) => {
   const selectedIds = new Set(request.selectedCapabilities.map((capability) => capability.id));
   if (request.selectedCapabilities.length !== selectedIds.size) {

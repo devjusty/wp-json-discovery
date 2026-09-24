@@ -38,7 +38,7 @@ const prefetchPage = (page) => {
   }
 };
 
-function AppContent() {
+function AppContent({ authSession }) {
   const {
     activePage,
     setActivePage,
@@ -145,7 +145,7 @@ function AppContent() {
         </p>
       </div>
     );
-  }, [activePage, currentScanDomain, navigateTopLevel, isAdmin, isAuthenticated]);
+  }, [activePage, currentScanDomain, navigateTopLevel, isAdmin]);
   if (activePage === 'admin') {
     if (!isAdmin) {
       return (
@@ -227,6 +227,7 @@ function AppContent() {
             embedded
             onNavigate={navigateTopLevel}
             isAuthenticated={isAuthenticated}
+            authSession={authSession}
             onResumeLocal={() => {
               setSelectedInvestigationId('local');
                navigateTopLevel('scan');
@@ -244,7 +245,7 @@ function AppContent() {
     return (
       <InvestigatorShell readModel={investigatorReadModel} commands={{ onSectionChange: handleInvestigatorSectionChange, onRetry: retryInvestigatorCapability }} activeSection={activeInvestigatorSection} contentLandmark="main" contentMode="legacy">
         <Suspense fallback={<PageLoadingState label="Loading scanner..." />}>
-          <ScanPage headerActions={headerActions} onNavigate={navigateTopLevel} isAdmin={isAdmin} isAuthenticated={isAuthenticated} activeSection={activeInvestigatorSection} onSectionChange={handleInvestigatorSectionChange} embedded />
+          <ScanPage authSession={authSession} headerActions={headerActions} onNavigate={navigateTopLevel} isAdmin={isAdmin} isAuthenticated={isAuthenticated} activeSection={activeInvestigatorSection} onSectionChange={handleInvestigatorSectionChange} embedded />
         </Suspense>
       </InvestigatorShell>
     );
@@ -273,10 +274,24 @@ function App() {
     }));
   }, [user]);
 
+  const authSession = useMemo(() => ({
+    getUserId: () => user?.sub ?? null,
+    getAccessToken: async () => {
+      if (!isAuthenticated) return null;
+      try {
+        return await getAccessTokenSilently({
+          authorizationParams: { audience: import.meta.env.VITE_AUTH0_AUDIENCE },
+        });
+      } catch {
+        return null;
+      }
+    },
+  }), [getAccessTokenSilently, isAuthenticated, user?.sub]);
+
   return (
     <TooltipProvider>
       <ScanProvider>
-        <AppContent />
+        <AppContent authSession={authSession} />
       </ScanProvider>
     </TooltipProvider>
   );

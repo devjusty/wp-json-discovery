@@ -8,6 +8,7 @@ import {
 import { AuthenticationRequiredError } from '../contractErrors';
 
 export type RemoteInvestigationTransport = {
+  start?: (domain: { submitted: string; normalized: string }, selectedCapabilities: ReadonlyArray<{ id: string; dependencies: ReadonlyArray<string>; options?: Record<string, unknown> }>, redirectChain: ReadonlyArray<string>) => Promise<Investigation>;
   save: (investigation: Investigation) => Promise<void>;
   get: (id: string) => Promise<Investigation | null>;
   list: () => Promise<Investigation[]>;

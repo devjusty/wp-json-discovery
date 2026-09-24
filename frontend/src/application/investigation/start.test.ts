@@ -31,7 +31,7 @@ describe('startInvestigation', () => {
     expect(result.investigation.capabilities).toEqual([expect.objectContaining({
       name: 'homepage', status: 'success', result: { findings: [] },
     })]);
-    expect(deps.saved).toHaveLength(2);
+    expect(deps.saved).toHaveLength(4);
   });
 
   it('returns typed persistence failure for authenticated save errors', async () => {

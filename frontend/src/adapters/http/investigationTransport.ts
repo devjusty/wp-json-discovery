@@ -34,6 +34,7 @@ export type InvestigationTransport = {
   start(
     domain: DomainIdentity,
     selectedCapabilities: StartInvestigationRequest['selectedCapabilities'],
+    redirectChain?: StartInvestigationRequest['redirectChain'],
   ): Promise<Investigation>;
   save(investigation: Investigation): Promise<void>;
   get(id: string): Promise<Investigation | null>;
@@ -42,7 +43,7 @@ export type InvestigationTransport = {
 };
 
 type ValidatedClient = {
-  start?: (domain: DomainIdentity, selectedCapabilities: StartInvestigationRequest['selectedCapabilities']) => Promise<unknown>;
+  start?: (domain: DomainIdentity, selectedCapabilities: StartInvestigationRequest['selectedCapabilities'], redirectChain?: StartInvestigationRequest['redirectChain']) => Promise<unknown>;
   get: (id: string) => Promise<unknown>;
   list: () => Promise<unknown>;
   save: (id: string, session: unknown) => Promise<unknown>;
@@ -51,7 +52,7 @@ type ValidatedClient = {
 };
 
 const defaultClient: ValidatedClient = {
-  start: startInvestigation,
+  start: (domain, selectedCapabilities, redirectChain) => startInvestigation(domain, selectedCapabilities, null, redirectChain),
   get: fetchInvestigation,
   list: fetchInvestigations,
   save: saveInvestigationSession,
@@ -72,11 +73,11 @@ export const createInvestigationTransport = (
 ): InvestigationTransport => {
   const source = { ...defaultClient, ...client };
   return {
-  async start(domain, selectedCapabilities) {
-    const request = startInvestigationRequestSchema.safeParse({ domain, selectedCapabilities });
+  async start(domain, selectedCapabilities, redirectChain) {
+    const request = startInvestigationRequestSchema.safeParse({ domain, selectedCapabilities, redirectChain: redirectChain ?? [domain.normalized] });
     if (!request.success) throw new ContractInvalidError('Invalid investigation start request', request.error);
     if (!source.start) throw new Error('Investigation client cannot start.');
-    const investigation = mapRecord(await call(source.start(request.data.domain, request.data.selectedCapabilities), 'start'));
+    const investigation = mapRecord(await call(source.start(request.data.domain, request.data.selectedCapabilities, request.data.redirectChain), 'start'));
     assertDomainIdentity(investigation, request.data.domain);
     return investigation;
   },
@@ -213,7 +214,10 @@ function parseSession(value: unknown): SessionRecord {
 function recordToDomain(record: InvestigationRecord): Investigation {
   const session = record.latestSession;
   if (session?.investigationState !== undefined) {
-    return parseState(session.investigationState, { id: record.investigation.id, ...record.investigation.domain });
+    return {
+      ...parseState(session.investigationState, { id: record.investigation.id, ...record.investigation.domain }),
+      updatedAt: record.updatedAt,
+    };
   }
   throw new ContractInvalidError('Investigation response is missing validated full state');
 }

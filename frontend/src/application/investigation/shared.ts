@@ -38,6 +38,8 @@ export type InvestigationCommandResult = {
   persistence: PersistenceMetadata;
 };
 
+export type InvestigationProgressCallback = (investigation: Investigation) => void | Promise<void>;
+
 export const toLifecycleState = (investigation: Investigation): InvestigationLifecycleState => ({
   status: investigation.capabilities.some(({ status }) => status !== 'queued') ? 'running' : 'idle',
   startedAt: null,
@@ -141,13 +143,13 @@ export const createPersistenceContext = (dependencies: {
 
 export const runCapabilities = async (
   investigation: Investigation,
-  { store, runner }: CommandDependencies,
+  { store, runner, onProgress }: CommandDependencies & { onProgress?: InvestigationProgressCallback },
 ): Promise<Investigation> => {
   const changed = investigation.capabilities
     .filter(({ status }) => status === 'queued')
     .map(({ name }) => name);
   if (changed.length === 0) return investigation;
-  const current = await runDomainCapabilities(investigation, runner);
+  const current = await runDomainCapabilities(investigation, runner, store, onProgress);
   await persist(store, current);
   return current;
 };
@@ -155,7 +157,7 @@ export const runCapabilities = async (
 export const retryWithCoordinator = async (
   investigation: Investigation,
   capability: string,
-  { store, runner }: CommandDependencies,
+  { store, runner, onProgress }: CommandDependencies & { onProgress?: InvestigationProgressCallback },
 ): Promise<Investigation> => {
   const currentCapability = investigation.capabilities.find(({ name }) => name === capability);
   if (!currentCapability || currentCapability.status !== 'failed' || !currentCapability.error?.retryable) {
@@ -163,17 +165,24 @@ export const retryWithCoordinator = async (
   }
   let current = transition(investigation, { type: 'capability-queued', capability });
   current = transition(current, { type: 'capability-running', capability });
+  await publishProgress(current, store, onProgress);
   try {
     const result = await runner.run({ investigation: current, capability, options: currentCapability.options });
     current = transition(current, { type: 'capability-succeeded', capability, result });
   } catch (cause) {
     current = transition(current, { type: 'capability-failed', capability, error: normalizeRunnerError(cause) });
   }
+  await publishProgress(current, store, onProgress);
   await persist(store, current);
   return current;
 };
 
-async function runDomainCapabilities(investigation: Investigation, runner: CapabilityRunner): Promise<Investigation> {
+async function runDomainCapabilities(
+  investigation: Investigation,
+  runner: CapabilityRunner,
+  store: InvestigationStore,
+  onProgress?: InvestigationProgressCallback,
+): Promise<Investigation> {
   let current = investigation;
   while (current.capabilities.some(({ status }) => status === 'queued')) {
     const pending = current.capabilities.filter(({ status }) => status === 'queued');
@@ -181,7 +190,7 @@ async function runDomainCapabilities(investigation: Investigation, runner: Capab
       const state = current.capabilities.find(({ name }) => name === dependency);
       return state?.status === 'failed' || state?.status === 'unavailable';
     }));
-    blocked.forEach(({ name, dependencies = [] }) => {
+    for (const { name, dependencies = [] } of blocked) {
       const dependency = dependencies.find((id) => current.capabilities.find(({ name: candidate }) => candidate === id)?.status === 'failed');
       if (current.capabilities.find(({ name: candidate }) => candidate === name)?.status === 'queued') {
         current = transition(current, { type: 'capability-running', capability: name });
@@ -190,19 +199,31 @@ async function runDomainCapabilities(investigation: Investigation, runner: Capab
         type: 'capability-unavailable', capability: name, dependencyId: dependency,
         error: { code: 'dependency_failed', message: 'Required capability did not complete.', retryable: false },
       });
-    });
+      await publishProgress(current, store, onProgress);
+    }
     const runnable = current.capabilities.filter(({ status, dependencies = [] }) => (
       status === 'queued' && dependencies.every((dependency) => current.capabilities.find(({ name }) => name === dependency)?.status === 'success')
     ));
     if (runnable.length === 0) break;
     runnable.forEach(({ name }) => { current = transition(current, { type: 'capability-running', capability: name }); });
+    await publishProgress(current, store, onProgress);
     const settled = await Promise.allSettled(runnable.map(({ name, options }) => runner.run({ investigation: current, capability: name, options })));
-    settled.forEach((outcome, index) => {
+    for (const [index, outcome] of settled.entries()) {
       const name = runnable[index].name;
       current = outcome.status === 'fulfilled'
         ? transition(current, { type: 'capability-succeeded', capability: name, result: outcome.value })
         : transition(current, { type: 'capability-failed', capability: name, error: normalizeRunnerError(outcome.reason) });
-    });
+      await publishProgress(current, store, onProgress);
+    }
   }
   return current;
+}
+
+async function publishProgress(
+  investigation: Investigation,
+  store: InvestigationStore,
+  onProgress?: InvestigationProgressCallback,
+): Promise<void> {
+  await persist(store, investigation);
+  await onProgress?.(investigation);
 }

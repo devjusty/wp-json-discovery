@@ -12,6 +12,7 @@ import { createLegacyCapabilityRunner } from '../adapters/capabilities/legacyCap
 import { createLocalInvestigationStore } from '../adapters/persistence/localInvestigationStore.ts';
 import { createRemoteInvestigationStore } from '../adapters/persistence/remoteInvestigationStore.ts';
 import { createInvestigationTransport } from '../adapters/http/investigationTransport.ts';
+import { createInvestigationApiClient } from '../api/client.ts';
 import { normalizeDomain } from '../utils/format.js';
 
 const DEPENDENCY_ERROR = {
@@ -180,18 +181,18 @@ export function createInvestigatorWorkflow({
   normalize = normalizeDomain,
   redirectChain = undefined,
   remoteStart = undefined,
+  onProgress = undefined,
 }) {
-  const resolvedAuth = auth ?? { getUserId: () => null, getAccessToken: async () => null };
+  if (!auth || typeof auth.getUserId !== 'function' || typeof auth.getAccessToken !== 'function') {
+    throw new Error('Investigation workflow requires an AuthSession.');
+  }
   const resolvedLocalStore = localStore ?? createLocalInvestigationStore();
-  const resolvedRemoteStore = remoteStore ?? createRemoteInvestigationStore({
-    authSession: {
-      ...resolvedAuth,
-      getAccessToken: async () => (await resolvedAuth.getAccessToken()) ?? 'authenticated',
-    },
-  });
+  const resolvedRemoteStore = remoteStore ?? createRemoteInvestigationStore({ authSession: auth });
+  const authenticatedTransport = createInvestigationTransport(
+    createInvestigationApiClient(() => auth.getAccessToken()),
+  );
   localStore = resolvedLocalStore;
   remoteStore = resolvedRemoteStore;
-  auth = resolvedAuth;
   const dependencies = { auth, localStore, remoteStore, runner };
 
   const present = (result) => {
@@ -213,13 +214,20 @@ export function createInvestigatorWorkflow({
     const { startInvestigation: startCommand } = await import('../application/investigation/start.ts');
     const result = await startCommand({
       domain: { submittedUrl, normalizedUrl: normalize(submittedUrl) },
-      redirectChain: redirectChain ?? [normalize(submittedUrl)],
-      capabilities: selection.capabilityIds.map((name) => ({
+       redirectChain: redirectChain ?? [normalize(submittedUrl)],
+       capabilities: selection.capabilityIds.map((name) => ({
         name,
         options: selection.options[name],
         dependencies: getCapabilityDependencies()[name] ?? [],
       })),
-      remoteStart: auth.getUserId?.() ? (remoteStart ?? createInvestigationTransport().start) : undefined,
+       remoteStart: auth.getUserId?.()
+          ? (remoteStart ?? ((identity, capabilities, chain) => authenticatedTransport.start(
+           identity,
+           capabilities.map(({ name, dependencies = [], options }) => ({ id: name, dependencies, ...(options ? { options } : {}) })),
+           chain,
+         )))
+         : undefined,
+       onProgress,
     }, dependencies);
     return present(result);
   };
@@ -230,7 +238,8 @@ export function createInvestigatorWorkflow({
       auth,
       store: auth?.getUserId?.() ? remoteStore : localStore,
       localStore,
-      runner,
+       runner,
+       onProgress,
     }));
   };
 
@@ -240,7 +249,8 @@ export function createInvestigatorWorkflow({
       auth,
       store: auth?.getUserId?.() ? remoteStore : localStore,
       localStore,
-      runner,
+       runner,
+       onProgress,
     }));
   };
 
@@ -249,7 +259,19 @@ export function createInvestigatorWorkflow({
     return present(await claimCommand(id, { auth, localStore, remoteStore }));
   };
 
-  return { start, retry, resume, claim, list: () => (auth?.getUserId?.() ? remoteStore : localStore).list() };
+  const run = async (investigation) => {
+    const { resumeInvestigation: resumeCommand } = await import('../application/investigation/resume.ts');
+    await (auth.getUserId?.() ? remoteStore : localStore).save(investigation);
+    return present(await resumeCommand(investigation.id, {
+      auth,
+      store: auth?.getUserId?.() ? remoteStore : localStore,
+      localStore,
+      runner,
+      onProgress,
+    }));
+  };
+
+  return { start, run, retry, resume, claim, list: () => (auth?.getUserId?.() ? remoteStore : localStore).list() };
 }
 
 export function getContextualCapabilityIds(session) {

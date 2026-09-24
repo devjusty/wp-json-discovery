@@ -251,7 +251,7 @@ describe('investigation transport', () => {
       save: async () => validSessionRecord(),
     });
 
-    await expect(transport.get(full.id)).resolves.toEqual(full);
+    await expect(transport.get(full.id)).resolves.toEqual({ ...full, updatedAt: full.createdAt });
   });
 
   it('preserves successful capability results when serializing a session', async () => {

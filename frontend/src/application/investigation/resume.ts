@@ -6,11 +6,12 @@ import {
   createPersistenceContext,
   InvestigationCommandError,
   runCapabilities,
+  type InvestigationProgressCallback,
 } from './shared';
 
 export async function resumeInvestigation(
   id: string,
-  dependencies: { store: InvestigationStore; localStore?: InvestigationStore; auth?: AuthSession; runner: CapabilityRunner },
+  dependencies: { store: InvestigationStore; localStore?: InvestigationStore; auth?: AuthSession; runner: CapabilityRunner; onProgress?: InvestigationProgressCallback },
 ) {
   let investigation: Investigation | null;
   try {
@@ -20,6 +21,6 @@ export async function resumeInvestigation(
   }
   if (!investigation) throw new InvestigationCommandError('not-found', 'Investigation not found.');
   const persistence = createPersistenceContext(dependencies);
-  const result = await runCapabilities(investigation, { store: persistence.store, runner: dependencies.runner });
+  const result = await runCapabilities(investigation, { store: persistence.store, runner: dependencies.runner, onProgress: dependencies.onProgress });
   return persistence.result(result);
 }

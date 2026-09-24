@@ -9,10 +9,6 @@ import {
   fetchUnsupportedPlugins,
   fetchUserRecentRuns,
   request,
-  startInvestigation,
-  fetchInvestigation,
-  saveInvestigationSession,
-  claimAnonymousInvestigation
 } from '../../api/client.js';
 import {
   useScanResultsContext,
@@ -24,31 +20,19 @@ import RecentDomainsCard from './scan/RecentDomainsCard.jsx';
 import ScanStatusStack from './scan/ScanStatusStack';
 import { mergeRecentScans } from '../../utils/scanFeed.js';
 import {
-  createInvestigationSession,
   addInvestigationCapability,
-  getInvestigatorSelection,
-  recoverInvestigationSession,
-  retryInvestigationCapability,
-  runInvestigationSession,
   createInvestigatorWorkflow
 } from '../../services/investigationSession.js';
 import {
-  getCapabilityRunners,
-  getCapabilitySelection
-} from '../../services/scanCapabilities.js';
-import {
-  createClaimPayload,
   loadAnonymousInvestigation,
   loadAuthenticatedInvestigationId,
-  saveAuthenticatedInvestigationId,
-  removeAnonymousInvestigation,
-  saveAnonymousInvestigation
+  removeAnonymousInvestigation
 } from '../../services/anonymousInvestigations.js';
 import { normalizeCapabilityStates } from '../../domain/investigation/capabilityStates';
 
 const noopSetInvestigatorRetryCapability = () => undefined;
-import { normalizeDomain } from '../../utils/format.js';
-import { createPersistableSession } from '../../adapters/persistence/sessionMapping';
+import type { AuthSession } from '../../application/ports/auth-session';
+import { domainToSession } from '../../adapters/persistence/sessionMapping';
 
 type ScanPageProps = {
   headerActions: ReactNode;
@@ -58,9 +42,10 @@ type ScanPageProps = {
   activeSection?: string;
   onSectionChange?: (sectionId: string) => void;
   embedded?: boolean;
+  authSession?: AuthSession;
 };
 
-function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeSection: controlledActiveSection, onSectionChange, embedded = false }: ScanPageProps) {
+function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, authSession, activeSection: controlledActiveSection, onSectionChange, embedded = false }: ScanPageProps) {
   const {
     domain,
     handleDomainChange: onDomainChange,
@@ -82,10 +67,8 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeS
     retryCapability
   } = useScanResultsContext();
 
-  // Legacy page tests can render without ScanProvider; production uses context as sole source.
-  const [fallbackInvestigatorSession, setFallbackInvestigatorSession] = useState(null);
-  const investigatorSession = contextInvestigatorSession ?? fallbackInvestigatorSession;
-  const setInvestigatorSession = contextSetInvestigatorSession ?? setFallbackInvestigatorSession;
+  const investigatorSession = contextInvestigatorSession;
+  const setInvestigatorSession = contextSetInvestigatorSession;
   const setInvestigatorRetryCapability = contextSetInvestigatorRetryCapability ?? noopSetInvestigatorRetryCapability;
 
   const [sitemapFilter, setSitemapFilter] = useState('all');
@@ -107,79 +90,45 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeS
   const [isResumingInvestigation, setIsResumingInvestigation] = useState(false);
   const [resumeError, setResumeError] = useState('');
   const startInFlightRef = useRef(false);
-  const persistenceQueueRef = useRef(Promise.resolve());
-  const persistenceRevisionRef = useRef(0);
-  const investigatorWorkflow = useMemo(() => (
-    typeof createInvestigatorWorkflow === 'function'
-      ? createInvestigatorWorkflow({
-        auth: {
-          getUserId: () => isAuthenticated ? 'authenticated' : null,
-          getAccessToken: async () => isAuthenticated ? 'authenticated' : null,
-        },
-      })
-      : null
-  ), [isAuthenticated]);
-
-  const persistInvestigatorSession = useCallback(async (nextSession, identity) => {
-    const snapshot = {
-      domain: identity,
-      session: nextSession,
-      persistedAt: new Date().toISOString()
-    };
-    if (isAuthenticated) {
-      saveAuthenticatedInvestigationId(nextSession.investigationId);
-      const revision = ++persistenceRevisionRef.current;
-      const persist = async () => {
-        try {
-          const persistable = createPersistableSession(nextSession, identity);
-          await saveInvestigationSession(nextSession.investigationId, persistable);
-        } catch (error) {
-          if (revision !== persistenceRevisionRef.current) return;
-          saveAnonymousInvestigation(snapshot);
-          setAnonymousSnapshot(snapshot);
-          setInvestigatorError(`Investigation progress could not be saved. Local copy kept: ${error.message}`);
-        }
-      };
-      persistenceQueueRef.current = persistenceQueueRef.current.then(persist, persist);
-    } else {
-      saveAnonymousInvestigation(snapshot);
-      setAnonymousSnapshot(loadAnonymousInvestigation());
-    }
-  }, [isAuthenticated]);
+  const investigatorWorkflow = useMemo(() => authSession
+    ? createInvestigatorWorkflow({
+      auth: authSession,
+      onProgress: (investigation) => setInvestigatorSession(domainToSession(investigation)),
+    })
+    : null, [authSession, setInvestigatorSession]);
 
   useEffect(() => {
     const snapshot = loadAnonymousInvestigation();
-    if (snapshot) {
-      setAnonymousSnapshot(snapshot);
-       if (!isAuthenticated || selectedInvestigationId === 'local') {
-        const hydrated = hydrateSession(snapshot.record.session, snapshot.domain, scanSettings.options, true);
-        setInvestigatorSession(hydrated);
-        onDomainChange(snapshot.domain.submitted);
-        setInvestigatorDomain(snapshot.domain.normalized);
-        if (hydrated !== snapshot.record.session) void persistInvestigatorSession(hydrated, snapshot.domain);
-      }
-    }
-    // Snapshot selection options are restored from persisted scan settings when
-    // engine-private selection metadata was not serialized.
-  }, [isAuthenticated, persistInvestigatorSession, selectedInvestigationId]);
+    if (!snapshot) return;
+    setAnonymousSnapshot(snapshot);
+    if (isAuthenticated || !investigatorWorkflow) return;
+    const investigationId = snapshot.record?.session?.investigationId;
+    if (!investigationId) return;
+    setIsResumingInvestigation(true);
+    investigatorWorkflow.resume(investigationId)
+      .then((result) => {
+        setInvestigatorSession(result.session);
+        onDomainChange(result.investigation.submittedUrl);
+        setInvestigatorDomain(result.investigation.normalizedUrl);
+      })
+      .catch((error) => setResumeError(`Saved investigation could not be resumed: ${error.message}`))
+      .finally(() => setIsResumingInvestigation(false));
+  }, [investigatorWorkflow, isAuthenticated, onDomainChange, setInvestigatorDomain, setInvestigatorSession]);
 
   useEffect(() => {
-    if (!isAuthenticated || selectedInvestigationId === 'local') return undefined;
+    if (!isAuthenticated || selectedInvestigationId === 'local' || !investigatorWorkflow) return undefined;
     if (activeDomain && !selectedInvestigationId) return undefined;
     const investigationId = selectedInvestigationId || loadAuthenticatedInvestigationId();
     if (!investigationId) return undefined;
     let cancelled = false;
     setIsResumingInvestigation(true);
     setResumeError('');
-    fetchInvestigation(investigationId)
-      .then((record) => {
+    investigatorWorkflow.resume(investigationId)
+      .then((result) => {
         if (cancelled) return;
-        if (!record.latestSession) throw new Error('Saved investigation has no resumable session');
-        const hydrated = hydrateSession(record.latestSession, record.investigation.domain, {}, true);
-        setInvestigatorSession(hydrated);
-        onDomainChange(record.investigation.domain.submitted);
-        setInvestigatorDomain(record.investigation.domain.normalized);
-        if (hydrated !== record.latestSession) void persistInvestigatorSession(hydrated, record.investigation.domain);
+        setInvestigatorSession(result.session);
+        onDomainChange(result.investigation.submittedUrl);
+        setInvestigatorDomain(result.investigation.normalizedUrl);
       })
       .catch((error) => {
         if (!cancelled) setResumeError(`Saved investigation could not be resumed: ${error.message}`);
@@ -188,64 +137,26 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeS
         if (!cancelled) setIsResumingInvestigation(false);
       });
     return () => { cancelled = true; };
-  }, [activeDomain, isAuthenticated, persistInvestigatorSession, selectedInvestigationId]);
+  }, [activeDomain, investigatorWorkflow, isAuthenticated, onDomainChange, selectedInvestigationId, setInvestigatorDomain, setInvestigatorSession]);
 
   const handleInvestigatorSubmit = useCallback(async (normalizedValue, submittedValue = normalizedValue) => {
     if (startInFlightRef.current) return;
     startInFlightRef.current = true;
     setIsStartingInvestigation(true);
     setInvestigatorError('');
-    if (investigatorWorkflow) {
-      try {
-        const result = await investigatorWorkflow.start(submittedValue, scanSettings);
-        setInvestigatorSession(result.session);
-        onDomainChange(result.investigation.submittedUrl);
-        setInvestigatorDomain(result.investigation.normalizedUrl);
-      } catch (error) {
-        setInvestigatorError(error.message ?? 'Investigation could not start. Check domain and try again.');
-      } finally {
-        startInFlightRef.current = false;
-        setIsStartingInvestigation(false);
-      }
-      return;
-    }
-    const identity = { submitted: submittedValue, normalized: normalizeDomain(normalizedValue) };
-    onDomainChange(identity.submitted);
-    setInvestigatorDomain(identity.normalized);
-    const selection = getInvestigatorSelection();
     try {
-       let investigationId: string = globalThis.crypto?.randomUUID?.() ?? `anonymous-${Date.now()}`;
-      let sessionId = `session-${Date.now()}`;
-      const nextSession = createInvestigationSession({ investigationId, domain: identity, selection });
-      nextSession.id = sessionId;
-      let hydratedNextSession = hydrateSession(nextSession, identity, selection.options);
-      setInvestigatorSession(hydratedNextSession);
-      if (isAuthenticated) {
-        const record = await startInvestigation(identity, hydratedNextSession.selectedCapabilities);
-        investigationId = record.investigation.id;
-        sessionId = record.sessionIds[0];
-        hydratedNextSession = hydrateSession({ ...hydratedNextSession, investigationId, id: sessionId }, identity, selection.options);
-        setInvestigatorSession(hydratedNextSession);
-      }
-      const token = { active: true };
-      const onChange = (changedSession) => {
-        const hydrated = hydrateSession(changedSession, identity, selection.options);
-        setInvestigatorSession(hydrated);
-        void persistInvestigatorSession(hydrated, identity);
-      };
-      const result = await runInvestigationSession(hydratedNextSession, getCapabilityRunners(selection.capabilityIds), onChange, token);
-      if (result) {
-        const hydrated = hydrateSession(result, identity, selection.options);
-        setInvestigatorSession(hydrated);
-        void persistInvestigatorSession(hydrated, identity);
-      }
+      if (!investigatorWorkflow) throw new Error('Investigation authentication context is unavailable.');
+      const result = await investigatorWorkflow.start(submittedValue, scanSettings);
+      setInvestigatorSession(result.session);
+      onDomainChange(result.investigation.submittedUrl);
+      setInvestigatorDomain(result.investigation.normalizedUrl);
     } catch (error) {
       setInvestigatorError(error.message ?? 'Investigation could not start. Check domain and try again.');
     } finally {
       startInFlightRef.current = false;
       setIsStartingInvestigation(false);
     }
-  }, [investigatorWorkflow, isAuthenticated, persistInvestigatorSession, scanSettings]);
+  }, [investigatorWorkflow, onDomainChange, scanSettings, setInvestigatorDomain, setInvestigatorSession]);
 
   const handleRecentDomainRescan = useCallback((value) => {
     return handleInvestigatorSubmit(value, value);
@@ -253,33 +164,24 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeS
 
   const handleRunInvestigatorCapability = useCallback(async (id, options = {}) => {
     if (!investigatorSession || retryingCapabilityId) return;
-    const identity = investigatorSession.domain;
-    const current = id === 'sitemap'
-      ? addInvestigationCapability(investigatorSession, id, options)
-      : investigatorSession;
-    const onChange = (changedSession) => {
-      const hydrated = hydrateSession(changedSession, identity, current.selection?.options);
-      setInvestigatorSession(hydrated);
-      void persistInvestigatorSession(hydrated, identity);
-    };
     try {
-      const result = await runInvestigationSession(current, getCapabilityRunners([id]), onChange, { active: true });
-      if (result) {
-        const hydrated = hydrateSession(result, identity, current.selection?.options);
-        setInvestigatorSession(hydrated);
-        void persistInvestigatorSession(hydrated, identity);
-      }
+      const current = id === 'sitemap'
+        ? addInvestigationCapability(investigatorSession, id, options)
+        : investigatorSession;
+      if (!investigatorWorkflow) throw new Error('Investigation authentication context is unavailable.');
+      const result = await investigatorWorkflow.run(current.investigationState);
+      setInvestigatorSession(result.session);
     } catch (error) {
       setInvestigatorError(error.message ?? `Could not run ${id}. Try again.`);
     }
-  }, [investigatorSession, persistInvestigatorSession, retryingCapabilityId]);
+  }, [investigatorSession, investigatorWorkflow, retryingCapabilityId, setInvestigatorSession]);
 
   const handleRetryInvestigatorCapability = useCallback(async (id) => {
     if (!investigatorSession || retryingCapabilityId) return;
     setRetryingCapabilityId(id);
-    if (investigatorWorkflow?.retry && investigatorSession.investigationState) {
+    if (investigatorSession.investigationState && investigatorWorkflow) {
       try {
-        const result = await investigatorWorkflow.retry(investigatorSession.investigationState, id);
+      const result = await investigatorWorkflow.retry(investigatorSession.investigationState, id);
         setInvestigatorSession(result.session);
       } catch (error) {
         setInvestigatorError(error.message ?? `Could not retry ${id}. Try again.`);
@@ -288,22 +190,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeS
       }
       return;
     }
-    const token = { active: true };
-    const identity = investigatorSession.domain;
-    const onChange = (changedSession) => {
-      const hydrated = hydrateSession(changedSession, identity, investigatorSession.selection?.options);
-      setInvestigatorSession(hydrated);
-      void persistInvestigatorSession(hydrated, identity);
-    };
-    try {
-      const result = await retryInvestigationCapability(investigatorSession, id, getCapabilityRunners([id]), onChange, token);
-      if (result) setInvestigatorSession(hydrateSession(result, identity, investigatorSession.selection?.options));
-    } catch (error) {
-      setInvestigatorError(error.message ?? `Could not retry ${id}. Try again.`);
-    } finally {
-      setRetryingCapabilityId(null);
-    }
-  }, [investigatorSession, investigatorWorkflow, persistInvestigatorSession, retryingCapabilityId]);
+  }, [investigatorSession, investigatorWorkflow, retryingCapabilityId, setInvestigatorSession]);
 
   useEffect(() => {
     setInvestigatorRetryCapability(() => handleRetryInvestigatorCapability);
@@ -315,7 +202,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeS
     setClaimError('');
     if (typeof window.confirm === 'function' && !window.confirm('Import this investigation?')) return;
     try {
-      if (investigatorWorkflow?.claim && anonymousSnapshot.record?.session?.investigationId) {
+      if (anonymousSnapshot.record?.session?.investigationId) {
         const result = await investigatorWorkflow.claim(anonymousSnapshot.record.session.investigationId);
         removeAnonymousInvestigation();
         setAnonymousSnapshot(null);
@@ -324,25 +211,10 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeS
         setInvestigatorDomain(result.investigation.normalizedUrl);
         return;
       }
-      const payload = createClaimPayload(anonymousSnapshot);
-      if (!payload) return;
-      const record = await claimAnonymousInvestigation(payload.domain, payload.anonymousRecord);
-      removeAnonymousInvestigation();
-      setAnonymousSnapshot(null);
-      if (record?.investigation) {
-        saveAuthenticatedInvestigationId(record.investigation.id);
-        if (record.latestSession) {
-          const hydrated = hydrateSession(record.latestSession, record.investigation.domain, {}, true);
-          setInvestigatorSession(hydrated);
-          onDomainChange(record.investigation.domain.submitted);
-          setInvestigatorDomain(record.investigation.domain.normalized);
-          if (hydrated !== record.latestSession) void persistInvestigatorSession(hydrated, record.investigation.domain);
-        }
-      }
     } catch (error) {
       setClaimError(error.message ?? 'Import failed. Your local investigation remains available.');
     }
-  }, [anonymousSnapshot, investigatorWorkflow, persistInvestigatorSession]);
+  }, [anonymousSnapshot, investigatorWorkflow, onDomainChange, setInvestigatorDomain, setInvestigatorSession]);
 
   const visibleSection = !isAdmin && (activeSection === 'unsupported' || activeSection === 'recon')
     ? 'overview'
@@ -510,31 +382,6 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, activeS
 
     </AppLayout>
   );
-}
-
-function hydrateSession(session, domain, fallbackOptions = {}, recover = false) {
-  if (!session) return null;
-  const selectedCapabilities = (session.selectedCapabilities ?? []).map((capability) => {
-    const registered = getCapabilitySelection(capability.id);
-    return registered
-      ? { ...capability, dependencies: registered.dependencies }
-      : { ...capability, dependencies: [...(capability.dependencies ?? [])] };
-  });
-  const hydrated = { ...session };
-  Object.defineProperty(hydrated, 'domain', { value: domain, enumerable: false, configurable: true });
-  const options = session.selection?.options ?? fallbackOptions;
-  Object.defineProperty(hydrated, 'selection', {
-    value: {
-      capabilityIds: session.selection?.capabilityIds ?? selectedCapabilities.map(({ id }) => id),
-      options: Object.fromEntries(selectedCapabilities.map(({ id, options: persistedOptions }) => [id, {
-        ...(options[id] ?? {}),
-        ...(persistedOptions ?? {})
-      }]))
-    },
-    enumerable: false,
-    configurable: true
-  });
-  return recover ? recoverInvestigationSession(hydrated) : hydrated;
 }
 
 function bridgeInvestigatorSession(session) {

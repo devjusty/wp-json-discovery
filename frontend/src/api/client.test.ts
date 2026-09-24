@@ -93,7 +93,8 @@ describe('request', () => {
     expect(url).toBe('http://localhost:4100/api/investigations');
     expect(JSON.parse(init.body as string)).toEqual({
       domain: { submitted: 'Example.com', normalized: 'https://example.com' },
-      selectedCapabilities: [{ id: 'wordpress', dependencies: [] }]
+      selectedCapabilities: [{ id: 'wordpress', dependencies: [] }],
+      redirectChain: ['https://example.com'],
     });
     expect((init.headers as Headers).get('authorization')).toBe('Bearer investigation-token');
   });

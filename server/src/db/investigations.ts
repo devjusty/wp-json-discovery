@@ -92,12 +92,12 @@ function sessionRecord(session, persistedAt) {
   return parse(sessionRecordSchema, { recordType: 'session', session, persistedAt });
 }
 
-function investigationState(id, domain, selectedCapabilities, createdAt) {
+function investigationState(id, domain, selectedCapabilities, createdAt, redirectChain = [domain.normalized]) {
   return {
     id,
     submittedUrl: domain.submitted,
     normalizedUrl: domain.normalized,
-    redirectChain: [],
+    redirectChain,
     createdAt,
     capabilities: selectedCapabilities.map(({ id: name, dependencies, options }) => ({
       name,
@@ -154,7 +154,13 @@ export async function createInvestigation(ownerId, request) {
       { status: 'idle', retry: { status: 'not-retryable' } },
     ])),
     overall: { status: 'incomplete' },
-    investigationState: investigationState(id, input.domain, input.selectedCapabilities, now),
+    investigationState: investigationState(
+      id,
+      input.domain,
+      input.selectedCapabilities,
+      now,
+      input.redirectChain?.length ? input.redirectChain : [input.domain.normalized],
+    ),
   });
 
   await executeBatch([

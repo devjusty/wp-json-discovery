@@ -79,7 +79,8 @@ describe('investigation routes', () => {
       .post('/api/investigations')
       .send({
         domain: { submitted: 'EXAMPLE.COM', normalized: 'https://forged.example.com' },
-        selectedCapabilities: [],
+       selectedCapabilities: [],
+       redirectChain: ['https://redirect.example', 'https://example.com'],
       });
 
     expect(response.status).toBe(201);
@@ -87,6 +88,10 @@ describe('investigation routes', () => {
       submitted: 'EXAMPLE.COM',
       normalized: 'example.com',
     });
+    expect(response.body.data.latestSession.investigationState.redirectChain).toEqual([
+      'https://redirect.example',
+      'https://example.com',
+    ]);
   });
 
   it('requires authentication for canonical investigation reads', async () => {

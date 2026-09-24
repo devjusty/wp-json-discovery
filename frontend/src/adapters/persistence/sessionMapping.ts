@@ -10,7 +10,7 @@ export function domainToSession(investigation: Investigation) {
   const status = active ? 'running' : hasFailure && !hasSuccess ? 'failed' : 'completed';
   const timestamp = investigation.createdAt;
 
-  return {
+  const session = {
     id: `${investigation.id}-session`,
     investigationId: investigation.id,
     status,
@@ -32,6 +32,11 @@ export function domainToSession(investigation: Investigation) {
     },
     investigationState: investigation,
   };
+  Object.defineProperty(session, 'domain', {
+    value: { submitted: investigation.submittedUrl, normalized: investigation.normalizedUrl },
+    enumerable: false,
+  });
+  return session;
 }
 
 export function createPersistableSession(session, domain: DomainIdentity) {

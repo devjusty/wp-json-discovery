@@ -86,6 +86,7 @@ export type Investigation = Readonly<{
   normalizedUrl: string;
   redirectChain: ReadonlyArray<string>;
   createdAt: string;
+  updatedAt?: string;
   capabilities: ReadonlyArray<CapabilityRun>;
   observationTimeline: ReadonlyArray<Observation>;
   evidence: ReadonlyArray<Evidence>;
@@ -98,6 +99,7 @@ export type CreateInvestigationInput = Readonly<{
   normalizedUrl: string;
   redirectChain: ReadonlyArray<string>;
   createdAt: string;
+  updatedAt?: string;
   capabilities?: ReadonlyArray<CapabilityRunInput>;
   observationTimeline?: ReadonlyArray<Observation>;
   evidence?: ReadonlyArray<Evidence>;
@@ -310,6 +312,7 @@ export const createInvestigation = (input: CreateInvestigationInput): Investigat
   assertNonEmptyString(input.normalizedUrl, 'normalizedUrl');
   assertStringArray(input.redirectChain, 'redirectChain');
   assertTimestamp(input.createdAt, 'createdAt');
+  if (input.updatedAt !== undefined) assertTimestamp(input.updatedAt, 'updatedAt');
   if (input.capabilities !== undefined) {
     if (!Array.isArray(input.capabilities)) {
       throw new InvestigationModelError('invalid-investigation', 'capabilities must be an array');
@@ -345,6 +348,7 @@ export const createInvestigation = (input: CreateInvestigationInput): Investigat
     normalizedUrl: input.normalizedUrl,
     redirectChain: input.redirectChain,
     createdAt: input.createdAt,
+    ...(input.updatedAt ? { updatedAt: input.updatedAt } : {}),
     capabilities: input.capabilities ?? [],
     observationTimeline: input.observationTimeline ?? [],
     evidence: input.evidence ?? [],

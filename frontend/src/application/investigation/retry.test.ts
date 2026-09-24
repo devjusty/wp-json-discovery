@@ -17,7 +17,7 @@ describe('retryCapability', () => {
     });
 
     expect(result.investigation.capabilities[0]).toEqual(expect.objectContaining({ status: 'success', result: { title: 'Recovered' } }));
-    expect(saved).toHaveLength(1);
+    expect(saved).toHaveLength(3);
   });
 
   it('preserves successful siblings while retrying only target capability', async () => {
@@ -58,6 +58,6 @@ describe('retryCapability', () => {
 
     expect(result.persistence.local).toBe('saved');
     expect(result.persistence.remote).toEqual({ code: 'persistence-failed', message: 'Unable to save investigation.' });
-    expect(localSaves).toHaveLength(1);
+    expect(localSaves).toHaveLength(3);
   });
 });
