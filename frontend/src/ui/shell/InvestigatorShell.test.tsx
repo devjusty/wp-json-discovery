@@ -255,12 +255,14 @@ describe('InvestigatorShell', () => {
     render(<InvestigatorShell
       readModel={{ title: 'example.com', status: 'complete', sections: [{ id: 'overview', label: 'Overview' }], capabilities: [], investigation: createInvestigationReadModel() }}
       contentMode="legacy"
+      contentLandmark="main"
       commands={{ onSectionChange: vi.fn() }}
     >
       <AppLayout title="Legacy page" embedded><p>legacy page content</p></AppLayout>
     </InvestigatorShell>);
 
     expect(screen.getAllByRole('banner')).toHaveLength(1);
+    expect(screen.getAllByRole('main')).toHaveLength(1);
     expect(screen.getByText('legacy page content')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Legacy page' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Investigator overview' })).not.toBeInTheDocument();
