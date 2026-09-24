@@ -90,9 +90,11 @@ export const normalizeRunnerError = (cause: unknown): CapabilityError => ({
   retryable: typeof cause === 'object' && cause && 'retryable' in cause ? cause.retryable !== false : true,
 });
 
-export const persist = async (store: InvestigationStore, investigation: Investigation): Promise<void> => {
+export const persist = async (store: InvestigationStore, investigation: Investigation): Promise<Investigation> => {
+  const persisted = createInvestigation({ ...investigation, updatedAt: new Date().toISOString() });
   try {
-    await store.save(investigation);
+    await store.save(persisted);
+    return persisted;
   } catch (cause) {
     throw new InvestigationCommandError('persistence-failed', 'Unable to save investigation.', cause);
   }
@@ -150,8 +152,7 @@ export const runCapabilities = async (
     .map(({ name }) => name);
   if (changed.length === 0) return investigation;
   const current = await runDomainCapabilities(investigation, runner, store, onProgress);
-  await persist(store, current);
-  return current;
+  return persist(store, current);
 };
 
 export const retryWithCoordinator = async (
@@ -165,16 +166,15 @@ export const retryWithCoordinator = async (
   }
   let current = transition(investigation, { type: 'capability-queued', capability });
   current = transition(current, { type: 'capability-running', capability });
-  await publishProgress(current, store, onProgress);
+  current = await publishProgress(current, store, onProgress);
   try {
     const result = await runner.run({ investigation: current, capability, options: currentCapability.options });
     current = transition(current, { type: 'capability-succeeded', capability, result });
   } catch (cause) {
     current = transition(current, { type: 'capability-failed', capability, error: normalizeRunnerError(cause) });
   }
-  await publishProgress(current, store, onProgress);
-  await persist(store, current);
-  return current;
+  current = await publishProgress(current, store, onProgress);
+  return persist(store, current);
 };
 
 async function runDomainCapabilities(
@@ -199,21 +199,21 @@ async function runDomainCapabilities(
         type: 'capability-unavailable', capability: name, dependencyId: dependency,
         error: { code: 'dependency_failed', message: 'Required capability did not complete.', retryable: false },
       });
-      await publishProgress(current, store, onProgress);
+      current = await publishProgress(current, store, onProgress);
     }
     const runnable = current.capabilities.filter(({ status, dependencies = [] }) => (
       status === 'queued' && dependencies.every((dependency) => current.capabilities.find(({ name }) => name === dependency)?.status === 'success')
     ));
     if (runnable.length === 0) break;
     runnable.forEach(({ name }) => { current = transition(current, { type: 'capability-running', capability: name }); });
-    await publishProgress(current, store, onProgress);
+    current = await publishProgress(current, store, onProgress);
     const settled = await Promise.allSettled(runnable.map(({ name, options }) => runner.run({ investigation: current, capability: name, options })));
     for (const [index, outcome] of settled.entries()) {
       const name = runnable[index].name;
       current = outcome.status === 'fulfilled'
         ? transition(current, { type: 'capability-succeeded', capability: name, result: outcome.value })
         : transition(current, { type: 'capability-failed', capability: name, error: normalizeRunnerError(outcome.reason) });
-      await publishProgress(current, store, onProgress);
+      current = await publishProgress(current, store, onProgress);
     }
   }
   return current;
@@ -223,7 +223,8 @@ async function publishProgress(
   investigation: Investigation,
   store: InvestigationStore,
   onProgress?: InvestigationProgressCallback,
-): Promise<void> {
-  await persist(store, investigation);
-  await onProgress?.(investigation);
+): Promise<Investigation> {
+  const persisted = await persist(store, investigation);
+  await onProgress?.(persisted);
+  return persisted;
 }

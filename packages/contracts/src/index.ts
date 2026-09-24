@@ -107,6 +107,7 @@ export const investigationStateSchema = z.object({
   normalizedUrl: nonBlankStringSchema,
   redirectChain: z.array(z.string().min(1)),
   createdAt: timestampSchema,
+  updatedAt: timestampSchema.optional(),
   capabilities: z.array(investigationCapabilitySchema),
   observationTimeline: z.array(investigationObservationSchema),
   evidence: z.array(investigationEvidenceSchema),
@@ -547,6 +548,8 @@ export const investigationSummarySchema = z.object({
   selectedCapabilityCount: z.number().int().min(0),
   completedCapabilityCount: z.number().int().min(0),
   findingsCount: z.number().int().min(0),
+  status: z.enum(['incomplete', 'complete', 'partial', 'failed', 'blocked']).optional(),
+  resumable: z.boolean().optional(),
 }).strict().superRefine((summary, context) => {
   if (Date.parse(summary.updatedAt) < Date.parse(summary.createdAt)) {
     context.addIssue({ code: 'custom', message: 'updatedAt must be on or after createdAt', path: ['updatedAt'] });

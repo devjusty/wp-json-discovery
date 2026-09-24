@@ -32,6 +32,8 @@ type InvestigationSummary = {
   selectedCapabilityCount: number;
   completedCapabilityCount: number;
   findingsCount: number;
+  status?: string;
+  resumable?: boolean;
 };
 
 type LocalSnapshot = {
@@ -41,7 +43,7 @@ type LocalSnapshot = {
     session: {
       completedAt: string | null;
       selectedCapabilities: unknown[];
-      capabilityStates: Record<string, { status: string; outcome?: { result?: unknown } }>;
+      capabilityStates: Record<string, { status: string; outcome?: { result?: unknown; error?: { retryable?: boolean } } }>;
     };
   };
 };
@@ -123,6 +125,7 @@ function InvestigationsPage({
                   <TableHead className="">Domain</TableHead>
                   <TableHead className="">Findings</TableHead>
                   <TableHead className="">Capabilities</TableHead>
+                  <TableHead className="">Status</TableHead>
                   <TableHead className="">Last activity</TableHead>
                   <TableHead className="">Actions</TableHead>
                 </TableRow>
@@ -136,6 +139,7 @@ function InvestigationsPage({
                     </TableCell>
                     <TableCell className="">{row.findingsCount}</TableCell>
                     <TableCell className="">{row.completedCapabilityCount} / {row.selectedCapabilityCount}</TableCell>
+                    <TableCell className="">{row.status ?? 'unknown'}</TableCell>
                     <TableCell className="">{formatDate(row.updatedAt)}</TableCell>
                     <TableCell className="">
                       {row.resumable ? (
@@ -180,8 +184,12 @@ function toLocalRow(snapshot: LocalSnapshot): InvestigationRow {
     selectedCapabilityCount: session.selectedCapabilities.length,
     completedCapabilityCount: successfulStates.length,
     findingsCount,
+    status: deriveStatus(Object.values(session.capabilityStates).map(({ status }) => status)),
     local: true,
-    resumable: true,
+    resumable: Object.values(session.capabilityStates).some(({ status, outcome }) => (
+      ['queued', 'running'].includes(status)
+      || (status === 'failed' && outcome?.error?.retryable === true)
+    )),
   };
 }
 
@@ -196,13 +204,22 @@ function toRow(value: Investigation | InvestigationSummary): InvestigationRow {
       selectedCapabilityCount: value.capabilities.length,
       completedCapabilityCount: completed,
       findingsCount: value.findings.length,
+      status: deriveStatus(value.capabilities.map(({ status }) => status)),
       resumable: hasActive || value.capabilities.some(({ status, error }) => status === 'failed' && error?.retryable),
     };
   }
   return {
     ...value,
-    resumable: Boolean(value.latestSessionId),
+    resumable: value.resumable ?? Boolean(value.latestSessionId),
   };
+}
+
+function deriveStatus(statuses: string[]): string {
+  if (statuses.length === 0 || statuses.some((status) => ['queued', 'running'].includes(status))) return 'incomplete';
+  const successes = statuses.filter((status) => status === 'success').length;
+  if (successes === statuses.length) return 'complete';
+  if (successes > 0) return 'partial';
+  return 'failed';
 }
 
 export default InvestigationsPage;

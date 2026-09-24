@@ -54,7 +54,23 @@ export function createInvestigationSession({ investigationId, domain, selection 
     capabilityStates: Object.fromEntries(
       selectedCapabilities.map(({ id }) => [id, createCapabilityState()])
     ),
-    overall: { status: 'incomplete' }
+    overall: { status: 'incomplete' },
+    investigationState: {
+      id: investigationId,
+      submittedUrl: domain.submitted,
+      normalizedUrl: domain.normalized,
+      redirectChain: [domain.normalized],
+      createdAt: new Date().toISOString(),
+      capabilities: selectedCapabilities.map(({ id: name, dependencies, options }) => ({
+        name,
+        status: 'queued',
+        dependencies: [...dependencies],
+        ...(options ? { options: { ...options } } : {}),
+      })),
+      observationTimeline: [],
+      evidence: [],
+      findings: [],
+    }
   };
 
   // Domain identity is execution context, not persisted session state.
@@ -288,6 +304,17 @@ export function addInvestigationCapability(session, capabilityId, options = {}) 
     ...next.capabilityStates,
     [capabilityId]: createCapabilityState()
   };
+  if (session.investigationState) {
+    next.investigationState = {
+      ...session.investigationState,
+      capabilities: [...session.investigationState.capabilities, {
+        name: capabilityId,
+        status: 'queued',
+        dependencies: [...(capabilitySelection.dependencies ?? [])],
+        ...(capabilitySelection.options ? { options: { ...capabilitySelection.options } } : {}),
+      }],
+    };
+  }
   Object.defineProperty(next, 'selection', {
     value: cloneSelection({
       capabilityIds: [...session.selection.capabilityIds, capabilityId],

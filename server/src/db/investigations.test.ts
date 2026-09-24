@@ -402,6 +402,8 @@ describe('investigation repository', () => {
         selectedCapabilityCount: 3,
         completedCapabilityCount: 2,
         findingsCount: 2,
+        status: 'incomplete',
+        resumable: true,
       },
       {
         id: older.investigation.id,
@@ -412,6 +414,8 @@ describe('investigation repository', () => {
         selectedCapabilityCount: 1,
         completedCapabilityCount: 0,
         findingsCount: 0,
+        status: 'incomplete',
+        resumable: false,
       },
     ] });
     expect(JSON.stringify(list)).not.toContain('owner_id');
@@ -464,6 +468,8 @@ describe('investigation repository', () => {
       selectedCapabilityCount: 0,
       completedCapabilityCount: 0,
       findingsCount: 0,
+      status: 'incomplete',
+      resumable: false,
     }]);
   });
 

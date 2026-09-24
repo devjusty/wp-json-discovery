@@ -105,8 +105,8 @@ function createAnonymousStore(persistence: AnonymousPersistence): InvestigationS
         investigation: state,
         record: {
           recordType: 'session',
-           session: domainToSession(state),
-          persistedAt: state.createdAt,
+          session: domainToSession(state),
+          persistedAt: state.updatedAt ?? state.createdAt,
         },
       });
     },

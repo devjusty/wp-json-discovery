@@ -67,7 +67,7 @@ function localSnapshot(domain = 'local.example') {
             outcome: {
               status: 'failed',
               result: null,
-              error: { code: 'failed', message: 'Failed', retryable: false }
+              error: { code: 'failed', message: 'Failed', retryable: true }
             },
             retry: { status: 'not-retryable' }
           }
@@ -129,5 +129,23 @@ describe('InvestigationsPage', () => {
     renderPage({ isAuthenticated: true, authSession: { getUserId: () => 'user-1', getAccessToken: async () => 'token' }, investigationStore });
     expect(await screen.findByText('Could not load investigations')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /retry/i })).toBeEnabled();
+  });
+
+  it('renders explicit status and hides resume for terminal non-retryable states', async () => {
+    const terminalInvestigation = {
+      ...remoteInvestigation,
+      capabilities: [
+        { name: 'homepage', status: 'success', result: { findings: [] } },
+        { name: 'wordpress', status: 'unavailable', error: { code: 'blocked', message: 'Blocked', retryable: false } },
+      ],
+      findings: [],
+    };
+    const investigationStore = { list: vi.fn().mockResolvedValue([terminalInvestigation]), get: vi.fn(), save: vi.fn(), claim: vi.fn() };
+
+    renderPage({ isAuthenticated: true, authSession: { getUserId: () => 'user-1', getAccessToken: async () => 'token' }, investigationStore });
+
+    expect(await screen.findByText('partial')).toBeInTheDocument();
+    expect(screen.getByText('1 / 2')).toBeInTheDocument();
+    expect(screen.getByText('No resumable session')).toBeInTheDocument();
   });
 });

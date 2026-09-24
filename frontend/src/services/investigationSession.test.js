@@ -500,6 +500,17 @@ describe('investigation session', () => {
     }));
   });
 
+  it('updates investigatorState when adding contextual capability', () => {
+    const contextual = addInvestigationCapability(session, 'sitemap', { sitemapUrl: '/sitemap.xml' });
+
+    expect(contextual.investigationState.capabilities).toContainEqual(expect.objectContaining({
+      name: 'sitemap',
+      status: 'queued',
+      dependencies: ['wordpress'],
+      options: { sitemapUrl: '/sitemap.xml', maxPages: 50 },
+    }));
+  });
+
   it('does not retry sitemap after its failed WordPress dependency is recovered', async () => {
     const dependentSession = addInvestigationCapability(
       createInvestigationSession({

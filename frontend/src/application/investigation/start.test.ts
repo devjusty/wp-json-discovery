@@ -34,6 +34,21 @@ describe('startInvestigation', () => {
     expect(deps.saved).toHaveLength(4);
   });
 
+  it('preserves contextual capabilities through command execution', async () => {
+    const deps = makeDeps();
+    const result = await startInvestigation({
+      domain: { submittedUrl: 'example.com', normalizedUrl: 'https://example.com' },
+      capabilities: [
+        { name: 'wordpress' },
+        { name: 'sitemap', dependencies: ['wordpress'], options: { sitemapUrl: '/sitemap.xml' } },
+      ],
+    }, deps);
+
+    expect(result.investigation.capabilities).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'sitemap', status: 'success' }),
+    ]));
+  });
+
   it('returns typed persistence failure for authenticated save errors', async () => {
     const deps = makeDeps();
     deps.auth.getUserId = () => 'user-1';

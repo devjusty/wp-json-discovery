@@ -42,6 +42,8 @@ function investigationSummary(row) {
     selectedCapabilityCount: 0,
     completedCapabilityCount: 0,
     findingsCount: 0,
+    status: 'incomplete',
+    resumable: false,
   };
 
   if (row.snapshot_json) {
@@ -62,6 +64,14 @@ function investigationSummary(row) {
         summary.findingsCount += state.outcome.result.findings.length;
       }
     }
+    summary.status = session.overall.status;
+    const states = Object.values(session.capabilityStates);
+    summary.resumable = states.some((state) => (
+      // @ts-expect-error -- scanSessionSchema validates capability state records
+      ['queued', 'running'].includes(state.status)
+      // @ts-expect-error -- scanSessionSchema validates capability state records
+      || (state.status === 'failed' && state.outcome?.error?.retryable === true)
+    ));
   }
 
   return summary;
