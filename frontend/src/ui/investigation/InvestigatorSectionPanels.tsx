@@ -1,6 +1,7 @@
-import type { CapabilityStatus, Investigation } from '../../domain/investigation/model';
+import type { Investigation } from '../../domain/investigation/model';
+import type { InvestigatorCapabilityStatus } from '../../adapters/investigatorReadModel';
 
-type CapabilitySummary = Readonly<{ name: string; status: CapabilityStatus; retryable?: boolean }>;
+type CapabilitySummary = Readonly<{ name: string; status: InvestigatorCapabilityStatus; retryable?: boolean }>;
 
 export function InvestigatorAssetsPanel({ investigation }: Readonly<{ investigation: Investigation }>) {
   return (

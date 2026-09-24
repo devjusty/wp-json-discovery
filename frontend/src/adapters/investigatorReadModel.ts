@@ -1,5 +1,8 @@
 import { createInvestigation, type CapabilityStatus, type Investigation } from '../domain/investigation/model';
 
+export type InvestigatorCapabilityStatus = CapabilityStatus | 'idle';
+export type InvestigatorStatus = 'queued' | 'running' | 'partial' | 'complete' | 'failed' | 'blocked';
+
 type InvestigatorSession = {
   id?: string;
   status?: string;
@@ -15,9 +18,9 @@ type InvestigatorSession = {
 
 export type InvestigatorReadModel = Readonly<{
   title: string;
-  status: 'complete' | 'partial' | 'failed' | 'blocked' | 'incomplete';
+  status?: InvestigatorStatus;
   sections: ReadonlyArray<Readonly<{ id: string; label: string; description: string; disabled?: boolean }>>;
-  capabilities: ReadonlyArray<Readonly<{ name: string; status: CapabilityStatus; retryable?: boolean }>>;
+  capabilities: ReadonlyArray<Readonly<{ name: string; status: InvestigatorCapabilityStatus; retryable?: boolean }>>;
   investigation?: Investigation;
 }>;
 
@@ -27,11 +30,7 @@ export function createInvestigatorReadModel(
   fallbackDomain = '',
 ): InvestigatorReadModel {
   const domain = session?.domain?.normalized || fallbackDomain;
-  const capabilities = Object.entries(session?.capabilityStates ?? {}).map(([name, state]) => {
-    const status = normalizeCapabilityStatus(state.status);
-    const retryable = state.outcome?.error?.retryable === true;
-    return { name, status, ...(status === 'failed' || status === 'unavailable' ? { retryable } : {}) };
-  });
+  const capabilities = mapCapabilities(session?.capabilityStates);
   const mapped = mapResults(session?.capabilityStates);
   const investigation = domain ? createInvestigation({
     id: `current:${domain}`,
@@ -39,11 +38,12 @@ export function createInvestigatorReadModel(
     normalizedUrl: domain,
     redirectChain: session?.domain?.redirectChain?.length ? session.domain.redirectChain : [domain],
     createdAt: session?.startedAt || '1970-01-01T00:00:00.000Z',
-    capabilities: Object.entries(session?.capabilityStates ?? {}).map(([name, state]) => {
-      const status = normalizeCapabilityStatus(state.status);
-      const error = state.outcome?.error;
-      return {
-        name,
+     capabilities: Object.entries(session?.capabilityStates ?? {}).flatMap(([name, state]) => {
+       const status = normalizeCapabilityStatus(state.status);
+       if (!status || status === 'idle') return [];
+       const error = state.outcome?.error;
+       return [{
+         name,
         status,
         ...(status === 'failed' ? {
           error: {
@@ -52,15 +52,15 @@ export function createInvestigatorReadModel(
             retryable: error?.retryable === true,
           },
         } : {}),
-      };
-    }),
+       }];
+     }),
     evidence: mapped.evidence,
     findings: mapped.findings,
   }) : undefined;
 
   return {
     title: domain || 'Investigation workspace',
-    status: normalizeInvestigationStatus(session?.overall?.status),
+    status: normalizeInvestigationStatus(session?.overall?.status, session?.status, session?.capabilityStates),
     capabilities,
     investigation,
     sections: [
@@ -79,6 +79,7 @@ function mapResults(capabilityStates: InvestigatorSession['capabilityStates']) {
   const findings: Investigation['findings'][number][] = [];
 
   Object.entries(capabilityStates ?? {}).forEach(([capability, state]) => {
+    if (!normalizeCapabilityStatus(state.status)) return;
     const result = asRecord(state.outcome?.result);
     const resultFindings = Array.isArray(result.findings) ? result.findings : [];
     resultFindings.forEach((rawFinding) => {
@@ -97,6 +98,15 @@ function mapResults(capabilityStates: InvestigatorSession['capabilityStates']) {
   });
 
   return { evidence: [...evidence.values()], findings };
+}
+
+function mapCapabilities(capabilityStates: InvestigatorSession['capabilityStates']) {
+  return Object.entries(capabilityStates ?? {}).flatMap(([name, state]) => {
+    const status = normalizeCapabilityStatus(state.status);
+    if (!status) return [];
+    const retryable = state.outcome?.error?.retryable === true;
+    return [{ name, status, ...(status === 'failed' || status === 'unavailable' ? { retryable } : {}) }];
+  });
 }
 
 function mapEvidence(value: unknown, capability: string, evidence: Map<string, Investigation['evidence'][number]>) {
@@ -120,14 +130,22 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
-function normalizeCapabilityStatus(status?: string): CapabilityStatus {
-  return ['queued', 'running', 'success', 'failed', 'unavailable'].includes(status || '')
-    ? status as CapabilityStatus
-    : 'unavailable';
+function normalizeCapabilityStatus(status?: string): InvestigatorCapabilityStatus | null {
+  return ['idle', 'queued', 'running', 'success', 'failed', 'unavailable'].includes(status || '')
+    ? status as InvestigatorCapabilityStatus
+    : null;
 }
 
-function normalizeInvestigationStatus(status?: string): InvestigatorReadModel['status'] {
-  return status === 'complete' || status === 'partial' || status === 'failed' || status === 'blocked'
-    ? status
-    : 'incomplete';
+function normalizeInvestigationStatus(
+  status?: string,
+  lifecycleStatus?: string,
+  capabilityStates?: InvestigatorSession['capabilityStates'],
+): InvestigatorStatus | undefined {
+  if (status === 'complete' || status === 'partial' || status === 'failed' || status === 'blocked') return status;
+  if (lifecycleStatus === 'running') return 'running';
+  if (lifecycleStatus === 'queued' || lifecycleStatus === 'idle') return 'queued';
+  const progress = Object.values(capabilityStates ?? {}).map(({ status: capabilityStatus }) => normalizeCapabilityStatus(capabilityStatus));
+  if (progress.includes('running')) return 'running';
+  if (progress.includes('queued') || progress.includes('idle')) return 'queued';
+  return undefined;
 }

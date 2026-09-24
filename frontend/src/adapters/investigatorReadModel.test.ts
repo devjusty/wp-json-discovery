@@ -61,4 +61,35 @@ describe('createInvestigatorReadModel', () => {
 
     expect(readModel.sections.find(({ id }) => id === 'history')?.disabled).toBe(false);
   });
+
+  it('preserves nonterminal capability progress and omits unknown states', () => {
+    const readModel = createInvestigatorReadModel({
+      domain: { submitted: 'https://example.com', normalized: 'https://example.com' },
+      status: 'running',
+      overall: { status: 'incomplete' },
+      capabilityStates: {
+        idle: { status: 'idle' },
+        queued: { status: 'queued' },
+        running: { status: 'running' },
+        unknown: { status: 'mystery' },
+      },
+    }, false);
+
+    expect(readModel.capabilities).toEqual([
+      { name: 'idle', status: 'idle' },
+      { name: 'queued', status: 'queued' },
+      { name: 'running', status: 'running' },
+    ]);
+    expect(readModel.status).toBe('running');
+  });
+
+  it('omits aggregate status when lifecycle does not identify one', () => {
+    const readModel = createInvestigatorReadModel({
+      domain: { submitted: 'https://example.com', normalized: 'https://example.com' },
+      overall: { status: 'unknown' },
+      capabilityStates: { malformed: { status: 'mystery' } },
+    }, false);
+
+    expect(readModel.status).toBeUndefined();
+  });
 });

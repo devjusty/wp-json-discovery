@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import type { CapabilityStatus, Investigation } from '../../domain/investigation/model';
+import type { Investigation } from '../../domain/investigation/model';
+import type { InvestigatorCapabilityStatus, InvestigatorStatus } from '../../adapters/investigatorReadModel';
 import { AppShell, type ShellNavigation } from './AppShell';
 import { InvestigatorSectionSelector, type InvestigatorSection } from '../investigation/InvestigatorSectionSelector';
 import { InvestigatorOverview } from '../investigation/InvestigatorOverview';
@@ -9,11 +10,11 @@ import { InvestigatorAssetsPanel, InvestigatorHistoryPanel, InvestigatorToolsPan
 
 type InvestigatorShellReadModel = Readonly<{
   title: string;
-  status: 'complete' | 'partial' | 'failed' | 'blocked' | 'incomplete';
+  status?: InvestigatorStatus;
   sections: ReadonlyArray<InvestigatorSection>;
   capabilities: ReadonlyArray<Readonly<{
     name: string;
-    status: CapabilityStatus;
+    status: InvestigatorCapabilityStatus;
     retryable?: boolean;
   }>>;
   investigation?: Investigation;

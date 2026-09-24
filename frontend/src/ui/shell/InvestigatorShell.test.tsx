@@ -9,7 +9,7 @@ import type { Investigation } from '../../domain/investigation/model';
 describe('InvestigatorShell', () => {
   it('exposes required contextual sections through selector and navigation', () => {
     const sections = ['overview', 'findings', 'evidence', 'assets', 'history', 'tools'].map((id) => ({ id, label: id[0].toUpperCase() + id.slice(1) }));
-    render(<InvestigatorShell readModel={{ title: 'example.com', status: 'incomplete', sections, capabilities: [] }} commands={{ onSectionChange: vi.fn() }}><p>investigation</p></InvestigatorShell>);
+    render(<InvestigatorShell readModel={{ title: 'example.com', status: undefined, sections, capabilities: [] }} commands={{ onSectionChange: vi.fn() }}><p>investigation</p></InvestigatorShell>);
 
     expect(screen.getByRole('navigation', { name: 'Investigation sections' })).toHaveTextContent('OverviewFindingsEvidenceAssetsHistoryTools');
     expect(screen.getByRole('combobox', { name: 'Investigation section' })).toHaveValue('overview');
@@ -143,7 +143,7 @@ function StatefulInvestigatorShell({ sections }: { sections: ReadonlyArray<{ id:
   const [activeSection, setActiveSection] = useState('overview');
   return (
     <InvestigatorShell
-      readModel={{ title: 'example.com', status: 'incomplete', sections, capabilities: [] }}
+       readModel={{ title: 'example.com', status: undefined, sections, capabilities: [] }}
       activeSection={activeSection}
       commands={{ onSectionChange: setActiveSection }}
     >
