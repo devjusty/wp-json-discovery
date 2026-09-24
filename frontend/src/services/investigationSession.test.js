@@ -181,6 +181,72 @@ describe('investigation session', () => {
     expect(remoteSave).not.toHaveBeenCalled();
   });
 
+  it('reruns completed capabilities while preserving completed siblings', async () => {
+    const completed = await runInvestigationSession(session, {
+      wordpress: vi.fn().mockResolvedValue({ identity: 'WordPress' }),
+      homepage: vi.fn().mockResolvedValue({ html: '<html />' }),
+    });
+    const rerun = addInvestigationCapability(completed, 'homepage');
+    const homepage = vi.fn().mockResolvedValue({ html: '<html />' });
+
+    await runInvestigationSession(rerun, { wordpress: vi.fn(), homepage });
+
+    expect(homepage).toHaveBeenCalledTimes(1);
+    expect(rerun.capabilityStates.wordpress.status).toBe('success');
+  });
+
+  it('records local affinity after remote fallback for resume and retry', async () => {
+    const local = memoryStore();
+    const remoteSave = vi.fn(async () => { throw new Error('remote unavailable'); });
+    const remoteGet = vi.fn(async () => { throw new Error('remote get should not run'); });
+    let attempts = 0;
+    const investigation = createInvestigation({
+      id: 'fallback-affinity', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: ['https://example.com'], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [{ name: 'homepage', status: 'queued' }],
+    });
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => { attempts += 1; if (attempts === 1) throw new Error('first attempt'); return { findings: [] }; } },
+      localStore: local,
+      remoteStore: { ...memoryStore(), save: remoteSave, get: remoteGet },
+    });
+
+    const result = await workflow.run(investigation);
+    await result.commands.retry('homepage');
+    await workflow.resume('fallback-affinity');
+
+    expect(remoteGet).not.toHaveBeenCalled();
+    expect(remoteSave).toHaveBeenCalled();
+  });
+
+  it('derives local affinity from active investigation across workflow recreation', async () => {
+    const local = memoryStore();
+    const investigation = createInvestigation({
+      id: 'transition-affinity', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: ['https://example.com'], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [{ name: 'homepage', status: 'queued' }],
+    });
+    const anonymous = createInvestigatorWorkflow({
+      auth: { getUserId: () => null, getAccessToken: async () => null },
+      runner: { run: async () => ({ findings: [] }) },
+      localStore: local,
+      remoteStore: memoryStore(),
+    });
+    const active = await anonymous.run(investigation);
+    const remoteSave = vi.fn(async () => { throw new Error('remote store should not be used'); });
+    const authenticated = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => ({ findings: [] }) },
+      localStore: local,
+      remoteStore: { ...memoryStore(), save: remoteSave },
+    });
+
+    await authenticated.run(active.session.investigationState);
+
+    expect(remoteSave).not.toHaveBeenCalled();
+  });
+
   it('persists authenticated ID before capability execution begins', async () => {
     localStorage.clear();
     const investigation = createInvestigation({

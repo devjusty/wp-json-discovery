@@ -3,7 +3,7 @@ import type { CapabilityRunner } from '../ports/capability-runner';
 import type { InvestigationStore } from '../ports/investigation-store';
 import type { AuthSession } from '../ports/auth-session';
 import { createPersistableSession, domainToSession } from '../../adapters/persistence/sessionMapping';
-import { recoverInvestigationSession } from '../../services/investigationSession.js';
+import { recoverInvestigationSession } from './recovery.js';
 import {
   createPersistenceContext,
   InvestigationCommandError,

@@ -181,4 +181,32 @@ describe('ScanPage workflow boundary', () => {
 
     expect(mocks.setSelectedInvestigationId).toHaveBeenCalledWith('');
   });
+
+  it('does not duplicate resume when active domain changes during request', async () => {
+    let resolveResume;
+    mocks.shellContext.selectedInvestigationId = 'selected-investigation';
+    mocks.workflow.resume.mockReturnValue(new Promise((resolve) => { resolveResume = resolve; }));
+    const view = render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ScanPage
+          authSession={{ getUserId: () => 'user-1', getAccessToken: async () => 'token' }}
+          isAuthenticated
+        />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => expect(mocks.workflow.resume).toHaveBeenCalledTimes(1));
+    mocks.shellContext.activeDomain = 'https://example.com';
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <ScanPage
+          authSession={{ getUserId: () => 'user-1', getAccessToken: async () => 'token' }}
+          isAuthenticated
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(mocks.workflow.resume).toHaveBeenCalledTimes(1);
+    resolveResume({ investigation, session: { domain: { normalized: investigation.normalizedUrl }, selectedCapabilities: [], capabilityStates: {}, overall: { status: 'complete' } } });
+  });
 });

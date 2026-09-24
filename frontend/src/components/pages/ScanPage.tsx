@@ -91,6 +91,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, authSes
   const [isResumingInvestigation, setIsResumingInvestigation] = useState(false);
   const [resumeError, setResumeError] = useState('');
   const startInFlightRef = useRef(false);
+  const resumeRequestRef = useRef(null);
   const investigatorWorkflow = useMemo(() => authSession
     ? createInvestigatorWorkflow({
       auth: authSession,
@@ -121,6 +122,8 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, authSes
     if (activeDomain && !selectedInvestigationId) return undefined;
     const investigationId = selectedInvestigationId || loadAuthenticatedInvestigationId();
     if (!investigationId) return undefined;
+    if (resumeRequestRef.current === investigationId) return undefined;
+    resumeRequestRef.current = investigationId;
     let cancelled = false;
     setIsResumingInvestigation(true);
     setResumeError('');
@@ -135,10 +138,12 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, authSes
         if (!cancelled) setResumeError(`Saved investigation could not be resumed: ${error.message}`);
       })
       .finally(() => {
+        if (resumeRequestRef.current === investigationId) resumeRequestRef.current = null;
+        setSelectedInvestigationId('');
         if (!cancelled) setIsResumingInvestigation(false);
       });
     return () => { cancelled = true; };
-  }, [activeDomain, investigatorWorkflow, isAuthenticated, onDomainChange, selectedInvestigationId, setInvestigatorDomain, setInvestigatorSession]);
+  }, [activeDomain, investigatorWorkflow, isAuthenticated, onDomainChange, selectedInvestigationId, setInvestigatorDomain, setInvestigatorSession, setSelectedInvestigationId]);
 
   const handleInvestigatorSubmit = useCallback(async (normalizedValue, submittedValue = normalizedValue) => {
     if (startInFlightRef.current) return;
@@ -167,9 +172,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, authSes
   const handleRunInvestigatorCapability = useCallback(async (id, options = {}) => {
     if (!investigatorSession || retryingCapabilityId) return;
     try {
-      const current = id === 'sitemap'
-        ? addInvestigationCapability(investigatorSession, id, options)
-        : investigatorSession;
+      const current = addInvestigationCapability(investigatorSession, id, options);
       if (!investigatorWorkflow) throw new Error('Investigation authentication context is unavailable.');
       const result = await investigatorWorkflow.run(current.investigationState);
       setInvestigatorSession(result.session);

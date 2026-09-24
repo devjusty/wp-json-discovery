@@ -16,6 +16,7 @@ import { createInvestigationApiClient } from '../api/client.ts';
 import { normalizeDomain } from '../utils/format.js';
 import { saveAuthenticatedInvestigationId } from './anonymousInvestigations.js';
 import { InvestigationCommandError } from '../application/investigation/shared.ts';
+export { recoverInvestigationSession } from '../application/investigation/recovery.js';
 
 const DEPENDENCY_ERROR = {
   code: 'dependency_failed',
@@ -26,12 +27,6 @@ const DEPENDENCY_ERROR = {
 const RUNNER_UNAVAILABLE = {
   code: 'runner_unavailable',
   message: 'Capability runner unavailable.',
-  retryable: true
-};
-
-const INTERRUPTED_ERROR = {
-  code: 'interrupted',
-  message: 'Capability was interrupted before it completed.',
   retryable: true
 };
 
@@ -161,28 +156,6 @@ export async function retryInvestigationCapability(session, capabilityId, runner
   return finalize(current);
 }
 
-export function recoverInvestigationSession(session) {
-  const activeSession = ['queued', 'running'].includes(session.status);
-  const interruptedIds = Object.entries(session.capabilityStates)
-    .filter(([, state]) => activeSession
-      ? !['success', 'failed', 'unavailable'].includes(state.status)
-      : ['queued', 'running'].includes(state.status))
-    .map(([id]) => id);
-  if (!activeSession && interruptedIds.length === 0) return session;
-
-  let recovered = cloneSession(session);
-  recovered.startedAt ??= new Date().toISOString();
-  for (const id of interruptedIds) {
-    recovered = updateCapability(recovered, id, {
-      status: 'failed',
-      outcome: { status: 'failed', result: null, error: { ...INTERRUPTED_ERROR } },
-      retry: { status: 'not-retryable' }
-    });
-  }
-
-  return finalize(recovered);
-}
-
 export function getInvestigatorSelection() {
   return normalizeSelection({ capabilityIds: ['wordpress', 'homepage'] });
 }
@@ -216,11 +189,15 @@ export function createInvestigatorWorkflow({
   const defaultAffinity = () => (auth?.getUserId?.() ? 'remote' : 'local');
   const storeForAffinity = (affinity) => affinity === 'local' ? localStore : remoteStore;
 
-  const present = (result, affinity = storeAffinity.get(result.investigation.id) ?? defaultAffinity()) => {
+  const present = (result, affinity = storeAffinity.get(result.investigation.id) ?? result.investigation.storeAffinity ?? defaultAffinity()) => {
     storeAffinity.set(result.investigation.id, affinity);
-    const session = domainToSession(result.investigation);
+    const investigation = { ...result.investigation };
+    Object.defineProperty(investigation, 'storeAffinity', { value: affinity, enumerable: false, configurable: true });
+    const session = domainToSession(investigation);
+    Object.defineProperty(session, 'storeAffinity', { value: affinity, enumerable: false, configurable: true });
     return {
       ...result,
+      investigation,
       session,
       readModel: createInvestigatorReadModel(session, Boolean(auth?.getUserId?.())),
       commands: {
@@ -268,7 +245,7 @@ export function createInvestigatorWorkflow({
 
   const retry = async (investigation, capability) => {
     const { retryCapability: retryCommand } = await import('../application/investigation/retry.ts');
-    const affinity = storeAffinity.get(investigation.id) ?? defaultAffinity();
+    const affinity = storeAffinity.get(investigation.id) ?? investigation.storeAffinity ?? defaultAffinity();
     return present(await retryCommand({ investigation, capability }, {
       auth,
       store: storeForAffinity(affinity),
@@ -315,7 +292,7 @@ export function createInvestigatorWorkflow({
   const run = async (investigation) => {
     const { createPersistenceContext, runCapabilities } = await import('../application/investigation/shared.ts');
     const authenticated = Boolean(auth.getUserId?.());
-    const affinity = storeAffinity.get(investigation.id) ?? defaultAffinity();
+    const affinity = storeAffinity.get(investigation.id) ?? investigation.storeAffinity ?? defaultAffinity();
     const persistence = createPersistenceContext({
       auth,
       store: storeForAffinity(affinity),
@@ -328,7 +305,11 @@ export function createInvestigatorWorkflow({
       runner,
       onProgress,
     });
-    return present(persistence.result(result), affinity);
+    const commandResult = persistence.result(result);
+    const resultAffinity = commandResult.persistence.remote && commandResult.persistence.local === 'saved'
+      ? 'local'
+      : affinity;
+    return present(commandResult, resultAffinity);
   };
 
   return { start, run, retry, resume, claim, list: () => (auth?.getUserId?.() ? remoteStore : localStore).list() };
@@ -339,7 +320,26 @@ export function getContextualCapabilityIds(session) {
 }
 
 export function addInvestigationCapability(session, capabilityId, options = {}) {
-  if (session.selectedCapabilities.some(({ id }) => id === capabilityId)) return cloneSession(session);
+  if (session.selectedCapabilities.some(({ id }) => id === capabilityId)) {
+    const next = cloneSession(session);
+    const state = next.capabilityStates[capabilityId];
+    if (state && ['success', 'failed'].includes(state.status)) {
+      next.capabilityStates[capabilityId] = createCapabilityState();
+      if (next.investigationState) {
+        next.investigationState = {
+          ...next.investigationState,
+          capabilities: next.investigationState.capabilities.map((capability) => {
+            if (capability.name !== capabilityId) return capability;
+            const reset = { ...capability, status: 'queued' };
+            delete reset.result;
+            delete reset.error;
+            return reset;
+          }),
+        };
+      }
+    }
+    return next;
+  }
   const next = cloneSession(session);
   const capabilitySelection = getCapabilitySelection(capabilityId, options);
   if (!capabilitySelection) return cloneSession(session);
