@@ -11,7 +11,7 @@ import { setScanCapabilityContext } from './services/scanCapabilities.js';
 import { AdminShell } from './ui/shell/AdminShell';
 import { InvestigatorShell } from './ui/shell/InvestigatorShell';
 import { PageLoadingState } from './ui/shell/PageLoadingState';
-import { resolveInvestigatorSectionPage } from './ui/shell/investigatorNavigation';
+import { navigateToTopLevelPage, resolveInvestigatorSectionPage } from './ui/shell/investigatorNavigation';
 import { createInvestigatorReadModel } from './adapters/investigatorReadModel';
 import { loadAdminPage, loadHistoryPage, loadInvestigationsPage, loadScanPage } from './adapters/legacyPageAdapters';
 
@@ -58,6 +58,7 @@ function AppContent() {
   });
   const isAdmin = userProfile?.user?.role === 'admin';
   const [activeInvestigatorSection, setActiveInvestigatorSection] = useState('overview');
+  const navigateTopLevel = (page: string) => navigateToTopLevelPage(page, setActivePage, setActiveInvestigatorSection);
   const handleInvestigatorSectionChange = (sectionId: string) => {
     setActiveInvestigatorSection(sectionId);
     setActivePage(resolveInvestigatorSectionPage(sectionId, isAdmin));
@@ -81,7 +82,7 @@ function AppContent() {
               className=""
               variant={activePage === 'scan' ? 'secondary' : 'ghost'}
               size="sm"
-              onClick={() => setActivePage('scan')}
+               onClick={() => navigateTopLevel('scan')}
               onMouseEnter={() => prefetchPage('scan')}
               onFocus={() => prefetchPage('scan')}
               aria-current={activePage === 'scan' ? 'page' : undefined}
@@ -93,7 +94,7 @@ function AppContent() {
                 className=""
                 variant={activePage === 'investigations' ? 'secondary' : 'ghost'}
                 size="sm"
-                onClick={() => setActivePage('investigations')}
+                 onClick={() => navigateTopLevel('investigations')}
                 onMouseEnter={() => prefetchPage('investigations')}
                 onFocus={() => prefetchPage('investigations')}
                 aria-current={activePage === 'investigations' ? 'page' : undefined}
@@ -106,7 +107,7 @@ function AppContent() {
                 className=""
                 variant={activePage === 'history' ? 'secondary' : 'ghost'}
                 size="sm"
-                onClick={() => setActivePage('history')}
+                 onClick={() => navigateTopLevel('history')}
                 onMouseEnter={() => prefetchPage('history')}
                 onFocus={() => prefetchPage('history')}
                 aria-current={activePage === 'history' ? 'page' : undefined}
@@ -120,7 +121,7 @@ function AppContent() {
                 className=""
                 variant={activePage === 'admin' ? 'secondary' : 'ghost'}
                 size="sm"
-                onClick={() => setActivePage('admin')}
+                 onClick={() => navigateTopLevel('admin')}
                 onMouseEnter={() => prefetchPage('admin')}
                 onFocus={() => prefetchPage('admin')}
                 aria-current={activePage === 'admin' ? 'page' : undefined}
@@ -134,7 +135,7 @@ function AppContent() {
             variant="default"
             size="sm"
             className="app__new-scan"
-            onClick={() => setActivePage('scan')}
+             onClick={() => navigateTopLevel('scan')}
           >
             New scan
           </Button>
@@ -144,14 +145,14 @@ function AppContent() {
         </p>
       </div>
     );
-  }, [activePage, currentScanDomain, setActivePage, isAdmin, isAuthenticated]);
+  }, [activePage, currentScanDomain, navigateTopLevel, isAdmin, isAuthenticated]);
   if (activePage === 'admin') {
     if (!isAdmin) {
       return (
         <main className="app__page-loading">
           <p role="status">You do not have admin access on this account.</p>
           <div style={{ marginTop: '1rem' }}>
-            <Button type="button" className="" size="sm" onClick={() => setActivePage('scan')}>
+            <Button type="button" className="" size="sm" onClick={() => navigateTopLevel('scan')}>
               Back to main view
             </Button>
           </div>
@@ -162,17 +163,17 @@ function AppContent() {
     return (
       <AdminShell
         navigation={{ items: [{ id: 'admin', label: 'Admin' }], activeId: 'admin' }}
-        commands={{ onNavigate: setActivePage }}
+        commands={{ onNavigate: navigateTopLevel }}
       >
         <Suspense fallback={<PageLoadingState label="Loading admin console..." />}>
           <AdminPage
             headerActions={headerActions}
-            onNavigate={setActivePage}
+            onNavigate={navigateTopLevel}
             rotateLogs={rotateLogs}
             isRotatingLogs={isRotatingLogs}
             onRescan={(domain) => {
               if (!domain) return;
-              setActivePage('scan');
+              navigateTopLevel('scan');
               startScan(domain);
             }}
           />
@@ -187,7 +188,7 @@ function AppContent() {
         <main className="app__page-loading">
           <p role="status">Full scan history is available for admin users only.</p>
           <div style={{ marginTop: '1rem' }}>
-            <Button type="button" className="" size="sm" onClick={() => setActivePage('scan')}>
+            <Button type="button" className="" size="sm" onClick={() => navigateTopLevel('scan')}>
               Back to main view
             </Button>
           </div>
@@ -202,13 +203,13 @@ function AppContent() {
             headerActions={headerActions}
             onRescan={(domain) => {
               if (!domain) return;
-              setActivePage('scan');
+               navigateTopLevel('scan');
               startScan(domain);
             }}
             onUseDomain={(domain) => {
               if (!domain) return;
               setDomain(domain);
-              setActivePage('scan');
+               navigateTopLevel('scan');
             }}
           />
         </Suspense>
@@ -222,15 +223,15 @@ function AppContent() {
         <Suspense fallback={<PageLoadingState label="Loading investigations..." />}>
           <InvestigationsPage
             headerActions={headerActions}
-            onNavigate={setActivePage}
+            onNavigate={navigateTopLevel}
             isAuthenticated={isAuthenticated}
             onResumeLocal={() => {
               setSelectedInvestigationId('local');
-              setActivePage('scan');
+               navigateTopLevel('scan');
             }}
             onResumeInvestigation={(investigationId) => {
               setSelectedInvestigationId(investigationId);
-              setActivePage('scan');
+               navigateTopLevel('scan');
             }}
           />
         </Suspense>

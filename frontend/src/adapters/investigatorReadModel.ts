@@ -33,6 +33,10 @@ type InvestigatorSession = {
   investigationState?: unknown;
 };
 
+type MappedFinding = Omit<Investigation['findings'][number], 'confidence'> & {
+  confidence?: Investigation['findings'][number]['confidence'];
+};
+
 export type InvestigatorReadModel = Readonly<{
   title: string;
   status?: InvestigatorStatus;
@@ -68,7 +72,7 @@ export function createInvestigatorReadModel(
     createdAt: canonical?.createdAt ?? session?.startedAt ?? '1970-01-01T00:00:00.000Z',
     capabilities: mergeCapabilityRuns(canonical?.capabilities ?? [], liveCapabilities),
     observationTimeline: canonical?.observationTimeline,
-    evidence: mergeById(canonical?.evidence ?? [], mapped.evidence),
+    evidence: mergeEvidence(canonical?.evidence ?? [], mapped.evidence),
     findings: rankFindings(mergeFindings(canonical?.findings ?? [], mapped.findings)),
   }) : undefined;
 
@@ -90,7 +94,7 @@ export function createInvestigatorReadModel(
 
 function mapResults(capabilityStates: InvestigatorSession['capabilityStates']) {
   const evidence = new Map<string, Investigation['evidence'][number]>();
-  const findings: Investigation['findings'][number][] = [];
+  const findings: MappedFinding[] = [];
 
   Object.entries(capabilityStates ?? {}).forEach(([capability, state]) => {
     if (!normalizeCapabilityStatus(state.status)) return;
@@ -105,7 +109,11 @@ function mapResults(capabilityStates: InvestigatorSession['capabilityStates']) {
           capability,
           summary: finding.summary,
           evidenceIds,
-          confidence: finding.evidenceLevel === 'observed' || evidenceIds.length > 0 ? 'high' : 'medium',
+          ...(isConfidence(finding.confidence)
+            ? { confidence: finding.confidence }
+            : finding.evidenceLevel === 'observed' || evidenceIds.length > 0
+              ? { confidence: 'high' as const }
+              : {}),
           ...(isConsequence(finding.consequence) ? { consequence: finding.consequence } : {}),
           ...(isEvidenceQuality(finding.evidenceQuality) ? { evidenceQuality: finding.evidenceQuality } : {}),
           ...(isNovelty(finding.novelty) ? { novelty: finding.novelty } : {}),
@@ -143,23 +151,35 @@ function mergeCapabilityRuns(canonical: Investigation['capabilities'], live: Ret
   return [...merged.values()];
 }
 
-function mergeById<T extends { id: string }>(canonical: ReadonlyArray<T>, live: ReadonlyArray<T>) {
+function mergeEvidence(canonical: Investigation['evidence'], live: Investigation['evidence']) {
   const merged = new Map(canonical.map((item) => [item.id, item]));
-  live.forEach((item) => merged.set(item.id, item));
+  live.forEach((item) => {
+    const previous = merged.get(item.id);
+    if (!previous) {
+      merged.set(item.id, item);
+      return;
+    }
+    const sparseDefaults = item.kind === 'observed' && item.value === 'Observed evidence';
+    merged.set(item.id, {
+      ...previous,
+      ...(sparseDefaults ? {} : { kind: item.kind, value: item.value }),
+      source: { ...previous.source, ...item.source },
+    });
+  });
   return [...merged.values()];
 }
 
-function mergeFindings(canonical: Investigation['findings'], live: Investigation['findings']) {
+function mergeFindings(canonical: Investigation['findings'], live: ReadonlyArray<MappedFinding>) {
   const merged = new Map(canonical.map((finding) => [finding.id, finding]));
   live.forEach((finding) => {
     const previous = merged.get(finding.id);
-    merged.set(finding.id, previous
-      ? {
+    merged.set(finding.id, previous ? {
         ...previous,
         ...finding,
+        ...(finding.confidence === undefined ? { confidence: previous.confidence } : {}),
         ...(finding.evidenceIds.length === 0 ? { evidenceIds: previous.evidenceIds } : {}),
       }
-      : finding);
+      : { ...finding, confidence: finding.confidence ?? 'medium' });
   });
   return [...merged.values()];
 }
@@ -300,6 +320,10 @@ function isEvidenceKind(value: unknown): value is EvidenceKind {
 }
 
 function isEvidenceQuality(value: unknown): value is 'low' | 'medium' | 'high' {
+  return value === 'low' || value === 'medium' || value === 'high';
+}
+
+function isConfidence(value: unknown): value is Investigation['findings'][number]['confidence'] {
   return value === 'low' || value === 'medium' || value === 'high';
 }
 

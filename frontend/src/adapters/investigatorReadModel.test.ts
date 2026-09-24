@@ -479,10 +479,96 @@ describe('createInvestigatorReadModel', () => {
       capability: 'wordpress',
       summary: 'Updated signal',
       evidenceIds: ['persisted-evidence'],
-      confidence: 'medium',
+      confidence: 'high',
       consequence: 'critical',
       evidenceQuality: 'high',
       novelty: 'new',
+    }]);
+  });
+
+  it('preserves persisted confidence when live finding omits confidence evidence', () => {
+    const readModel = createInvestigatorReadModel({
+      domain: { submitted: 'Example.com', normalized: 'https://example.com' },
+      capabilityStates: {
+        wordpress: {
+          status: 'success',
+          outcome: { result: { findings: [{ id: 'finding-1', summary: 'Updated signal' }] } },
+        },
+      },
+      investigationState: {
+        id: 'investigation-1',
+        submittedUrl: 'Example.com',
+        normalizedUrl: 'https://example.com',
+        redirectChain: [],
+        createdAt: '2026-01-01T00:00:00.000Z',
+        capabilities: [],
+        observationTimeline: [],
+        evidence: [],
+        findings: [{
+          id: 'finding-1',
+          capability: 'wordpress',
+          summary: 'Persisted signal',
+          evidenceIds: [],
+          confidence: 'high',
+        }],
+      },
+    }, false);
+
+    expect(readModel.investigation?.findings[0]).toMatchObject({
+      id: 'finding-1',
+      summary: 'Updated signal',
+      confidence: 'high',
+    });
+  });
+
+  it('merges sparse live evidence into canonical provenance fields', () => {
+    const readModel = createInvestigatorReadModel({
+      domain: { submitted: 'Example.com', normalized: 'https://example.com' },
+      capabilityStates: {
+        wordpress: {
+          status: 'success',
+          outcome: { result: { findings: [{
+            id: 'finding-1',
+            summary: 'Updated signal',
+            evidence: [{ id: 'evidence-1' }],
+          }] } },
+        },
+      },
+      investigationState: {
+        id: 'investigation-1',
+        submittedUrl: 'Example.com',
+        normalizedUrl: 'https://example.com',
+        redirectChain: [],
+        createdAt: '2026-01-01T00:00:00.000Z',
+        capabilities: [],
+        observationTimeline: [],
+        evidence: [{
+          id: 'evidence-1',
+          kind: 'request-trace',
+          capability: 'wordpress',
+          value: 'Canonical response',
+          source: {
+            locator: '/wp-json',
+            observedAt: '2026-01-01T00:01:00.000Z',
+            rawBody: '{"canonical":true}',
+            request: { method: 'GET', url: 'https://example.com/wp-json', status: 200 },
+          },
+        }],
+        findings: [],
+      },
+    }, false);
+
+    expect(readModel.investigation?.evidence).toEqual([{
+      id: 'evidence-1',
+      kind: 'request-trace',
+      capability: 'wordpress',
+      value: 'Canonical response',
+      source: {
+        locator: '/wp-json',
+        observedAt: '2026-01-01T00:01:00.000Z',
+        rawBody: '{"canonical":true}',
+        request: { method: 'GET', url: 'https://example.com/wp-json', status: 200 },
+      },
     }]);
   });
 
