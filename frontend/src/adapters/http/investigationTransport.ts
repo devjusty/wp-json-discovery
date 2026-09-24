@@ -129,6 +129,7 @@ export const createInvestigationTransport = (
         }
         return investigation;
       } catch (error) {
+        if (isNotFound(error)) return summary;
         if (error instanceof ContractInvalidError) throw error;
         throw new ContractInvalidError('Invalid investigation list item', error);
       }
@@ -179,7 +180,9 @@ function asContractError(error: unknown, operation: string): Error {
 }
 
 function isNotFound(error: unknown): boolean {
-  return error instanceof Error && /not found/i.test(error.message);
+  return (error instanceof Error && (/not found|404/i.test(error.message)))
+    || (typeof error === 'object' && error !== null
+      && ('status' in error && error.status === 404 || 'code' in error && error.code === 'not-found'));
 }
 
 function validateIdentifier(value: string, label: string): void {

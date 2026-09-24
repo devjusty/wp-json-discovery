@@ -325,6 +325,17 @@ export function addInvestigationCapability(session, capabilityId, options = {}) 
   if (session.selectedCapabilities.some(({ id }) => id === capabilityId)) {
     const next = cloneSession(session);
     const state = next.capabilityStates[capabilityId];
+    next.selectedCapabilities = next.selectedCapabilities.map((capability) => capability.id === capabilityId
+      ? { ...capability, options: { ...options } }
+      : capability);
+    Object.defineProperty(next, 'selection', {
+      value: cloneSelection({
+        ...next.selection,
+        options: { ...next.selection.options, [capabilityId]: { ...options } },
+      }),
+      enumerable: false,
+      configurable: true,
+    });
     if (state && ['success', 'failed'].includes(state.status)) {
       next.capabilityStates[capabilityId] = createCapabilityState();
       if (next.investigationState) {
@@ -335,6 +346,7 @@ export function addInvestigationCapability(session, capabilityId, options = {}) 
             const reset = { ...capability, status: 'queued' };
             delete reset.result;
             delete reset.error;
+            reset.options = { ...options };
             return reset;
           }),
         };

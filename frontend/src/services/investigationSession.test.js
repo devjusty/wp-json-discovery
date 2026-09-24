@@ -195,6 +195,26 @@ describe('investigation session', () => {
     expect(rerun.capabilityStates.wordpress.status).toBe('success');
   });
 
+  it('forwards supplied options when rerunning an existing capability', async () => {
+    const sitemap = createInvestigationSession({
+      investigationId: 'sitemap-rerun',
+      domain: { submitted: 'example.com', normalized: 'https://example.com' },
+      selection: { capabilityIds: ['wordpress', 'sitemap'], options: { sitemap: { sitemapUrl: '/old.xml', maxPages: 1 } } },
+    });
+    const completed = await runInvestigationSession(sitemap, {
+      wordpress: vi.fn().mockResolvedValue({ findings: [] }),
+      sitemap: vi.fn().mockResolvedValue({ findings: [] }),
+    });
+    const rerun = addInvestigationCapability(completed, 'sitemap', { sitemapUrl: '/new.xml', maxPages: 25 });
+    const sitemapRunner = vi.fn().mockResolvedValue({ findings: [] });
+
+    await runInvestigationSession(rerun, { sitemap: sitemapRunner });
+
+    expect(sitemapRunner).toHaveBeenCalledWith(expect.objectContaining({
+      options: { sitemapUrl: '/new.xml', maxPages: 25 },
+    }));
+  });
+
   it('records local affinity after remote fallback for resume and retry', async () => {
     const local = memoryStore();
     const remoteSave = vi.fn(async () => { throw new Error('remote unavailable'); });

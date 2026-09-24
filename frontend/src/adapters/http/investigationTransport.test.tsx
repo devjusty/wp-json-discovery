@@ -243,7 +243,17 @@ describe('investigation transport', () => {
       resumable: false,
     } as const;
     const hydratedState = { ...fullInvestigation(), id: 'hydrated' };
-    const get = vi.fn(async (id: string) => id === 'hydrated' ? investigationRecord('hydrated', hydratedState) : null);
+    const notFoundSummary = {
+      ...summaryOnly,
+      id: 'race-summary',
+      domain: { submitted: 'Race.example', normalized: 'https://race.example' },
+      latestSessionId: 'race-session',
+    } as const;
+    const get = vi.fn(async (id: string) => {
+      if (id === 'hydrated') return investigationRecord('hydrated', hydratedState);
+      if (id === 'race-summary') throw new Error('404 not found');
+      return null;
+    });
     const hydratedSummary = {
       id: 'hydrated',
       domain: { submitted: hydratedState.submittedUrl, normalized: hydratedState.normalizedUrl },
@@ -258,16 +268,18 @@ describe('investigation transport', () => {
     } as const;
     const transport = createInvestigationTransport({
       get,
-      list: async () => ({ investigations: [summaryOnly, hydratedSummary] }),
+      list: async () => ({ investigations: [summaryOnly, hydratedSummary, notFoundSummary] }),
       save: async () => validSessionRecord(),
     });
 
     await expect(transport.list()).resolves.toEqual([
       summaryOnly,
       { ...hydratedState, updatedAt: hydratedState.createdAt },
+      notFoundSummary,
     ]);
-    expect(get).toHaveBeenCalledTimes(1);
+    expect(get).toHaveBeenCalledTimes(2);
     expect(get).toHaveBeenCalledWith('hydrated');
+    expect(get).toHaveBeenCalledWith('race-summary');
   });
 
   it('preserves a valid not-found null from the HTTP client', async () => {
