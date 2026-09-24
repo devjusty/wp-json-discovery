@@ -89,4 +89,17 @@ describe('resumeInvestigation', () => {
     expect(result.persistence.local).toBe('saved');
     expect(localSaves).toHaveLength(3);
   });
+
+  it('maps interrupted recovery save failures to typed persistence errors', async () => {
+    const investigation = createInvestigation({
+      id: 'inv-save-failure', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: [], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [{ name: 'homepage', status: 'running' }],
+    });
+
+    await expect(resumeInvestigation('inv-save-failure', {
+      store: { get: async () => investigation, save: async () => { throw new Error('storage unavailable'); }, list: async () => [], claim: async () => investigation },
+      runner: { run: async () => ({ ok: true }) },
+    })).rejects.toMatchObject({ code: 'persistence-failed', message: 'Unable to save investigation.' });
+  });
 });

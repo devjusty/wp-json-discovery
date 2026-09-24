@@ -274,9 +274,12 @@ export function createInvestigatorWorkflow({
 
   const resume = async (id) => {
     const { resumeInvestigation: resumeCommand } = await import('../application/investigation/resume.ts');
+    const store = auth?.getUserId?.()
+      ? (await localStore.get(id) ? localStore : remoteStore)
+      : localStore;
     return present(await resumeCommand(id, {
       auth,
-      store: auth?.getUserId?.() ? remoteStore : localStore,
+      store,
       localStore,
        runner,
        onProgress,

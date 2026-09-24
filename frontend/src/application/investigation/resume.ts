@@ -7,6 +7,7 @@ import { recoverInvestigationSession } from '../../services/investigationSession
 import {
   createPersistenceContext,
   InvestigationCommandError,
+  persist,
   runCapabilities,
   type InvestigationProgressCallback,
 } from './shared';
@@ -39,7 +40,7 @@ export async function resumeInvestigation(
     }),
   };
   if (investigation.capabilities.some(({ status }) => status === 'running')) {
-    await persistence.store.save(resumable);
+    await persist(persistence.store, resumable);
   }
   const result = await runCapabilities(resumable, { store: persistence.store, runner: dependencies.runner, onProgress: dependencies.onProgress });
   return persistence.result(result);

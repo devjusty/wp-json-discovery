@@ -99,6 +99,26 @@ describe('investigation session', () => {
     expect(loadAuthenticatedInvestigationId()).toBe('claim-inv');
   });
 
+  it('resumes selected local work from local persistence while authenticated', async () => {
+    const local = memoryStore();
+    const investigation = createInvestigation({
+      id: 'local-inv', submittedUrl: 'example.com', normalizedUrl: 'https://example.com',
+      redirectChain: ['https://example.com'], createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [{ name: 'homepage', status: 'queued' }],
+    });
+    await local.save(investigation);
+    const remoteGet = vi.fn(async () => { throw new Error('remote get should not run'); });
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => ({ findings: [] }) },
+      localStore: local,
+      remoteStore: { ...memoryStore(), get: remoteGet },
+    });
+
+    await expect(workflow.resume('local-inv')).resolves.toMatchObject({ investigation: { id: 'local-inv' } });
+    expect(remoteGet).not.toHaveBeenCalled();
+  });
+
   it('persists authenticated ID before capability execution begins', async () => {
     localStorage.clear();
     const investigation = createInvestigation({
