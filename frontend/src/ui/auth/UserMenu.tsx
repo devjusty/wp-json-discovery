@@ -31,12 +31,13 @@ function UserMenu({ onNavigate }: UserMenuProps) {
             variant="ghost"
             size="sm"
             className="gap-2 px-2 h-8"
+            aria-label={avatarUrl ? displayName : undefined}
             onClick={() => setOpen((value) => !value)}
           />
         )}
       >
         {avatarUrl ? <img src={avatarUrl} alt="" className="rounded-full size-5" /> : null}
-        <span>{displayName}</span>
+        {avatarUrl ? null : <span>{displayName}</span>}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-40">
         <DropdownMenuItem className="" inset={false} onClick={() => onNavigate?.('investigations')}>
