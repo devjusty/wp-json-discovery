@@ -174,4 +174,88 @@ describe('createInvestigatorReadModel', () => {
 
     expect(readModel.status).toBeUndefined();
   });
+
+  it('hydrates persisted investigation state when live capability states are absent', () => {
+    const readModel = createInvestigatorReadModel({
+      status: 'completed',
+      domain: { submitted: 'Example.com', normalized: 'https://example.com' },
+      capabilityStates: {},
+      investigationState: {
+        id: 'investigation-1',
+        submittedUrl: 'Example.com',
+        normalizedUrl: 'https://example.com',
+        redirectChain: ['https://example.com'],
+        createdAt: '2026-01-01T00:00:00.000Z',
+        capabilities: [{ name: 'wordpress', status: 'success', result: { version: '6.0' } }],
+        observationTimeline: [{ id: 'observation-1', capability: 'wordpress', observedAt: '2026-01-01T00:01:00.000Z', value: '6.0' }],
+        evidence: [{ id: 'evidence-1', kind: 'observed', capability: 'wordpress', value: '6.0', source: { locator: '/wp-json' } }],
+        findings: [{ id: 'finding-1', capability: 'wordpress', summary: 'WordPress detected', evidenceIds: ['evidence-1'], confidence: 'high' }],
+      },
+    }, false);
+
+    expect(readModel.investigation?.capabilities[0]).toMatchObject({ name: 'wordpress', status: 'success' });
+    expect(readModel.investigation?.observationTimeline).toEqual([
+      expect.objectContaining({ id: 'observation-1' }),
+    ]);
+    expect(readModel.investigation?.evidence).toEqual([
+      expect.objectContaining({ id: 'evidence-1' }),
+    ]);
+    expect(readModel.investigation?.findings).toEqual([
+      expect.objectContaining({ id: 'finding-1', evidenceIds: ['evidence-1'] }),
+    ]);
+  });
+
+  it('merges canonical evidence IDs and lets newer live capability state win', () => {
+    const readModel = createInvestigatorReadModel({
+      status: 'running',
+      domain: { submitted: 'Example.com', normalized: 'https://example.com' },
+      capabilityStates: {
+        wordpress: {
+          status: 'running',
+          startedAt: '2026-01-01T00:02:00.000Z',
+        },
+      },
+      investigationState: {
+        id: 'investigation-1',
+        submittedUrl: 'Example.com',
+        normalizedUrl: 'https://example.com',
+        redirectChain: [],
+        createdAt: '2026-01-01T00:00:00.000Z',
+        capabilities: [{ name: 'wordpress', status: 'success', result: { version: 'old' } }],
+        observationTimeline: [],
+        evidence: [{ id: 'canonical-evidence', kind: 'observed', capability: 'wordpress', value: 'canonical', source: {} }],
+        findings: [{ id: 'canonical-finding', capability: 'wordpress', summary: 'Canonical signal', evidenceIds: ['canonical-evidence'], confidence: 'high' }],
+      },
+    }, false);
+
+    expect(readModel.investigation?.capabilities).toEqual([
+      expect.objectContaining({ name: 'wordpress', status: 'running', startedAt: '2026-01-01T00:02:00.000Z' }),
+    ]);
+    expect(readModel.investigation?.findings[0]).toEqual(expect.objectContaining({
+      id: 'canonical-finding',
+      evidenceIds: ['canonical-evidence'],
+    }));
+    expect(readModel.investigation?.evidence).toEqual([
+      expect.objectContaining({ id: 'canonical-evidence' }),
+    ]);
+  });
+
+  it('maps legacy failed incomplete sessions to failed or partial status without losing retryability', () => {
+    const readModel = createInvestigatorReadModel({
+      status: 'failed',
+      overall: { status: 'incomplete' },
+      domain: { submitted: 'Example.com', normalized: 'https://example.com' },
+      capabilityStates: {
+        wordpress: {
+          status: 'failed',
+          outcome: { error: { code: 'timeout', message: 'Timed out', retryable: true } },
+        },
+      },
+    }, false);
+
+    expect(readModel.status).toBe('failed');
+    expect(readModel.capabilities).toEqual([
+      { name: 'wordpress', status: 'failed', retryable: true },
+    ]);
+  });
 });

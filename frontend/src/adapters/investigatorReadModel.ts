@@ -29,6 +29,7 @@ type InvestigatorSession = {
     completedAt?: string;
   }>;
   selection?: { options?: Record<string, Record<string, unknown>> };
+  investigationState?: unknown;
 };
 
 export type InvestigatorReadModel = Readonly<{
@@ -44,18 +45,21 @@ export function createInvestigatorReadModel(
   isAdmin: boolean,
   fallbackDomain = '',
 ): InvestigatorReadModel {
-  const domain = session?.domain?.normalized || fallbackDomain;
+  const canonical = mapCanonicalInvestigation(session?.investigationState);
+  const domain = session?.domain?.normalized || canonical?.normalizedUrl || fallbackDomain;
   const capabilities = mapCapabilities(session?.capabilityStates);
   const mapped = mapResults(session?.capabilityStates);
+  const liveCapabilities = mapCapabilityRuns(session);
   const investigation = domain ? createInvestigation({
-    id: `current:${domain}`,
-    submittedUrl: session?.domain?.submitted || domain,
-    normalizedUrl: domain,
-    redirectChain: session?.domain?.redirectChain?.length ? session.domain.redirectChain : [domain],
-    createdAt: session?.startedAt || '1970-01-01T00:00:00.000Z',
-     capabilities: mapCapabilityRuns(session),
-    evidence: mapped.evidence,
-    findings: mapped.findings,
+    id: canonical?.id ?? `current:${domain}`,
+    submittedUrl: canonical?.submittedUrl ?? session?.domain?.submitted ?? domain,
+    normalizedUrl: canonical?.normalizedUrl ?? domain,
+    redirectChain: canonical?.redirectChain ?? (session?.domain?.redirectChain?.length ? session.domain.redirectChain : [domain]),
+    createdAt: canonical?.createdAt ?? session?.startedAt ?? '1970-01-01T00:00:00.000Z',
+    capabilities: mergeCapabilityRuns(canonical?.capabilities ?? [], liveCapabilities),
+    observationTimeline: canonical?.observationTimeline,
+    evidence: mergeById(canonical?.evidence ?? [], mapped.evidence),
+    findings: mergeFindings(canonical?.findings ?? [], mapped.findings),
   }) : undefined;
 
   return {
@@ -98,6 +102,38 @@ function mapResults(capabilityStates: InvestigatorSession['capabilityStates']) {
   });
 
   return { evidence: [...evidence.values()], findings };
+}
+
+function mapCanonicalInvestigation(value: unknown): Investigation | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  try {
+    return createInvestigation(value as Investigation);
+  } catch {
+    return undefined;
+  }
+}
+
+function mergeCapabilityRuns(canonical: Investigation['capabilities'], live: ReturnType<typeof mapCapabilityRuns>) {
+  const merged = new Map(canonical.map((item) => [item.name, item]));
+  live.forEach((item) => merged.set(item.name, item as Investigation['capabilities'][number]));
+  return [...merged.values()];
+}
+
+function mergeById<T extends { id: string }>(canonical: ReadonlyArray<T>, live: ReadonlyArray<T>) {
+  const merged = new Map(canonical.map((item) => [item.id, item]));
+  live.forEach((item) => merged.set(item.id, item));
+  return [...merged.values()];
+}
+
+function mergeFindings(canonical: Investigation['findings'], live: Investigation['findings']) {
+  const merged = new Map(canonical.map((finding) => [finding.id, finding]));
+  live.forEach((finding) => {
+    const previous = merged.get(finding.id);
+    merged.set(finding.id, previous && finding.evidenceIds.length === 0
+      ? { ...finding, evidenceIds: previous.evidenceIds }
+      : finding);
+  });
+  return [...merged.values()];
 }
 
 function mapCapabilities(capabilityStates: InvestigatorSession['capabilityStates']) {
@@ -234,6 +270,10 @@ function normalizeInvestigationStatus(
 ): InvestigatorStatus | undefined {
   if (status === 'complete' || status === 'partial' || status === 'failed' || status === 'blocked') return status;
   if (lifecycleStatus === 'completed') return 'complete';
+  if (lifecycleStatus === 'failed') {
+    const progress = Object.values(capabilityStates ?? {}).map(({ status: capabilityStatus }) => normalizeCapabilityStatus(capabilityStatus));
+    return progress.includes('success') ? 'partial' : 'failed';
+  }
   if (lifecycleStatus === 'running') return 'running';
   if (lifecycleStatus === 'queued' || lifecycleStatus === 'idle') return 'queued';
   const progress = Object.values(capabilityStates ?? {}).map(({ status: capabilityStatus }) => normalizeCapabilityStatus(capabilityStatus));
