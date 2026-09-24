@@ -169,5 +169,3 @@ function serializeSnapshot(snapshot) {
     ...(snapshot.investigation ? { investigation: snapshot.investigation } : {}),
   });
 }
-
-export { AUTHENTICATED_ID_KEY, STORAGE_KEY };

@@ -164,10 +164,10 @@ function AppContent({ authSession }) {
       <AdminShell
         navigation={{ items: [{ id: 'admin', label: 'Admin' }], activeId: 'admin' }}
         commands={{ onNavigate: navigateTopLevel }}
+        headerActions={headerActions}
       >
         <Suspense fallback={<PageLoadingState label="Loading admin console..." />}>
           <AdminPage
-            headerActions={headerActions}
             onNavigate={navigateTopLevel}
             rotateLogs={rotateLogs}
             isRotatingLogs={isRotatingLogs}

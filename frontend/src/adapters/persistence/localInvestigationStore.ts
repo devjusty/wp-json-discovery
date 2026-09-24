@@ -36,6 +36,7 @@ export const createLocalInvestigationStore = (
 
   const direct = persistence as LocalInvestigationPersistence;
   return {
+    kind: 'local',
     async save(investigation) {
       const state = validateDirectValue(investigation);
       try {
@@ -91,6 +92,7 @@ function createAnonymousStore(persistence: AnonymousPersistence): InvestigationS
   };
 
   return {
+    kind: 'local',
     async save(investigation) {
       const state = parseState(investigation, {
         id: investigation.id,

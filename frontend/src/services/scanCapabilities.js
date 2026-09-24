@@ -19,7 +19,7 @@ export function setScanCapabilityContext(next = {}) {
   };
 }
 
-export function getScanCapabilityContext() {
+function getScanCapabilityContext() {
   return { ...capabilityContext };
 }
 

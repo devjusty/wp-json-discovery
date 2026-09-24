@@ -54,5 +54,3 @@ export const createLegacyCapabilityRunner = (
     return parsed.data;
   },
 });
-
-export const legacyCapabilityRunner = createLegacyCapabilityRunner();

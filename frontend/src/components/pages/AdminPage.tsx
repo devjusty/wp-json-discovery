@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck Legacy JS admin sections expose incomplete prop declarations.
 
-import type { ReactNode } from 'react';
 import {
   lazy,
   useCallback,
@@ -178,14 +177,14 @@ function buildAdminInboxItems({
 }
 
 type AdminPageProps = {
-  headerActions?: ReactNode;
+  headerActions?: unknown;
   onNavigate: (page: string) => void;
   rotateLogs: () => void;
   isRotatingLogs?: boolean;
   onRescan: (domain: string) => void;
 };
 
-function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRescan }: AdminPageProps) {
+function AdminPage({ onNavigate, rotateLogs, isRotatingLogs, onRescan }: AdminPageProps) {
   const [activeSection, setActiveSection] = useState('db');
   const [expandedPluginId, setExpandedPluginId] = useState(null);
   const [expandedThemeId, setExpandedThemeId] = useState(null);
@@ -515,13 +514,15 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
 
   return (
     <AppLayout
-      title="Admin"
-      subtitle="Inspect Turso-backed scan data, registries, unsupported namespaces, and activity logs."
-      headerActions={headerActions}
-      sidebar={sidebarNav}
+      embedded
     >
-      {activeSection === 'db' ? <AdminInbox items={adminInboxItems} /> : null}
-      <AdminSections state={adminSectionsState} />
+      <div className="app__body">
+        <aside className="app__sidebar">{sidebarNav}</aside>
+        <div className="app__main">
+          {activeSection === 'db' ? <AdminInbox items={adminInboxItems} /> : null}
+          <AdminSections state={adminSectionsState} />
+        </div>
+      </div>
     </AppLayout>
   );
 }

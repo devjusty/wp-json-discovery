@@ -1,5 +1,6 @@
 import { createInvestigation, type CapabilityError, type CapabilityStatus, type Investigation, type JsonValue, type EvidenceKind } from '../domain/investigation/model';
 import { rankFindings } from '../domain/investigation/findings';
+import { ContractInvalidError } from './contractErrors';
 
 export type InvestigatorCapabilityStatus = CapabilityStatus | 'idle';
 export type InvestigatorStatus = 'queued' | 'running' | 'partial' | 'complete' | 'failed' | 'blocked';
@@ -152,11 +153,14 @@ function mapLiveFinding(
 }
 
 function mapCanonicalInvestigation(value: unknown): Investigation | undefined {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    throw new ContractInvalidError('Invalid persisted investigation state');
+  }
   try {
     return createInvestigation(value as Investigation);
-  } catch {
-    return undefined;
+  } catch (cause) {
+    throw new ContractInvalidError('Invalid persisted investigation state', cause);
   }
 }
 

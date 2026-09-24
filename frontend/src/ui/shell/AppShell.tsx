@@ -18,9 +18,10 @@ export type AppShellProps = Readonly<{
   title?: string;
   navigationLabel?: string;
   contentLandmark?: 'main' | 'div';
+  headerActions?: ReactNode;
 }>;
 
-export function AppShell({ navigation, commands, children, title = 'WP JSON Discovery', navigationLabel = 'Primary navigation', contentLandmark = 'main' }: AppShellProps) {
+export function AppShell({ navigation, commands, children, title = 'WP JSON Discovery', navigationLabel = 'Primary navigation', contentLandmark = 'main', headerActions }: AppShellProps) {
   const Content = contentLandmark;
 
   return (
@@ -41,6 +42,7 @@ export function AppShell({ navigation, commands, children, title = 'WP JSON Disc
             </button>
           ))}
         </nav>
+        {headerActions}
       </header>
       <Content className="investigation-shell__main">{children}</Content>
     </div>

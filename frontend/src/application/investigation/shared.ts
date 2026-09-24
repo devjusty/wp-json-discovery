@@ -40,7 +40,7 @@ export type InvestigationCommandResult = {
 
 export type InvestigationProgressCallback = (investigation: Investigation) => void | Promise<void>;
 
-export const toLifecycleState = (investigation: Investigation): InvestigationLifecycleState => ({
+const toLifecycleState = (investigation: Investigation): InvestigationLifecycleState => ({
   status: investigation.capabilities.some(({ status }) => status !== 'queued') ? 'running' : 'idle',
   startedAt: null,
   completedAt: null,
@@ -62,7 +62,7 @@ export const toLifecycleState = (investigation: Investigation): InvestigationLif
   overall: { status: 'incomplete' },
 });
 
-export const fromLifecycleState = (investigation: Investigation, state: InvestigationLifecycleState): Investigation => createInvestigation({
+const fromLifecycleState = (investigation: Investigation, state: InvestigationLifecycleState): Investigation => createInvestigation({
   ...investigation,
   capabilities: investigation.capabilities.map((capability) => {
     const next = state.capabilityStates[capability.name];
@@ -80,10 +80,10 @@ export const fromLifecycleState = (investigation: Investigation, state: Investig
   }),
 });
 
-export const transition = (investigation: Investigation, event: InvestigationEvent): Investigation =>
+const transition = (investigation: Investigation, event: InvestigationEvent): Investigation =>
   fromLifecycleState(investigation, applyInvestigationEvent(toLifecycleState(investigation), event));
 
-export const normalizeRunnerError = (cause: unknown): CapabilityError => ({
+const normalizeRunnerError = (cause: unknown): CapabilityError => ({
   code: typeof cause === 'object' && cause && 'code' in cause && typeof cause.code === 'string'
     ? cause.code : 'runner-failed',
   message: cause instanceof Error ? cause.message : 'Capability failed.',
@@ -108,7 +108,9 @@ export const createPersistenceContext = (dependencies: {
   const authenticated = Boolean(dependencies.auth?.getUserId?.());
   let remoteFailure: PersistenceMetadata['remote'];
   let localSaved = false;
-  const store = authenticated && dependencies.localStore
+  const remoteStore = dependencies.store.kind === 'remote'
+    || (dependencies.store.kind === undefined && dependencies.store !== dependencies.localStore);
+  const store = authenticated && dependencies.localStore && remoteStore
     ? {
       ...dependencies.store,
       async save(value: Investigation) {

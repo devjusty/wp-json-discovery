@@ -177,7 +177,7 @@ describe('InvestigatorShell', () => {
 
   it('keeps one main landmark for admin legacy page composition', () => {
     render(<AdminShell navigation={{ items: [{ id: 'admin', label: 'Admin' }], activeId: 'admin' }} commands={{ onNavigate: vi.fn() }}>
-      <AppLayout title="Admin page"><p>Admin content</p></AppLayout>
+      <AppLayout title="Admin page" embedded><p>Admin content</p></AppLayout>
     </AdminShell>);
 
     expect(screen.getAllByRole('main')).toHaveLength(1);

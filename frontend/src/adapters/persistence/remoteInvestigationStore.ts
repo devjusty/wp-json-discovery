@@ -37,6 +37,7 @@ export const createRemoteInvestigationStore = ({
   };
 
   return {
+    kind: 'remote',
     async save(investigation) {
       await requireAuthentication();
       return boundTransport.save(investigation);

@@ -8,10 +8,12 @@ const makeDeps = () => {
     auth: { getUserId: () => null, getAccessToken: async () => null },
     runner: { run: async () => ({ findings: [] }) },
     localStore: {
+      kind: 'local' as const,
       save: async (value: Investigation) => { saved.push(value); },
       get: async () => null, list: async () => saved, claim: async () => saved[0],
     },
     remoteStore: {
+      kind: 'remote' as const,
       save: async () => { throw new Error('remote should not be used'); },
       get: async () => null, list: async () => [], claim: async () => { throw new Error('unused'); },
     },
@@ -78,6 +80,19 @@ describe('startInvestigation', () => {
       local: 'saved',
     });
     expect(deps.saved).toHaveLength(1);
+  });
+
+  it('does not classify an authenticated local store failure as a remote failure', async () => {
+    const deps = makeDeps();
+    deps.auth.getUserId = () => 'user-1';
+    deps.localStore.kind = 'local';
+    deps.remoteStore = deps.localStore as unknown as typeof deps.remoteStore;
+    deps.localStore.save = async () => { throw new Error('local storage down'); };
+
+    await expect(startInvestigation({
+      domain: { submittedUrl: 'example.com', normalizedUrl: 'https://example.com' },
+      capabilities: [],
+    }, deps)).rejects.toMatchObject({ code: 'persistence-failed' });
   });
 
   it('runs independent capabilities in parallel and blocks failed dependents', async () => {

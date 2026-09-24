@@ -9,7 +9,7 @@ import {
 import { AppError } from '../utils/errors.js';
 import { sanitizeDomain } from '../utils/domain.js';
 
-export class InvestigationApplicationError extends AppError {
+class InvestigationApplicationError extends AppError {
   constructor(code, message, statusCode, details = null) {
     super(message, statusCode, details);
     Object.assign(this, { code });

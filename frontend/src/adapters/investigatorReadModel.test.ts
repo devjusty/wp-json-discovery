@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createInvestigatorReadModel, mergeEvidenceOverlay, mergeFindingOverlay } from './investigatorReadModel';
+import { ContractInvalidError } from './contractErrors';
 
 describe('createInvestigatorReadModel', () => {
   it('merges sparse finding overlays through typed helper', () => {
@@ -230,6 +231,13 @@ describe('createInvestigatorReadModel', () => {
     expect(readModel.investigation?.findings).toEqual([
       expect.objectContaining({ id: 'finding-1', evidenceIds: ['evidence-1'] }),
     ]);
+  });
+
+  it('surfaces malformed persisted investigation state as a typed contract error', () => {
+    expect(() => createInvestigatorReadModel({
+      domain: { submitted: 'Example.com', normalized: 'https://example.com' },
+      investigationState: { id: 'corrupt', evidence: [{ id: 'untrusted-provenance' }] },
+    }, false)).toThrowError(ContractInvalidError);
   });
 
   it('merges canonical evidence IDs and lets newer live capability state win', () => {

@@ -28,12 +28,14 @@ describe('production route landmark composition', () => {
         navigation={{ items: [{ id: 'admin', label: 'Admin' }], activeId: 'admin' }}
         commands={{ onNavigate: vi.fn() }}
       >
-        <AppLayout title="Admin">
+        <AppLayout title="Admin" embedded>
           <p>admin content</p>
         </AppLayout>
       </AdminShell>,
     );
 
     expect(screen.getAllByRole('main')).toHaveLength(1);
+    expect(screen.getAllByRole('banner')).toHaveLength(1);
+    expect(screen.getAllByRole('navigation')).toHaveLength(1);
   });
 });
