@@ -1,4 +1,4 @@
-import { createInvestigation, type CapabilityStatus, type Investigation, type JsonValue, type EvidenceKind } from '../domain/investigation/model';
+import { createInvestigation, type CapabilityError, type CapabilityStatus, type Investigation, type JsonValue, type EvidenceKind } from '../domain/investigation/model';
 import { rankFindings } from '../domain/investigation/findings';
 
 export type InvestigatorCapabilityStatus = CapabilityStatus | 'idle';
@@ -37,7 +37,13 @@ export type InvestigatorReadModel = Readonly<{
   title: string;
   status?: InvestigatorStatus;
   sections: ReadonlyArray<Readonly<{ id: string; label: string; description: string; disabled?: boolean }>>;
-  capabilities: ReadonlyArray<Readonly<{ name: string; status: InvestigatorCapabilityStatus; retryable?: boolean }>>;
+  capabilities: ReadonlyArray<Readonly<{
+    name: string;
+    status: InvestigatorCapabilityStatus;
+    retryable?: boolean;
+    reason?: string;
+    error?: CapabilityError;
+  }>>;
   investigation?: Investigation;
 }>;
 
@@ -147,8 +153,12 @@ function mergeFindings(canonical: Investigation['findings'], live: Investigation
   const merged = new Map(canonical.map((finding) => [finding.id, finding]));
   live.forEach((finding) => {
     const previous = merged.get(finding.id);
-    merged.set(finding.id, previous && finding.evidenceIds.length === 0
-      ? { ...finding, evidenceIds: previous.evidenceIds }
+    merged.set(finding.id, previous
+      ? {
+        ...previous,
+        ...finding,
+        ...(finding.evidenceIds.length === 0 ? { evidenceIds: previous.evidenceIds } : {}),
+      }
       : finding);
   });
   return [...merged.values()];
@@ -158,18 +168,26 @@ function mapCapabilities(capabilityStates: InvestigatorSession['capabilityStates
   return Object.entries(capabilityStates ?? {}).flatMap(([name, state]) => {
     const status = normalizeCapabilityStatus(state.status);
     if (!status) return [];
-    const error = state.outcome?.error;
+    const error = mapCapabilityError(state.outcome?.error, status);
     const retryable = status === 'unavailable'
-      ? error !== undefined ? false : undefined
+      ? false
       : error?.retryable;
-    return [{ name, status, ...(status === 'failed' || status === 'unavailable') && typeof retryable === 'boolean' ? { retryable } : {} }];
+    return [{
+      name,
+      status,
+      ...(status === 'failed' || status === 'unavailable') && typeof retryable === 'boolean' ? { retryable } : {},
+      ...(typeof state.reason === 'string' ? { reason: state.reason } : {}),
+      ...(error ? { error } : {}),
+    }];
   });
 }
 
 function mapCanonicalCapabilitySummaries(investigation?: Investigation) {
-  return investigation?.capabilities.map(({ name, status, error }) => ({
+  return investigation?.capabilities.map(({ name, status, error, reason }) => ({
     name,
     status,
+    ...(reason ? { reason } : {}),
+    ...(error ? { error } : {}),
     ...(status === 'failed' || status === 'unavailable'
       ? { retryable: status === 'failed' && error?.retryable === true }
       : {}),

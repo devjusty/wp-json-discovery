@@ -7,6 +7,7 @@ import { InvestigatorShell } from './InvestigatorShell';
 import { AdminShell } from './AdminShell';
 import AppLayout from '../../components/templates/AppLayout';
 import { PageLoadingState } from './PageLoadingState';
+import { InvestigatorToolsPanel } from '../investigation/InvestigatorSectionPanels';
 import type { Investigation } from '../../domain/investigation/model';
 
 describe('InvestigatorShell', () => {
@@ -192,6 +193,36 @@ describe('InvestigatorShell', () => {
     </InvestigatorShell>);
 
     expect(screen.getAllByRole('main')).toHaveLength(1);
+  });
+
+  it('renders capability recovery details and only retries failed retryable capabilities', () => {
+    const onRetry = vi.fn();
+
+    render(<InvestigatorToolsPanel
+      capabilities={[
+        {
+          name: 'wordpress',
+          status: 'failed',
+          retryable: true,
+          reason: 'Request timed out',
+          error: { code: 'timeout', message: 'WordPress endpoint timed out', retryable: true },
+        },
+        {
+          name: 'homepage',
+          status: 'unavailable',
+          retryable: false,
+          reason: 'Dependency unavailable',
+          error: { code: 'dependency_failed', message: 'Homepage capability is blocked', retryable: false },
+        },
+      ]}
+      onRetry={onRetry}
+    />);
+
+    expect(screen.getByText('Request timed out')).toBeInTheDocument();
+    expect(screen.getByText('timeout: WordPress endpoint timed out')).toBeInTheDocument();
+    expect(screen.getByText('Dependency unavailable')).toBeInTheDocument();
+    expect(screen.getByText('dependency_failed: Homepage capability is blocked')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Retry' })).toHaveLength(1);
   });
 });
 

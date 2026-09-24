@@ -1,7 +1,14 @@
 import type { Investigation } from '../../domain/investigation/model';
+import type { CapabilityError } from '../../domain/investigation/model';
 import type { InvestigatorCapabilityStatus } from '../../adapters/investigatorReadModel';
 
-type CapabilitySummary = Readonly<{ name: string; status: InvestigatorCapabilityStatus; retryable?: boolean }>;
+type CapabilitySummary = Readonly<{
+  name: string;
+  status: InvestigatorCapabilityStatus;
+  retryable?: boolean;
+  reason?: string;
+  error?: CapabilityError;
+}>;
 
 export function InvestigatorAssetsPanel({ investigation }: Readonly<{ investigation: Investigation }>) {
   return (
@@ -39,6 +46,8 @@ export function InvestigatorToolsPanel({ capabilities, onRetry }: Readonly<{
         <ul className="investigator-panel__list">
           {capabilities.map((capability) => <li key={capability.name}>
             <span><strong>{capability.name}</strong> {capability.status}</span>
+            {capability.reason ? <small>{capability.reason}</small> : null}
+            {capability.error ? <small>{capability.error.code}: {capability.error.message}</small> : null}
             {capability.retryable && onRetry ? <button type="button" onClick={() => onRetry(capability.name)}>Retry</button> : null}
           </li>)}
         </ul>

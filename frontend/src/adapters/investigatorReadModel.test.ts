@@ -20,7 +20,12 @@ describe('createInvestigatorReadModel', () => {
 
     expect(readModel.investigation?.normalizedUrl).toBe('https://example.com');
     expect(readModel.capabilities).toEqual([
-      { name: 'wordpress', status: 'failed', retryable: true },
+      {
+        name: 'wordpress',
+        status: 'failed',
+        retryable: true,
+        error: { code: 'timeout', message: 'Timed out', retryable: true },
+      },
     ]);
     expect(readModel.status).toBe('partial');
   });
@@ -95,7 +100,12 @@ describe('createInvestigatorReadModel', () => {
       },
     }, false);
 
-    expect(readModel.capabilities).toEqual([{ name: 'blocked', status: 'unavailable', retryable: false }]);
+    expect(readModel.capabilities).toEqual([{
+      name: 'blocked',
+      status: 'unavailable',
+      retryable: false,
+      error: { code: 'legacy', message: 'Unavailable', retryable: false },
+    }]);
   });
 
   it('preserves evidence provenance kinds and request metadata', () => {
@@ -255,7 +265,12 @@ describe('createInvestigatorReadModel', () => {
 
     expect(readModel.status).toBe('failed');
     expect(readModel.capabilities).toEqual([
-      { name: 'wordpress', status: 'failed', retryable: true },
+      {
+        name: 'wordpress',
+        status: 'failed',
+        retryable: true,
+        error: { code: 'timeout', message: 'Timed out', retryable: true },
+      },
     ]);
   });
 
@@ -282,7 +297,12 @@ describe('createInvestigatorReadModel', () => {
     }, false);
 
     expect(readModel.capabilities).toEqual([
-      { name: 'wordpress', status: 'failed', retryable: true },
+      {
+        name: 'wordpress',
+        status: 'failed',
+        retryable: true,
+        error: { code: 'timeout', message: 'Timed out', retryable: true },
+      },
       { name: 'homepage', status: 'success' },
     ]);
   });
@@ -343,7 +363,12 @@ describe('createInvestigatorReadModel', () => {
     }, false);
 
     expect(readModel.capabilities).toEqual([
-      { name: 'wordpress', status: 'failed', retryable: true },
+      {
+        name: 'wordpress',
+        status: 'failed',
+        retryable: true,
+        error: { code: 'timeout', message: 'Timed out', retryable: true },
+      },
     ]);
     expect(readModel.investigation?.capabilities[0]).toMatchObject({
       name: 'wordpress',
@@ -414,5 +439,86 @@ describe('createInvestigatorReadModel', () => {
       evidenceIds: ['evidence-1'],
     });
     expect(readModel.investigation?.evidence[0].source.rawBody).toBe('{"ok":true}');
+  });
+
+  it('preserves persisted finding metadata when live overlay is sparse', () => {
+    const readModel = createInvestigatorReadModel({
+      status: 'completed',
+      overall: { status: 'complete' },
+      domain: { submitted: 'Example.com', normalized: 'https://example.com' },
+      capabilityStates: {
+        wordpress: {
+          status: 'success',
+          outcome: { result: { findings: [{ id: 'finding-1', summary: 'Updated signal' }] } },
+        },
+      },
+      investigationState: {
+        id: 'investigation-1',
+        submittedUrl: 'Example.com',
+        normalizedUrl: 'https://example.com',
+        redirectChain: [],
+        createdAt: '2026-01-01T00:00:00.000Z',
+        capabilities: [],
+        observationTimeline: [],
+        evidence: [{ id: 'persisted-evidence', kind: 'observed', capability: 'wordpress', value: 'signal', source: {} }],
+        findings: [{
+          id: 'finding-1',
+          capability: 'wordpress',
+          summary: 'Persisted signal',
+          evidenceIds: ['persisted-evidence'],
+          confidence: 'high',
+          consequence: 'critical',
+          evidenceQuality: 'high',
+          novelty: 'new',
+        }],
+      },
+    }, false);
+
+    expect(readModel.investigation?.findings).toEqual([{
+      id: 'finding-1',
+      capability: 'wordpress',
+      summary: 'Updated signal',
+      evidenceIds: ['persisted-evidence'],
+      confidence: 'medium',
+      consequence: 'critical',
+      evidenceQuality: 'high',
+      novelty: 'new',
+    }]);
+  });
+
+  it('maps failed and unavailable capability recovery details without enabling unavailable retry', () => {
+    const readModel = createInvestigatorReadModel({
+      domain: { submitted: 'Example.com', normalized: 'https://example.com' },
+      overall: { status: 'partial' },
+      capabilityStates: {
+        wordpress: {
+          status: 'failed',
+          reason: 'Request timed out',
+          outcome: { error: { code: 'timeout', message: 'WordPress endpoint timed out', retryable: true } },
+        },
+        homepage: {
+          status: 'unavailable',
+          reason: 'Dependency unavailable',
+          outcome: { error: { code: 'dependency_failed', message: 'Homepage capability is blocked', retryable: true } },
+        },
+      },
+    }, false);
+
+    expect(readModel.capabilities).toEqual([
+      {
+        name: 'wordpress',
+        status: 'failed',
+        retryable: true,
+        reason: 'Request timed out',
+        error: { code: 'timeout', message: 'WordPress endpoint timed out', retryable: true },
+      },
+      {
+        name: 'homepage',
+        status: 'unavailable',
+        retryable: false,
+        reason: 'Dependency unavailable',
+        error: { code: 'dependency_failed', message: 'Homepage capability is blocked', retryable: false },
+      },
+    ]);
   });
 });
