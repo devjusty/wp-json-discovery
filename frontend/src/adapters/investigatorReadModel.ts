@@ -47,7 +47,10 @@ export function createInvestigatorReadModel(
 ): InvestigatorReadModel {
   const canonical = mapCanonicalInvestigation(session?.investigationState);
   const domain = session?.domain?.normalized || canonical?.normalizedUrl || fallbackDomain;
-  const capabilities = mapCapabilities(session?.capabilityStates);
+  const capabilities = mergeCapabilitySummaries(
+    mapCanonicalCapabilitySummaries(canonical),
+    mapCapabilities(session?.capabilityStates),
+  );
   const mapped = mapResults(session?.capabilityStates);
   const liveCapabilities = mapCapabilityRuns(session);
   const investigation = domain ? createInvestigation({
@@ -115,7 +118,16 @@ function mapCanonicalInvestigation(value: unknown): Investigation | undefined {
 
 function mergeCapabilityRuns(canonical: Investigation['capabilities'], live: ReturnType<typeof mapCapabilityRuns>) {
   const merged = new Map(canonical.map((item) => [item.name, item]));
-  live.forEach((item) => merged.set(item.name, item as Investigation['capabilities'][number]));
+  live.forEach((item) => {
+    const previous = merged.get(item.name);
+    const result = item.status === 'success' && !('result' in item) && previous?.status === 'success'
+      ? previous.result
+      : undefined;
+    merged.set(item.name, {
+      ...item,
+      ...(result !== undefined ? { result } : {}),
+    } as Investigation['capabilities'][number]);
+  });
   return [...merged.values()];
 }
 
@@ -145,6 +157,34 @@ function mapCapabilities(capabilityStates: InvestigatorSession['capabilityStates
   });
 }
 
+function mapCanonicalCapabilitySummaries(investigation?: Investigation) {
+  return investigation?.capabilities.map(({ name, status, error }) => ({
+    name,
+    status,
+    ...(status === 'failed' || status === 'unavailable'
+      ? { retryable: status === 'failed' && error?.retryable === true }
+      : {}),
+  })) ?? [];
+}
+
+function mergeCapabilitySummaries(
+  canonical: ReadonlyArray<Readonly<{ name: string; status: InvestigatorCapabilityStatus; retryable?: boolean }>>,
+  live: ReadonlyArray<Readonly<{ name: string; status: InvestigatorCapabilityStatus; retryable?: boolean }>>,
+) {
+  const merged = new Map(canonical.map((capability) => [capability.name, capability]));
+  live.forEach((capability) => {
+    const previous = merged.get(capability.name);
+    merged.set(capability.name, {
+      ...previous,
+      ...capability,
+      ...(capability.retryable === undefined && previous?.retryable !== undefined
+        ? { retryable: previous.retryable }
+        : {}),
+    });
+  });
+  return [...merged.values()];
+}
+
 function mapCapabilityRuns(session: InvestigatorSession | null) {
   const selections = new Map((session?.selectedCapabilities ?? []).map((selection) => [selection.id, selection]));
   return Object.entries(session?.capabilityStates ?? {}).flatMap(([name, state]) => {
@@ -154,6 +194,7 @@ function mapCapabilityRuns(session: InvestigatorSession | null) {
     const error = mapCapabilityError(state.outcome?.error, status);
     const options = mapJsonRecord(state.options ?? selection?.options ?? session?.selection?.options?.[name]);
     const metadata = asJsonValue(state.metadata ?? selection?.metadata);
+    const result = asJsonValue(state.outcome?.result);
     return [{
       name,
       status,
@@ -163,6 +204,7 @@ function mapCapabilityRuns(session: InvestigatorSession | null) {
       ...(state.reason || selection?.reason ? { reason: state.reason || selection?.reason } : {}),
       ...(state.startedAt || selection?.startedAt ? { startedAt: state.startedAt || selection?.startedAt } : {}),
       ...(state.completedAt || selection?.completedAt ? { completedAt: state.completedAt || selection?.completedAt } : {}),
+      ...(status === 'success' && result !== undefined ? { result } : {}),
       ...(error ? { error } : {}),
     }];
   });

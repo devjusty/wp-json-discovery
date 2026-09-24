@@ -258,4 +258,68 @@ describe('createInvestigatorReadModel', () => {
       { name: 'wordpress', status: 'failed', retryable: true },
     ]);
   });
+
+  it('derives persisted partial capabilities and retry controls when live states are absent', () => {
+    const readModel = createInvestigatorReadModel({
+      status: 'completed',
+      overall: { status: 'partial' },
+      domain: { submitted: 'Example.com', normalized: 'https://example.com' },
+      capabilityStates: {},
+      investigationState: {
+        id: 'investigation-1',
+        submittedUrl: 'Example.com',
+        normalizedUrl: 'https://example.com',
+        redirectChain: [],
+        createdAt: '2026-01-01T00:00:00.000Z',
+        capabilities: [
+          { name: 'wordpress', status: 'failed', error: { code: 'timeout', message: 'Timed out', retryable: true } },
+          { name: 'homepage', status: 'success', result: { title: 'Example' } },
+        ],
+        observationTimeline: [],
+        evidence: [],
+        findings: [],
+      },
+    }, false);
+
+    expect(readModel.capabilities).toEqual([
+      { name: 'wordpress', status: 'failed', retryable: true },
+      { name: 'homepage', status: 'success' },
+    ]);
+  });
+
+  it('preserves canonical successful results when live state has no result and maps live results when present', () => {
+    const readModel = createInvestigatorReadModel({
+      status: 'completed',
+      domain: { submitted: 'Example.com', normalized: 'https://example.com' },
+      capabilityStates: {
+        wordpress: {
+          status: 'success',
+          outcome: { result: { version: 'new' } },
+        },
+        homepage: {
+          status: 'success',
+          outcome: {},
+        },
+      },
+      investigationState: {
+        id: 'investigation-1',
+        submittedUrl: 'Example.com',
+        normalizedUrl: 'https://example.com',
+        redirectChain: [],
+        createdAt: '2026-01-01T00:00:00.000Z',
+        capabilities: [
+          { name: 'wordpress', status: 'success', result: { version: 'old' } },
+          { name: 'homepage', status: 'success', result: { title: 'Example' } },
+        ],
+        observationTimeline: [],
+        evidence: [],
+        findings: [],
+      },
+    }, false);
+
+    expect(readModel.investigation?.capabilities).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'wordpress', status: 'success', result: { version: 'new' } }),
+      expect.objectContaining({ name: 'homepage', status: 'success', result: { title: 'Example' } }),
+    ]));
+  });
 });
