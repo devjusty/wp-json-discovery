@@ -16,6 +16,7 @@ import useAdminData from './admin/useAdminData.js';
 import useAdminEditorState from './admin/useAdminEditorState.js';
 import useAdminQueries from './admin/useAdminQueries.js';
 import { buildAdminSectionsState } from './admin/sectionsState.js';
+import { namespaceToSlug } from './admin/drafts.js';
 import { AdminInbox, type AdminInboxItem } from '../../ui/admin/AdminInbox';
 
 // Admin page layering notes live in ./admin/README.md.
@@ -154,7 +155,7 @@ function buildAdminInboxItems({
         onSelect: () => onCreatePluginFromSuggestion({
           kind: 'namespace',
           namespace: entry.namespace,
-          slug: entry.namespace
+          slug: namespaceToSlug(entry.namespace)
         })
       },
       priority: 30

@@ -230,6 +230,17 @@ describe('AdminPage integration', () => {
     expect(onNavigate).toHaveBeenCalledWith('scan');
   });
 
+  it('passes a normalized slug when promoting an inbox namespace', async () => {
+    renderPage();
+
+    const inbox = await screen.findByRole('region', { name: 'Operational inbox' });
+    await within(inbox).findByText('Unsupported namespace wc/v3');
+    await userEvent.click(within(inbox).getAllByRole('button', { name: 'Promote' })[0]);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Add plugin' });
+    expect(within(dialog).getByLabelText('ID')).toHaveValue('wc');
+  });
+
   it('creates a plugin from asset-only signal without namespaces', async () => {
     renderPage();
 
