@@ -224,6 +224,32 @@ describe('InvestigatorShell', () => {
     expect(screen.getByText('dependency_failed: Homepage capability is blocked')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Retry' })).toHaveLength(1);
   });
+
+  it('renders blocked recovery state without hiding report sections or enabling unavailable retry', () => {
+    render(<InvestigatorShell
+      readModel={{
+        title: 'example.com',
+        status: 'blocked',
+        blocked: {
+          reason: 'Required homepage capability is unavailable',
+          guidance: 'Enable homepage access, then start a new scan.',
+          command: 'scan --capability homepage',
+        },
+        sections: [{ id: 'overview', label: 'Overview' }, { id: 'tools', label: 'Tools' }],
+        capabilities: [{ name: 'homepage', status: 'unavailable', retryable: false }],
+        investigation: createInvestigationReadModel(),
+      }}
+      activeSection="overview"
+      commands={{ onSectionChange: vi.fn(), onRetry: vi.fn() }}
+    />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Investigation blocked');
+    expect(screen.getByRole('alert')).toHaveTextContent('Reason: Required homepage capability is unavailable');
+    expect(screen.getByText('Enable homepage access, then start a new scan.')).toBeInTheDocument();
+    expect(screen.getByText('scan --capability homepage')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Investigator overview' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry homepage' })).not.toBeInTheDocument();
+  });
 });
 
 function createInvestigationReadModel(): Investigation {

@@ -8,7 +8,7 @@ type InvestigatorSession = {
   id?: string;
   status?: string;
   startedAt?: string | null;
-  overall?: { status?: string };
+  overall?: { status?: string; reason?: string; guidance?: string; command?: string };
   domain?: { submitted?: string; normalized?: string; redirectChain?: string[] };
   capabilityStates?: Record<string, {
     status?: string;
@@ -40,6 +40,7 @@ type MappedFinding = Omit<Investigation['findings'][number], 'confidence'> & {
 export type InvestigatorReadModel = Readonly<{
   title: string;
   status?: InvestigatorStatus;
+  blocked?: Readonly<{ reason?: string; guidance?: string; command?: string }>;
   sections: ReadonlyArray<Readonly<{ id: string; label: string; description: string; disabled?: boolean }>>;
   capabilities: ReadonlyArray<Readonly<{
     name: string;
@@ -79,6 +80,7 @@ export function createInvestigatorReadModel(
   return {
     title: domain || 'Investigation workspace',
     status: normalizeInvestigationStatus(session?.overall?.status, session?.status, session?.capabilityStates),
+    blocked: mapBlockedState(session, capabilities),
     capabilities,
     investigation,
     sections: [
@@ -89,6 +91,22 @@ export function createInvestigatorReadModel(
       { id: 'history', label: 'History', description: 'Previous investigation activity.', disabled: !domain },
       { id: 'tools', label: 'Tools', description: 'Investigation actions and capability controls.' },
     ],
+  };
+}
+
+function mapBlockedState(
+  session: InvestigatorSession | null,
+  capabilities: InvestigatorReadModel['capabilities'],
+) {
+  if (session?.overall?.status !== 'blocked') return undefined;
+  const blockedCapability = capabilities.find(({ status }) => status === 'unavailable' || status === 'failed');
+  const reason = session.overall.reason ?? blockedCapability?.reason ?? blockedCapability?.error?.message;
+  const guidance = session.overall.guidance;
+  const command = session.overall.command;
+  return {
+    ...(reason ? { reason } : {}),
+    ...(guidance ? { guidance } : {}),
+    ...(command ? { command } : {}),
   };
 }
 

@@ -11,6 +11,7 @@ import { InvestigatorAssetsPanel, InvestigatorHistoryPanel, InvestigatorToolsPan
 type InvestigatorShellReadModel = Readonly<{
   title: string;
   status?: InvestigatorStatus;
+  blocked?: Readonly<{ reason?: string; guidance?: string; command?: string }>;
   sections: ReadonlyArray<InvestigatorSection>;
   capabilities: ReadonlyArray<Readonly<{
     name: string;
@@ -32,6 +33,7 @@ export function InvestigatorShell({ readModel, commands, activeSection = readMod
   const [selectedEvidenceIds, setSelectedEvidenceIds] = useState<ReadonlyArray<string> | null>(null);
   const navigation: ShellNavigation = { items: readModel.sections, activeId: activeSection };
   const isPartial = readModel.status === 'partial' || readModel.status === 'failed';
+  const isBlocked = readModel.status === 'blocked';
   const successfulCapabilityExists = readModel.capabilities.some(({ status }) => status === 'success');
   const retryableCapabilities = readModel.capabilities.filter(({ status, retryable }) => status === 'failed' && retryable);
   const activeSectionDefinition = readModel.sections.find(({ id }) => id === activeSection) ?? readModel.sections[0];
@@ -50,9 +52,12 @@ export function InvestigatorShell({ readModel, commands, activeSection = readMod
   return (
     <AppShell navigation={navigation} commands={{ onNavigate: handleSectionChange }} title={readModel.title} navigationLabel="Investigator navigation" contentLandmark={contentLandmark}>
       <div className="investigator-shell__section-selector"><InvestigatorSectionSelector sections={readModel.sections} activeSection={activeSection} onChange={handleSectionChange} /></div>
-      {isPartial ? <div className="investigator-partial" role="status">
-        <strong>{readModel.status === 'failed' ? 'Investigation failed' : 'Partial investigation'}</strong>
+      {isPartial || isBlocked ? <div className={isBlocked ? 'investigator-blocked' : 'investigator-partial'} role={isBlocked ? 'alert' : 'status'}>
+        <strong>{isBlocked ? 'Investigation blocked' : readModel.status === 'failed' ? 'Investigation failed' : 'Partial investigation'}</strong>
         {successfulCapabilityExists ? <span>Successful evidence remains available.</span> : null}
+        {isBlocked && readModel.blocked?.reason ? <span>Reason: {readModel.blocked.reason}</span> : null}
+        {isBlocked && readModel.blocked?.guidance ? <span>{readModel.blocked.guidance}</span> : null}
+        {isBlocked && readModel.blocked?.command ? <span>Recovery command: <code>{readModel.blocked.command}</code></span> : null}
         {commands.onRetry ? retryableCapabilities.map((capability) => (
           <button type="button" key={capability.name} onClick={() => commands.onRetry?.(capability.name)}>
             Retry {capability.name}

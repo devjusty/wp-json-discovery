@@ -607,4 +607,30 @@ describe('createInvestigatorReadModel', () => {
       },
     ]);
   });
+
+  it('maps blocked investigation recovery details from overall state', () => {
+    const readModel = createInvestigatorReadModel({
+      domain: { submitted: 'Example.com', normalized: 'https://example.com' },
+      overall: {
+        status: 'blocked',
+        reason: 'Required homepage capability is unavailable',
+        guidance: 'Enable homepage access, then start a new scan.',
+        command: 'scan --capability homepage',
+      },
+      capabilityStates: {
+        homepage: {
+          status: 'unavailable',
+          outcome: { error: { code: 'dependency_failed', message: 'Homepage dependency unavailable', retryable: true } },
+        },
+      },
+    }, false);
+
+    expect(readModel.status).toBe('blocked');
+    expect(readModel.blocked).toEqual({
+      reason: 'Required homepage capability is unavailable',
+      guidance: 'Enable homepage access, then start a new scan.',
+      command: 'scan --capability homepage',
+    });
+    expect(readModel.capabilities).toEqual([expect.objectContaining({ status: 'unavailable', retryable: false })]);
+  });
 });
