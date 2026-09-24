@@ -16,6 +16,7 @@ import useAdminData from './admin/useAdminData.js';
 import useAdminEditorState from './admin/useAdminEditorState.js';
 import useAdminQueries from './admin/useAdminQueries.js';
 import { buildAdminSectionsState } from './admin/sectionsState.js';
+import { AdminInbox, type AdminInboxItem } from '../../ui/admin/AdminInbox';
 
 // Admin page layering notes live in ./admin/README.md.
 
@@ -42,6 +43,138 @@ const AdminAssetsSection = lazy(loadAdminAssetsSection);
 const AdminSupportedPluginsSection = lazy(loadAdminSupportedPluginsSection);
 const AdminSupportedThemesSection = lazy(loadAdminSupportedThemesSection);
 const AdminThemeManagerSection = lazy(loadAdminThemeManagerSection);
+
+type AdminInboxActivityLog = Readonly<{
+  type?: string;
+  payload?: Readonly<{
+    domain?: unknown;
+    failureCategory?: unknown;
+    message?: unknown;
+  }>;
+}>;
+
+type AdminInboxUnsupportedEntry = Readonly<{
+  namespace: string;
+  domains?: ReadonlyArray<unknown>;
+  lastDetectedAt?: string;
+}>;
+
+type AdminInboxAssetHint = Readonly<{
+  slug: string;
+  occurrences: number;
+  pathCount: number;
+}>;
+
+type AdminInboxDomain = Readonly<{
+  domain: string;
+  lastStatus?: string;
+  lastErrorCategory?: string;
+}>;
+
+type AdminInboxMaintenance = Readonly<{
+  data?: Readonly<{ logs?: Readonly<{ lastMaintenanceAt?: string }> }>;
+  mutation: Readonly<{
+    isError?: boolean;
+    error?: Readonly<{ message?: string }>;
+    mutate: () => void;
+  }>;
+}>;
+
+function buildAdminInboxItems({
+  activityLogs,
+  unsupportedEntries,
+  unknownPluginAssetHints,
+  domains,
+  maintenance,
+  onRescan,
+  onCreatePluginFromAsset,
+  onCreatePluginFromSuggestion
+}: {
+  activityLogs: ReadonlyArray<AdminInboxActivityLog>;
+  unsupportedEntries: ReadonlyArray<AdminInboxUnsupportedEntry>;
+  unknownPluginAssetHints: ReadonlyArray<AdminInboxAssetHint>;
+  domains: ReadonlyArray<AdminInboxDomain>;
+  maintenance: AdminInboxMaintenance;
+  onRescan: (domain: string) => void;
+  onCreatePluginFromAsset: (slug: string) => void;
+  onCreatePluginFromSuggestion: (suggestion: { kind: string; namespace: string; slug: string }) => void;
+}): AdminInboxItem[] {
+  const failedScans = [
+    ...activityLogs
+      .filter((log): log is AdminInboxActivityLog & { payload: { domain: string } } => log.type === 'scan.error' && typeof log.payload?.domain === 'string')
+      .map((log) => ({
+        domain: log.payload.domain,
+        evidence: typeof log.payload.failureCategory === 'string'
+          ? log.payload.failureCategory
+          : typeof log.payload.message === 'string' ? log.payload.message : 'Scan failed.'
+      })),
+    ...domains
+      .filter((domain) => domain.lastStatus === 'failed' && typeof domain.domain === 'string')
+      .map((domain) => ({
+        domain: domain.domain,
+        evidence: domain.lastErrorCategory || 'Latest scan failed.'
+      }))
+  ].filter((scan, index, scans) => scans.findIndex((candidate) => candidate.domain === scan.domain) === index);
+
+  const items: AdminInboxItem[] = failedScans.map((scan) => ({
+    id: `scan:failed:${scan.domain}`,
+    kind: 'failed-scan',
+    title: `Failed scan for ${scan.domain}`,
+    status: 'failed',
+    evidence: scan.evidence,
+    action: { label: 'Rescan', onSelect: () => onRescan(scan.domain) },
+    priority: 10
+  }));
+
+  const lastMaintenanceAt = maintenance.data?.logs?.lastMaintenanceAt;
+  const hasMaintenanceError = Boolean(maintenance.mutation?.isError);
+  if (!lastMaintenanceAt || hasMaintenanceError) {
+    items.push({
+      id: 'maintenance:database',
+      kind: 'maintenance',
+      title: 'Database maintenance due',
+      status: hasMaintenanceError ? 'failed' : 'scheduled',
+      evidence: hasMaintenanceError
+        ? maintenance.mutation.error?.message ?? 'Latest maintenance run failed.'
+        : 'No completed maintenance run is recorded.',
+      action: { label: 'Run maintenance', onSelect: () => maintenance.mutation.mutate() },
+      priority: hasMaintenanceError ? 15 : 40
+    });
+  }
+
+  items.push(
+    ...unsupportedEntries.map((entry) => ({
+      id: `unsupported:${entry.namespace}`,
+      kind: 'unsupported-namespace' as const,
+      title: `Unsupported namespace ${entry.namespace}`,
+      status: 'attention',
+      evidence: `${entry.domains?.length ?? 0} domains; last seen ${entry.lastDetectedAt ?? 'unknown'}.`,
+      action: {
+        label: 'Promote',
+        onSelect: () => onCreatePluginFromSuggestion({
+          kind: 'namespace',
+          namespace: entry.namespace,
+          slug: entry.namespace
+        })
+      },
+      priority: 30
+    }))
+  );
+
+  items.push(
+    ...unknownPluginAssetHints.map((asset) => ({
+      id: `asset:${asset.slug}`,
+      kind: 'discovered-asset' as const,
+      title: `Unknown plugin asset ${asset.slug}`,
+      status: 'review',
+      evidence: `${asset.occurrences} occurrence${asset.occurrences === 1 ? '' : 's'} across ${asset.pathCount} path${asset.pathCount === 1 ? '' : 's'}.`,
+      action: { label: 'Create plugin entry', onSelect: () => onCreatePluginFromAsset(asset.slug) },
+      priority: 40
+    }))
+  );
+
+  return items;
+}
 
 type AdminPageProps = {
   headerActions?: ReactNode;
@@ -352,6 +485,33 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
     }
   });
 
+  const adminInboxItems = useMemo(
+    () => buildAdminInboxItems({
+      activityLogs,
+      unsupportedEntries,
+      unknownPluginAssetHints,
+      domains: domainsHistoryQuery.data?.items ?? [],
+      maintenance: {
+        data,
+        mutation: maintenanceMutation
+      },
+      onRescan,
+      onCreatePluginFromAsset: handleCreatePluginFromAsset,
+      onCreatePluginFromSuggestion: handleCreatePluginFromSuggestion
+    }),
+    [
+      activityLogs,
+      data,
+      domainsHistoryQuery.data,
+      handleCreatePluginFromAsset,
+      handleCreatePluginFromSuggestion,
+      maintenanceMutation,
+      onRescan,
+      unknownPluginAssetHints,
+      unsupportedEntries
+    ]
+  );
+
   return (
     <AppLayout
       title="Admin"
@@ -359,6 +519,7 @@ function AdminPage({ headerActions, onNavigate, rotateLogs, isRotatingLogs, onRe
       headerActions={headerActions}
       sidebar={sidebarNav}
     >
+      {activeSection === 'db' ? <AdminInbox items={adminInboxItems} /> : null}
       <AdminSections state={adminSectionsState} />
     </AppLayout>
   );
