@@ -33,7 +33,7 @@ vi.mock('../../services/investigationSession.js', () => ({
   getInvestigatorSelection: vi.fn(),
 }));
 
-vi.mock('../../context/ScanContext', () => ({
+vi.mock('../../context/ScanContextHooks', () => ({
   useScanShellContext: () => mocks.shellContext,
   useScanResultsContext: () => ({
     session: null,

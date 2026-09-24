@@ -20,6 +20,18 @@ describe('InvestigatorShell', () => {
     expect(screen.queryByRole('navigation', { name: 'Investigator navigation' })).not.toBeInTheDocument();
   });
 
+  it('forwards auth actions to the app shell', () => {
+    render(
+      <InvestigatorShell
+        readModel={{ title: 'example.com', status: undefined, sections: [], capabilities: [] }}
+        commands={{ onSectionChange: vi.fn() }}
+        authActions={<button type="button">Log in</button>}
+      />,
+    );
+
+    expect(screen.getByRole('group', { name: 'Header actions' })).toContainElement(screen.getByRole('button', { name: 'Log in' }));
+  });
+
   it('changes active content for every contextual section', async () => {
     const user = userEvent.setup();
     const sections = ['overview', 'findings', 'evidence', 'assets', 'history', 'tools'].map((id) => ({ id, label: id[0].toUpperCase() + id.slice(1) }));

@@ -6,7 +6,7 @@ function LoginButton() {
 
   if (isLoading) {
     return (
-      <Button variant="outline" size="sm" disabled>
+      <Button className="" variant="outline" size="sm" disabled>
         Loading...
       </Button>
     );
@@ -17,7 +17,7 @@ function LoginButton() {
   }
 
   return (
-    <Button variant="outline" size="sm" onClick={() => loginWithRedirect()}>
+    <Button className="" variant="outline" size="sm" onClick={() => loginWithRedirect()}>
       Log in
     </Button>
   );

@@ -1,8 +1,9 @@
 import { Auth0Provider } from '@auth0/auth0-react';
+import type { ComponentType } from 'react';
 
-import LoginButton from './LoginButton.jsx';
+import LoginButton from './LoginButton';
 
-function withAuth0(Story) {
+function withAuth0(Story: ComponentType) {
   const StoryComponent = Story;
 
   return (

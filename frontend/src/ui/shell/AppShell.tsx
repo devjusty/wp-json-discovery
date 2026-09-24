@@ -20,11 +20,13 @@ export type AppShellProps = Readonly<{
   navigationLabel?: string;
   contentLandmark?: 'main' | 'div';
   headerActions?: ReactNode;
+  authActions?: ReactNode;
 }>;
 
-export function AppShell({ navigation, commands, children, title = 'WP JSON Discovery', navigationLabel = 'Primary navigation', contentLandmark = 'main', headerActions }: AppShellProps) {
+export function AppShell({ navigation, commands, children, title = 'WP JSON Discovery', navigationLabel = 'Primary navigation', contentLandmark = 'main', headerActions, authActions }: AppShellProps) {
   const Content = contentLandmark;
   const hasNavigation = navigation.items.length > 0;
+  const hasHeaderActions = headerActions || authActions;
 
   return (
     <div className="investigation-shell">
@@ -49,7 +51,10 @@ export function AppShell({ navigation, commands, children, title = 'WP JSON Disc
             ))}
           </nav>
         ) : null}
-        {headerActions ? <div className="investigation-shell__actions">{headerActions}</div> : null}
+        {hasHeaderActions ? <div className="investigation-shell__actions" role="group" aria-label="Header actions">
+          {headerActions}
+          {authActions ? <div className="investigation-shell__auth-actions">{authActions}</div> : null}
+        </div> : null}
       </header>
       <Content className="investigation-shell__main">{children}</Content>
     </div>

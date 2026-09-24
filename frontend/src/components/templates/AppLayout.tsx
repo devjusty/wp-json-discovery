@@ -1,9 +1,9 @@
 import { useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import LoginButton from '../atoms/LoginButton.jsx';
-import UserMenu from '../molecules/UserMenu';
 import { BrandMark } from '../../ui/brand/BrandMark';
+import LoginButton from '../../ui/auth/LoginButton';
+import UserMenu from '../../ui/auth/UserMenu';
 
 type AppLayoutProps = {
   title: string;

@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
+import { ScanResultsContext, ScanShellContext } from './ScanContexts';
 import { useScan } from '../hooks/useScan.js';
 import { normalizeSelection } from '../services/scanCapabilities.js';
 import { loadScanPreferences, saveScanPreferences } from '../services/scanPreferences.js';
@@ -38,7 +39,7 @@ type InvestigatorSession = {
 
 type InvestigatorRetryCommand = (capabilityName: string) => void | Promise<void>;
 
-type ScanShellContextValue = {
+export type ScanShellContextValue = {
   activePage: string;
   setActivePage: Dispatch<SetStateAction<string>>;
   domain: string;
@@ -53,7 +54,7 @@ type ScanShellContextValue = {
   handleDomainChange: (value: string) => void;
 };
 
-type ScanResultsContextValue = {
+export type ScanResultsContextValue = {
   session: ScanSession | null;
   investigatorSession: InvestigatorSession;
   setInvestigatorSession: Dispatch<SetStateAction<InvestigatorSession>>;
@@ -68,9 +69,6 @@ type ScanResultsContextValue = {
   retryCapability: (id: string) => unknown;
   isScanning: boolean;
 };
-
-const ScanShellContext = createContext<ScanShellContextValue | undefined>(undefined);
-const ScanResultsContext = createContext<ScanResultsContextValue | undefined>(undefined);
 
 type ScanProviderProps = { children: ReactNode };
 
@@ -189,20 +187,4 @@ function cloneScanSettings(settings) {
       Object.entries(settings.options).map(([id, options]) => [id, { ...(options as Record<string, unknown>) }])
     )
   };
-}
-
-export function useScanShellContext() {
-  const context = useContext(ScanShellContext);
-  if (context === undefined) {
-    throw new Error('useScanShellContext must be used within a ScanProvider');
-  }
-  return context;
-}
-
-export function useScanResultsContext() {
-  const context = useContext(ScanResultsContext);
-  if (context === undefined) {
-    throw new Error('useScanResultsContext must be used within a ScanProvider');
-  }
-  return context;
 }
