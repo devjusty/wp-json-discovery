@@ -1,0 +1,68 @@
+[
+  {
+    "file": "logo-mark-dark.png",
+    "width": 640,
+    "height": 640,
+    "background": "#0B0C0E"
+  },
+  {
+    "file": "logo-mark-light.png",
+    "width": 640,
+    "height": 640,
+    "background": "#E8E4DC"
+  },
+  {
+    "file": "logo-mark-mono.png",
+    "width": 640,
+    "height": 640,
+    "background": "#FFFFFF"
+  },
+  {
+    "file": "logo-lockup-dark.png",
+    "width": 1280,
+    "height": 320,
+    "background": "#0B0C0E"
+  },
+  {
+    "file": "logo-lockup-light.png",
+    "width": 1280,
+    "height": 320,
+    "background": "#E8E4DC"
+  },
+  {
+    "file": "logo-wordmark-dark.png",
+    "width": 1280,
+    "height": 320,
+    "background": "#0B0C0E"
+  },
+  {
+    "file": "logo-wordmark-light.png",
+    "width": 1280,
+    "height": 320,
+    "background": "#E8E4DC"
+  },
+  {
+    "file": "logo-app-icon.png",
+    "width": 1024,
+    "height": 1024,
+    "background": "#14161A"
+  },
+  {
+    "file": "logo-mark-cream.png",
+    "width": 1024,
+    "height": 1024,
+    "background": "transparent"
+  },
+  {
+    "file": "logo-mark-charcoal.png",
+    "width": 1024,
+    "height": 1024,
+    "background": "transparent"
+  },
+  {
+    "file": "logo-mark-signal-node.png",
+    "width": 1024,
+    "height": 1024,
+    "background": "transparent"
+  }
+]

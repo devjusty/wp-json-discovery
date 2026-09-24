@@ -1,0 +1,79 @@
+/**
+ * WP JSON Discovery — brand foundations (locked for redesign)
+ *
+ * Visual source: docs/brandkit/wp-json-discovery-foundations.png
+ * Do not wire into frontend/src/theme.css until the redesign lands;
+ * this file is the contract the redesign should implement against.
+ */
+
+:root {
+  /* —— Color (primitive) —— */
+  --brand-charcoal: #0b0c0e;
+  --brand-panel: #14161a;
+  --brand-cream: #e8e4dc;
+  --brand-steel: #8b9099;
+  --brand-signal: #5eb8c4;
+  --brand-ember: #c97b6b;
+
+  /* —— Color (semantic, dark-first) —— */
+  --brand-canvas: var(--brand-charcoal);
+  --brand-surface: var(--brand-panel);
+  --brand-surface-well: #0e1013;
+  --brand-text: var(--brand-cream);
+  --brand-text-muted: var(--brand-steel);
+  --brand-accent: var(--brand-signal);
+  --brand-accent-warm: var(--brand-ember);
+  --brand-border: color-mix(in srgb, var(--brand-steel) 28%, transparent);
+  --brand-border-strong: color-mix(in srgb, var(--brand-steel) 48%, transparent);
+  --brand-focus-ring: var(--brand-signal);
+
+  /* Capability / status */
+  --brand-status-queued: var(--brand-steel);
+  --brand-status-running: var(--brand-signal);
+  --brand-status-success: var(--brand-ember);
+  --brand-status-failed: color-mix(in srgb, var(--brand-ember) 75%, var(--brand-cream));
+
+  /* —— Typography —— */
+  /* Keep IBM Plex family already in frontend/src/fonts.css */
+  --brand-font-sans: "IBM Plex Sans Variable", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --brand-font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --brand-text-xs: 0.75rem; /* 12 */
+  --brand-text-sm: 0.875rem; /* 14 */
+  --brand-text-md: 1rem; /* 16 */
+  --brand-text-lg: 1.25rem; /* 20 */
+  --brand-text-xl: 1.75rem; /* 28 */
+  --brand-text-2xl: 2.5rem; /* 40 */
+
+  --brand-leading-tight: 1.2;
+  --brand-leading-normal: 1.45;
+  --brand-tracking-tight: -0.01em;
+  --brand-tracking-label: 0.04em;
+
+  /* —— Radius —— */
+  --brand-radius-none: 0;
+  --brand-radius-sm: 0.25rem; /* 4 */
+  --brand-radius-md: 0.5rem; /* 8 */
+  --brand-radius-lg: 0.75rem; /* 12 */
+
+  /* —— Spacing —— */
+  --brand-space-1: 0.25rem; /* 4 */
+  --brand-space-2: 0.5rem; /* 8 */
+  --brand-space-3: 0.75rem; /* 12 */
+  --brand-space-4: 1rem; /* 16 */
+  --brand-space-5: 1.5rem; /* 24 */
+  --brand-space-6: 2rem; /* 32 */
+  --brand-space-7: 3rem; /* 48 */
+
+  /* —— Layout (investigator) —— */
+  --brand-content-width: 76rem;
+  --brand-navigation-width: 15rem;
+  --brand-control-height: 2.75rem;
+
+  /* —— Motion —— */
+  --brand-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --brand-duration-fast: 120ms;
+  --brand-duration-normal: 200ms;
+  /* Pulse only on RUNNING status chips */
+  --brand-duration-pulse: 1.4s;
+}
