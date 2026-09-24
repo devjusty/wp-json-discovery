@@ -74,6 +74,39 @@ describe('investigation session', () => {
     });
   });
 
+  it.each([
+    'https://www.Example.com/wp-json/?context=view',
+    'http://WWW.Example.com/path?query=value',
+  ])('normalizes URL-shaped authenticated identity to hostname for %s', async (submittedUrl) => {
+    const remoteStart = vi.fn(async (domain) => createInvestigation({
+      id: 'auth-url-with-path',
+      submittedUrl: domain.submitted,
+      normalizedUrl: domain.normalized,
+      redirectChain: [domain.normalized],
+      createdAt: '2026-09-23T12:00:00.000Z',
+      capabilities: [],
+    }));
+    const workflow = createInvestigatorWorkflow({
+      auth: { getUserId: () => 'user-1', getAccessToken: async () => 'token' },
+      runner: { run: async () => ({ findings: [] }) },
+      localStore: memoryStore(),
+      remoteStore: memoryStore(),
+      remoteStart,
+    });
+
+    const result = await workflow.start(submittedUrl);
+
+    expect(remoteStart).toHaveBeenCalledWith({
+      submitted: submittedUrl,
+      normalized: 'example.com',
+    }, expect.any(Array), ['example.com']);
+    expect(result.investigation).toMatchObject({
+      submittedUrl,
+      normalizedUrl: 'example.com',
+      redirectChain: ['example.com'],
+    });
+  });
+
   it('exposes command callbacks and read model without leaking persistence details', async () => {
     const workflow = createInvestigatorWorkflow({
       auth: { getUserId: () => null, getAccessToken: async () => null },

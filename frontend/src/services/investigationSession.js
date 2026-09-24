@@ -181,6 +181,18 @@ export function getInvestigatorSelection() {
   return normalizeSelection({ capabilityIds: ['wordpress', 'homepage'] });
 }
 
+function normalizeInvestigationIdentity(input, normalize) {
+  const trimmed = typeof input === 'string' ? input.trim() : input;
+  if (typeof trimmed === 'string' && /^https?:\/\//i.test(trimmed)) {
+    try {
+      return normalize(new URL(trimmed).hostname);
+    } catch {
+      // Keep existing normalization behavior for malformed URL-shaped input.
+    }
+  }
+  return normalize(input);
+}
+
 /**
  * Binds application commands to the investigator UI. Pages receive results and
  * commands, never persistence or capability-transition details.
@@ -238,11 +250,12 @@ export function createInvestigatorWorkflow({
 
   const start = async (submittedUrl, capabilities = getInvestigatorSelection()) => {
     const selection = normalizeSelection(capabilities);
+    const normalizedIdentity = normalizeInvestigationIdentity(submittedUrl, normalize);
     const { startInvestigation: startCommand } = await import('../application/investigation/start.ts');
     const result = await startCommand({
-      domain: { submittedUrl, normalizedUrl: normalize(submittedUrl) },
-       redirectChain: redirectChain ?? [normalize(submittedUrl)],
-       capabilities: selection.capabilityIds.map((name) => ({
+      domain: { submittedUrl, normalizedUrl: normalizedIdentity },
+      redirectChain: redirectChain ?? [normalizedIdentity],
+      capabilities: selection.capabilityIds.map((name) => ({
         name,
         options: selection.options[name],
         dependencies: getCapabilityDependencies()[name] ?? [],
