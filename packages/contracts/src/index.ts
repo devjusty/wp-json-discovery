@@ -294,6 +294,9 @@ const scanSessionFields = {
   capabilityStates: z.record(identifierSchema, sessionCapabilityStateSchema),
   overall: z.object({
     status: z.enum(['complete', 'partial', 'failed', 'blocked', 'incomplete']),
+    reason: nonBlankStringSchema.optional(),
+    guidance: nonBlankStringSchema.optional(),
+    command: nonBlankStringSchema.optional(),
   }).strict(),
   investigationState: investigationStateSchema.optional(),
 };

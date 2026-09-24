@@ -1,5 +1,8 @@
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ContractInvalidError, createInvestigationTransport } from './investigationTransport';
+import { createInvestigatorReadModel } from '../investigatorReadModel';
+import { InvestigatorShell } from '../../ui/shell/InvestigatorShell';
 
 describe('investigation transport', () => {
   it('maps validated records into domain investigations', async () => {
@@ -22,6 +25,40 @@ describe('investigation transport', () => {
       submittedUrl: 'Example.com',
       normalizedUrl: 'https://example.com',
     });
+  });
+
+  it('accepts blocked recovery fields on real session responses for read-model mapping', async () => {
+    const blockedSession = {
+      ...validSessionRecord().session,
+      status: 'completed',
+      startedAt: '2026-09-23T12:00:00.000Z',
+      completedAt: '2026-09-23T12:01:00.000Z',
+      overall: {
+        status: 'blocked',
+        reason: 'Required capability unavailable',
+        guidance: 'Enable capability and start a new scan.',
+        command: 'scan --capability homepage',
+      },
+    };
+    const transport = createInvestigationTransport({
+      get: async () => investigationRecord('inv-1', fullInvestigation(), blockedSession),
+      list: async () => ({ investigations: [] }),
+      save: async () => validSessionRecord(),
+    });
+
+    await expect(transport.get('inv-1')).resolves.toMatchObject({ id: 'inv-1' });
+    const readModel = createInvestigatorReadModel(blockedSession, false);
+    expect(readModel.blocked).toEqual({
+      reason: 'Required capability unavailable',
+      guidance: 'Enable capability and start a new scan.',
+      command: 'scan --capability homepage',
+    });
+    render(<InvestigatorShell
+      readModel={{ ...readModel, sections: [{ id: 'overview', label: 'Overview' }], capabilities: [] }}
+      commands={{ onSectionChange: vi.fn() }}
+    />);
+    expect(screen.getByRole('alert')).toHaveTextContent('Required capability unavailable');
+    expect(screen.getByText('scan --capability homepage')).toBeInTheDocument();
   });
 
   it('returns typed contract errors instead of empty state', async () => {
@@ -440,7 +477,7 @@ function validSessionRecord() {
   };
 }
 
-function investigationRecord(id, state) {
+function investigationRecord(id, state, sessionOverrides = {}) {
   return {
     recordType: 'investigation',
     investigation: {
@@ -453,6 +490,7 @@ function investigationRecord(id, state) {
     sessionIds: ['session-1'],
     latestSession: {
       ...validSessionRecord().session,
+      ...sessionOverrides,
       investigationId: id,
       investigationState: state,
     },

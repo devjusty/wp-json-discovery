@@ -213,6 +213,30 @@ describe('scan sessions', () => {
     ).toBe(true);
   });
 
+  it('accepts typed blocked recovery fields and rejects unknown blocked fields', () => {
+    const session = {
+      id: 'session-blocked',
+      investigationId: 'investigation-1',
+      status: 'completed',
+      startedAt: timestamp,
+      completedAt: timestamp,
+      selectedCapabilities: [],
+      capabilityStates: {},
+      overall: {
+        status: 'blocked',
+        reason: 'Required capability unavailable',
+        guidance: 'Enable capability and start a new scan.',
+        command: 'scan --capability homepage',
+      },
+    };
+
+    expect(scanSessionSchema.safeParse(session).success).toBe(true);
+    expect(scanSessionSchema.safeParse({
+      ...session,
+      overall: { ...session.overall, recoveryUrl: 'https://example.com/recover' },
+    }).success).toBe(false);
+  });
+
   it('rejects a complete session with any non-success capability', () => {
     expect(scanSessionSchema.safeParse({
       id: 'session-invalid-complete',
