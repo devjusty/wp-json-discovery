@@ -18,6 +18,7 @@ import ScanSidebarNav from './scan/ScanSidebarNav';
 import ScanSectionContent from './scan/ScanSectionContent.jsx';
 import RecentDomainsCard from './scan/RecentDomainsCard.jsx';
 import ScanStatusStack from './scan/ScanStatusStack';
+import ScanProgress from './scan/ScanProgress';
 import { mergeRecentScans } from '../../utils/scanFeed.js';
 import {
   addInvestigationCapability,
@@ -337,6 +338,14 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, authSes
     ? undefined
     : 'Scan a WordPress site and review REST exposure, homepage source signals, and unsupported plugins. Log in to save history and notes.';
 
+  const scanProgressSlot = useMemo(() => {
+    const rawStates = investigatorSession?.capabilityStates ?? session?.capabilityStates ?? null;
+    if (!rawStates || typeof rawStates !== 'object') return null;
+    const capabilityStates = normalizeCapabilityStates(rawStates);
+    if (Object.keys(capabilityStates).length === 0) return null;
+    return <ScanProgress capabilityStates={capabilityStates} />;
+  }, [investigatorSession?.capabilityStates, session?.capabilityStates]);
+
   return (
       <AppLayout
       title="WP JSON Discovery"
@@ -355,6 +364,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, authSes
         scanSettings={scanSettings}
         onScanSettingsChange={updateScanSettings}
         onSaveDefaults={saveScanDefaults}
+        progressSlot={scanProgressSlot}
       />
 
       {anonymousStorageError ? (
@@ -392,26 +402,28 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, authSes
         />
       )}
 
-      <ScanStatusStack
-        session={investigatorSession ?? session}
-        onRetryCapability={investigatorSession ? handleRetryInvestigatorCapability : retryCapability}
-        retryingCapabilityId={retryingCapabilityId}
-      />
+      <div className="scan-flow">
+        <ScanStatusStack
+          session={investigatorSession ?? session}
+          onRetryCapability={investigatorSession ? handleRetryInvestigatorCapability : retryCapability}
+          retryingCapabilityId={retryingCapabilityId}
+        />
 
-      <ScanSectionContent
-        activeSection={visibleSection}
-        session={investigatorSession ? bridgeInvestigatorSession(investigatorSession) : session}
-        scanSettings={scanSettings}
-        onScanSettingsChange={updateScanSettings}
-         onRunCapability={investigatorSession ? handleRunInvestigatorCapability : runCapability}
-         onRetryCapability={investigatorSession ? handleRetryInvestigatorCapability : retryCapability}
-        sitemapFilter={sitemapFilter}
-        setSitemapFilter={setSitemapFilter}
-        unsupportedPlugins={unsupportedQuery.data ?? []}
-        unsupportedIsLoading={unsupportedQuery.isLoading}
-        onRefreshUnsupported={handleRefreshUnsupported}
-        showDomains={isAdmin}
-      />
+        <ScanSectionContent
+          activeSection={visibleSection}
+          session={investigatorSession ? bridgeInvestigatorSession(investigatorSession) : session}
+          scanSettings={scanSettings}
+          onScanSettingsChange={updateScanSettings}
+          onRunCapability={investigatorSession ? handleRunInvestigatorCapability : runCapability}
+          onRetryCapability={investigatorSession ? handleRetryInvestigatorCapability : retryCapability}
+          sitemapFilter={sitemapFilter}
+          setSitemapFilter={setSitemapFilter}
+          unsupportedPlugins={unsupportedQuery.data ?? []}
+          unsupportedIsLoading={unsupportedQuery.isLoading}
+          onRefreshUnsupported={handleRefreshUnsupported}
+          showDomains={isAdmin}
+        />
+      </div>
 
     </AppLayout>
   );

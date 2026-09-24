@@ -49,8 +49,19 @@ export const createLegacyCapabilityRunner = (
       options: definition.normalizeOptions?.(options),
       signal,
     });
-    const parsed = jsonValueSchema.optional().safeParse(result);
+    // Legacy runners often leave `undefined` on object keys; JSON (and jsonValueSchema) do not.
+    const jsonSafe = toJsonSafe(result);
+    const parsed = jsonValueSchema.optional().safeParse(jsonSafe);
     if (!parsed.success) throw new ContractInvalidError('Invalid legacy capability result', parsed.error);
     return parsed.data;
   },
 });
+
+function toJsonSafe(value: unknown): unknown {
+  if (value === undefined) return undefined;
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch (cause) {
+    throw new ContractInvalidError('Invalid legacy capability result', cause);
+  }
+}

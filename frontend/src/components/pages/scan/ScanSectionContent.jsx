@@ -223,7 +223,7 @@ function WordPressCapabilityState({ title, capability, onRun, onRetry }) {
   const hasFailed = ['failed', 'unavailable'].includes(status);
 
   return (
-    <section className="section">
+    <div className="scan-sections">
       <Card className={hasFailed ? 'card card--error' : 'card card--info'} role={hasFailed ? 'alert' : 'status'}>
         <CardHeader>
           <h2>{title}</h2>
@@ -240,7 +240,7 @@ function WordPressCapabilityState({ title, capability, onRun, onRetry }) {
           ) : null}
         </CardContent>
       </Card>
-    </section>
+    </div>
   );
 }
 

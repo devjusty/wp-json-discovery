@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import PropTypes from 'prop-types';
 import Button from '../../atoms/Button.jsx';
@@ -26,6 +26,8 @@ type DomainFormProps = {
   scanSettings?: ScanSettings;
   onScanSettingsChange?: (next: ScanSettings | ((current: ScanSettings) => ScanSettings)) => void;
   onSaveDefaults?: (settings?: ScanSettings) => void;
+  /** Optional scan progress (or other status UI) rendered below settings. */
+  progressSlot?: ReactNode;
 };
 
 function DomainForm({
@@ -36,7 +38,8 @@ function DomainForm({
   onDomainChange,
   scanSettings,
   onScanSettingsChange,
-  onSaveDefaults
+  onSaveDefaults,
+  progressSlot = null
 }: DomainFormProps) {
   const isControlled = typeof domain === 'string';
   const [internalDomain, setInternalDomain] = useState(initialDomain ?? '');
@@ -73,7 +76,7 @@ function DomainForm({
   return (
     <Card className="domain-form">
       <form onSubmit={handleSubmit}>
-          <CardHeader className="">
+        <CardHeader className="">
           <div>
             <h2>WordPress domain</h2>
             <p className="card__meta">
@@ -130,6 +133,11 @@ function DomainForm({
               />
             </CollapsibleContent>
           </Collapsible>
+          {progressSlot ? (
+            <div className="domain-form__progress">
+              {progressSlot}
+            </div>
+          ) : null}
         </CardContent>
       </form>
     </Card>
@@ -147,7 +155,8 @@ DomainForm.propTypes = {
     options: PropTypes.object
   }),
   onScanSettingsChange: PropTypes.func,
-  onSaveDefaults: PropTypes.func
+  onSaveDefaults: PropTypes.func,
+  progressSlot: PropTypes.node
 };
 
 DomainForm.defaultProps = {
@@ -157,7 +166,8 @@ DomainForm.defaultProps = {
   onDomainChange: null,
   scanSettings: undefined,
   onScanSettingsChange: null,
-  onSaveDefaults: null
+  onSaveDefaults: null,
+  progressSlot: null
 };
 
 export default DomainForm;

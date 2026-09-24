@@ -1,7 +1,6 @@
 import PropTypes from 'prop-types';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent } from '@/components/ui/card.jsx';
-import ScanProgress from './ScanProgress';
 import { normalizeCapabilityStates, type SafeCapabilityState } from '../../../domain/investigation/capabilityStates';
 
 const CAPABILITY_LABELS = {
@@ -49,31 +48,35 @@ function ScanStatusStack({ session, onRetryCapability = () => {}, retryingCapabi
     const normalized = normalizeCapabilityStates(session.capabilityStates);
     const capabilities = Object.entries(normalized) as [string, SafeCapabilityState][];
     const details = capabilities.filter(([, capability]) => ['failed', 'unavailable'].includes(capability.status));
+    if (details.length === 0) {
+      return null;
+    }
     return (
-      <>
-        <div className="scan-status-stack">
-          <ScanProgress capabilityStates={normalized} />
-          {details.map(([id, capability]) => (
-            <Card key={id} className={`scan-status-stack__alert section-enter${capability.status === 'failed' ? ' card card--error' : ''}`} role={capability.status === 'failed' ? 'alert' : 'status'}>
-              <CardContent className="">
-                <p>{CAPABILITY_LABELS[id] ?? id}: {formatInvestigatorStatus(capability.status)}</p>
-                {capability.outcome?.error ? <p>{capability.outcome.error.message}</p> : null}
-                {capability.status === 'failed' && capability.outcome?.error?.retryable === true ? (
-                  <Button className="" type="button" variant="secondary" size="sm" aria-label={`Retry ${CAPABILITY_LABELS[id] ?? id}`} disabled={retryingCapabilityId === id} onClick={() => onRetryCapability(id)}>
-                    {retryingCapabilityId === id ? `Retrying ${CAPABILITY_LABELS[id] ?? id}…` : `Retry ${CAPABILITY_LABELS[id] ?? id}`}
-                  </Button>
-                ) : null}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </>
+      <div className="scan-status-stack">
+        {details.map(([id, capability]) => (
+          <Card key={id} className={`scan-status-stack__alert section-enter${capability.status === 'failed' ? ' card card--error' : ''}`} role={capability.status === 'failed' ? 'alert' : 'status'}>
+            <CardContent className="">
+              <p>{CAPABILITY_LABELS[id] ?? id}: {formatInvestigatorStatus(capability.status)}</p>
+              {capability.outcome?.error ? <p>{capability.outcome.error.message}</p> : null}
+              {capability.status === 'failed' && capability.outcome?.error?.retryable === true ? (
+                <Button className="" type="button" variant="secondary" size="sm" aria-label={`Retry ${CAPABILITY_LABELS[id] ?? id}`} disabled={retryingCapabilityId === id} onClick={() => onRetryCapability(id)}>
+                  {retryingCapabilityId === id ? `Retrying ${CAPABILITY_LABELS[id] ?? id}…` : `Retry ${CAPABILITY_LABELS[id] ?? id}`}
+                </Button>
+              ) : null}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     );
   }
 
   const isScanning = session.overallStatus === 'running';
   const capabilities = Object.entries(session.capabilities ?? {}) as [string, { status: string; error?: { message?: string; code?: string; retryable?: boolean } | null }][];
   const legacyDomain = session.domain as string | undefined;
+
+  if (!isScanning && capabilities.length === 0) {
+    return null;
+  }
 
   return (
     <div className="scan-status-stack">

@@ -63,4 +63,23 @@ describe('capability runner port', () => {
     await expect(runner.run({ investigation, capability: 'homepage' }))
       .rejects.toMatchObject({ code: 'contract-invalid' });
   });
+
+  it('strips undefined object keys before contract validation', async () => {
+    const runner = createLegacyCapabilityRunner({
+      getCapabilityById: vi.fn(() => ({
+        id: 'wordpress',
+        availability: () => true,
+        runner: async () => ({
+          summary: { name: 'Example', description: undefined },
+          exposure: { restApiAvailable: true, unused: undefined },
+          findings: undefined,
+        }),
+      })),
+    });
+
+    await expect(runner.run({ investigation, capability: 'wordpress' })).resolves.toEqual({
+      summary: { name: 'Example' },
+      exposure: { restApiAvailable: true },
+    });
+  });
 });

@@ -39,69 +39,38 @@ describe('ScanStatusStack', () => {
       capabilityStates: {
         wordpress: { status: 'success', outcome: { status: 'success', result: {}, error: null } }
       }
-    },
-    {
-      name: 'non-WordPress result',
-      capabilityStates: {
-        wordpress: { status: 'failed', outcome: { status: 'failed', result: null, error: { message: 'Not WordPress' } } },
-        homepage: { status: 'success', outcome: { status: 'success', result: {}, error: null } }
-      }
     }
-  ])('renders compact progress for $name', ({ capabilityStates }) => {
-    render(<ScanStatusStack session={{ domain: { normalized: 'example.com' }, status: 'completed', capabilityStates }} />);
+  ])('does not render progress for successful-only $name (progress lives in DomainForm)', ({ capabilityStates }) => {
+    const { container } = render(<ScanStatusStack session={{ domain: { normalized: 'example.com' }, status: 'completed', capabilityStates }} />);
 
-    expect(screen.getByRole('heading', { name: 'Scan progress' })).toBeInTheDocument();
-    expect(screen.getByText('Identity')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Scan progress' })).not.toBeInTheDocument();
+    expect(container).toBeEmptyDOMElement();
   });
 
   it('ignores malformed canonical capability state data', () => {
     expect(() => render(<ScanStatusStack session={{ domain: { normalized: 'example.com' }, capabilityStates: { broken: null, invalid: 'state' } }} />)).not.toThrow();
-    expect(screen.getByRole('heading', { name: 'Scan progress' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Scan progress' })).not.toBeInTheDocument();
   });
 
-  it('derives WordPress progress from capability state', () => {
+  it('surfaces failed capability alerts without embedding progress', () => {
     render(<ScanStatusStack session={{
       domain: { normalized: 'example.com' },
       status: 'completed',
       capabilityStates: {
         wordpress: {
-          status: 'success',
+          status: 'failed',
           outcome: {
-            status: 'success',
-            result: {
-              identity: {
-                value: 'WordPress',
-                evidence: [{ id: 'wordpress-identity', capabilityId: 'wordpress', locator: '/wp-json/' }],
-                evidenceLevel: 'observed'
-              }
-            },
-            error: null
+            status: 'failed',
+            result: null,
+            error: { message: 'Not WordPress', retryable: false }
           }
         }
       }
     }} />);
 
-    expect(screen.getAllByText('Complete')).toHaveLength(3);
-  });
-
-  it('keeps identity neutral when recognized identity metadata has no evidence references', () => {
-    render(<ScanStatusStack session={{
-      domain: { normalized: 'example.com' },
-      status: 'completed',
-      capabilityStates: {
-        wordpress: {
-          status: 'success',
-          outcome: {
-            status: 'success',
-            result: { identity: { value: 'WordPress', evidenceLevel: 'observed', evidence: [] } },
-            error: null
-          }
-        }
-      }
-    }} />);
-
-    expect(screen.getByText('Identity')).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent('3 of 4 complete');
+    expect(screen.queryByRole('heading', { name: 'Scan progress' })).not.toBeInTheDocument();
+    expect(screen.getByText(/WordPress API: Failed/i)).toBeInTheDocument();
+    expect(screen.getByText('Not WordPress')).toBeInTheDocument();
   });
 
   it('renders auth hints when scan requires auth', () => {
@@ -185,8 +154,8 @@ describe('ScanStatusStack', () => {
       />
     );
 
-    expect(screen.getByText('WordPress API')).toBeInTheDocument();
-    expect(screen.getByText('Homepage')).toBeInTheDocument();
+    expect(screen.getByText(/Homepage: Unavailable/i)).toBeInTheDocument();
+    expect(screen.getByText('No homepage runner')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /retry homepage/i })).not.toBeInTheDocument();
   });
 

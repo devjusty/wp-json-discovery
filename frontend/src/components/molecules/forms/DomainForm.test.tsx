@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DomainForm from './DomainForm';
+import ScanProgress from '../../pages/scan/ScanProgress';
 
 describe('DomainForm', () => {
   it('normalizes submitted domains', async () => {
@@ -45,5 +46,24 @@ describe('DomainForm', () => {
       capabilityIds: ['wordpress'],
       options: { wordpress: {} }
     });
+  });
+
+  it('embeds a progress slot inside the domain card', () => {
+    render(
+      <DomainForm
+        initialDomain="example.com"
+        onSubmit={vi.fn()}
+        progressSlot={<ScanProgress capabilityStates={{ wordpress: { status: 'success' }, homepage: { status: 'running' } }} />}
+      />
+    );
+
+    expect(screen.getByRole('heading', { name: 'Scan progress' })).toBeInTheDocument();
+    expect(screen.getByText('Identity')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'WordPress domain' })).toBeInTheDocument();
+  });
+
+  it('hides progress until a progress slot is provided', () => {
+    render(<DomainForm initialDomain="example.com" onSubmit={vi.fn()} />);
+    expect(screen.queryByRole('heading', { name: 'Scan progress' })).not.toBeInTheDocument();
   });
 });
