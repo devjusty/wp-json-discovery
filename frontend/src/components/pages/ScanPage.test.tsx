@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ScanPage from './ScanPage';
-import { loadAnonymousInvestigation } from '../../services/anonymousInvestigations.js';
+import { loadAnonymousInvestigation, loadAuthenticatedInvestigationId } from '../../services/anonymousInvestigations.js';
 
 const mocks = vi.hoisted(() => {
   const workflow = {
@@ -96,6 +96,7 @@ describe('ScanPage workflow boundary', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.shellContext.selectedInvestigationId = null;
+    mocks.shellContext.activeDomain = '';
     mocks.workflow.start.mockResolvedValue({
       investigation,
       session: { domain: { normalized: investigation.normalizedUrl }, selectedCapabilities: [], capabilityStates: {}, overall: { status: 'complete' } },
@@ -208,5 +209,35 @@ describe('ScanPage workflow boundary', () => {
 
     expect(mocks.workflow.resume).toHaveBeenCalledTimes(1);
     resolveResume({ investigation, session: { domain: { normalized: investigation.normalizedUrl }, selectedCapabilities: [], capabilityStates: {}, overall: { status: 'complete' } } });
+  });
+
+  it('does not automatically retry failed persisted resume', async () => {
+    mocks.shellContext.selectedInvestigationId = 'failed-investigation';
+    mocks.setSelectedInvestigationId.mockImplementation((value) => {
+      mocks.shellContext.selectedInvestigationId = value;
+    });
+    vi.mocked(loadAuthenticatedInvestigationId).mockReturnValue('failed-investigation');
+    mocks.workflow.resume.mockRejectedValueOnce(new Error('resume failed'));
+    const view = render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ScanPage
+          authSession={{ getUserId: () => 'user-1', getAccessToken: async () => 'token' }}
+          isAuthenticated
+        />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(mocks.workflow.resume).toHaveBeenCalledTimes(1));
+
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <ScanPage
+          authSession={{ getUserId: () => 'user-1', getAccessToken: async () => 'token' }}
+          isAuthenticated
+        />
+      </QueryClientProvider>,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(mocks.workflow.resume).toHaveBeenCalledTimes(1);
   });
 });

@@ -127,9 +127,11 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, authSes
     let cancelled = false;
     setIsResumingInvestigation(true);
     setResumeError('');
+    let resumed = false;
     investigatorWorkflow.resume(investigationId)
       .then((result) => {
         if (cancelled) return;
+        resumed = true;
         setInvestigatorSession(result.session);
         onDomainChange(result.investigation.submittedUrl);
         setInvestigatorDomain(result.investigation.normalizedUrl);
@@ -138,7 +140,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, authSes
         if (!cancelled) setResumeError(`Saved investigation could not be resumed: ${error.message}`);
       })
       .finally(() => {
-        if (resumeRequestRef.current === investigationId) resumeRequestRef.current = null;
+        if (resumed && resumeRequestRef.current === investigationId) resumeRequestRef.current = null;
         setSelectedInvestigationId('');
         if (!cancelled) setIsResumingInvestigation(false);
       });
@@ -150,6 +152,7 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, authSes
     startInFlightRef.current = true;
     setIsStartingInvestigation(true);
     setInvestigatorError('');
+    resumeRequestRef.current = null;
     setSelectedInvestigationId('');
     try {
       if (!investigatorWorkflow) throw new Error('Investigation authentication context is unavailable.');
