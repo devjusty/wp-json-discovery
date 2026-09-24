@@ -1,4 +1,4 @@
-import { createInvestigation, type CapabilityStatus, type Investigation } from '../domain/investigation/model';
+import { createInvestigation, type CapabilityStatus, type Investigation, type JsonValue, type EvidenceKind } from '../domain/investigation/model';
 
 export type InvestigatorCapabilityStatus = CapabilityStatus | 'idle';
 export type InvestigatorStatus = 'queued' | 'running' | 'partial' | 'complete' | 'failed' | 'blocked';
@@ -104,7 +104,7 @@ function mapCapabilities(capabilityStates: InvestigatorSession['capabilityStates
   return Object.entries(capabilityStates ?? {}).flatMap(([name, state]) => {
     const status = normalizeCapabilityStatus(state.status);
     if (!status) return [];
-    const retryable = state.outcome?.error?.retryable === true;
+    const retryable = status === 'failed' && state.outcome?.error?.retryable === true;
     return [{ name, status, ...(status === 'failed' || status === 'unavailable' ? { retryable } : {}) }];
   });
 }
@@ -114,16 +114,60 @@ function mapEvidence(value: unknown, capability: string, evidence: Map<string, I
   return value.flatMap((rawEvidence) => {
     const source = asRecord(rawEvidence);
     if (typeof source.id !== 'string') return [];
+    const rawSource = asRecord(source.source);
+    const locator = typeof rawSource.locator === 'string'
+      ? rawSource.locator
+      : typeof source.locator === 'string' ? source.locator : undefined;
+    const request = mapRequest(rawSource.request ?? source.request);
+    const metadata = {
+      ...(locator ? { locator } : {}),
+      ...(typeof rawSource.observedAt === 'string' ? { observedAt: rawSource.observedAt } : {}),
+      ...(Array.isArray(rawSource.evidenceIds) && rawSource.evidenceIds.every((id) => typeof id === 'string')
+        ? { evidenceIds: rawSource.evidenceIds as string[] } : {}),
+      ...(request ? { request } : {}),
+    };
     const item = {
       id: source.id,
-      kind: 'observed' as const,
+      kind: isEvidenceKind(source.kind) ? source.kind : 'observed',
       capability,
-      value: typeof source.locator === 'string' ? source.locator : 'Observed evidence',
-      source: typeof source.locator === 'string' ? { locator: source.locator } : {},
+      value: asJsonValue(source.value) ?? locator ?? 'Observed evidence',
+      source: metadata,
     };
     evidence.set(item.id, item);
     return [item.id];
   });
+}
+
+function mapRequest(value: unknown) {
+  const request = asRecord(value);
+  if (typeof request.method !== 'string' || typeof request.url !== 'string') return undefined;
+  return {
+    method: request.method,
+    url: request.url,
+    ...(typeof request.status === 'number' ? { status: request.status } : {}),
+  };
+}
+
+function isEvidenceKind(value: unknown): value is EvidenceKind {
+  return ['observed', 'inference', 'request-trace', 'absence'].includes(value as string);
+}
+
+function asJsonValue(value: unknown): JsonValue | undefined {
+  if (value === null) return null;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (Array.isArray(value)) {
+    const values = value.map(asJsonValue);
+    return values.every((item) => item !== undefined) ? values as JsonValue : undefined;
+  }
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value).map(([key, nested]) => [key, asJsonValue(nested)] as const);
+    return entries.every(([, nested]) => nested !== undefined)
+      ? Object.fromEntries(entries) as JsonValue
+      : undefined;
+  }
+  return undefined;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

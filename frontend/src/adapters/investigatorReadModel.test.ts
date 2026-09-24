@@ -83,6 +83,42 @@ describe('createInvestigatorReadModel', () => {
     expect(readModel.status).toBe('running');
   });
 
+  it('never makes unavailable capabilities retryable from legacy metadata', () => {
+    const readModel = createInvestigatorReadModel({
+      domain: { submitted: 'https://example.com', normalized: 'https://example.com' },
+      overall: { status: 'blocked' },
+      capabilityStates: {
+        blocked: {
+          status: 'unavailable',
+          outcome: { error: { code: 'legacy', message: 'Unavailable', retryable: true } },
+        },
+      },
+    }, false);
+
+    expect(readModel.capabilities).toEqual([{ name: 'blocked', status: 'unavailable', retryable: false }]);
+  });
+
+  it('preserves evidence provenance kinds and request metadata', () => {
+    const provenance = [
+      { id: 'observed', kind: 'observed', value: 'Observed value', source: { locator: '/observed' } },
+      { id: 'inference', kind: 'inference', value: 'Inferred value', source: { locator: '/inference' } },
+      { id: 'trace', kind: 'request-trace', value: 'Request value', source: { request: { method: 'GET', url: 'https://example.com/wp-json', status: 200 } } },
+      { id: 'absence', kind: 'absence', value: 'Absent value', source: { locator: '/missing' } },
+    ];
+    const readModel = createInvestigatorReadModel({
+      domain: { submitted: 'https://example.com', normalized: 'https://example.com' },
+      overall: { status: 'complete' },
+      capabilityStates: {
+        wordpress: {
+          status: 'success',
+          outcome: { result: { findings: [{ id: 'finding', summary: 'Signals', evidence: provenance }] } },
+        },
+      },
+    }, false);
+
+    expect(readModel.investigation?.evidence).toEqual(provenance.map((item) => ({ ...item, capability: 'wordpress' })));
+  });
+
   it('omits aggregate status when lifecycle does not identify one', () => {
     const readModel = createInvestigatorReadModel({
       domain: { submitted: 'https://example.com', normalized: 'https://example.com' },
