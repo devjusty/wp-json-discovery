@@ -211,6 +211,29 @@ describe('ScanPage workflow boundary', () => {
     resolveResume({ investigation, session: { domain: { normalized: investigation.normalizedUrl }, selectedCapabilities: [], capabilityStates: {}, overall: { status: 'complete' } } });
   });
 
+  it('does not duplicate anonymous resume when workflow is recreated', async () => {
+    vi.mocked(loadAnonymousInvestigation).mockReturnValue({ record: { session: { investigationId: 'anonymous-investigation' } } } as never);
+    mocks.createWorkflow.mockImplementation(() => ({ ...mocks.workflow }));
+    let resolveResume;
+    mocks.workflow.resume.mockReturnValue(new Promise((resolve) => { resolveResume = resolve; }));
+    const firstAuthSession = { getUserId: () => null, getAccessToken: async () => null };
+    const view = render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ScanPage authSession={firstAuthSession} isAuthenticated={false} />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => expect(mocks.workflow.resume).toHaveBeenCalledTimes(1));
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <ScanPage authSession={{ getUserId: () => null, getAccessToken: async () => null }} isAuthenticated={false} />
+      </QueryClientProvider>,
+    );
+
+    expect(mocks.workflow.resume).toHaveBeenCalledTimes(1);
+    resolveResume({ investigation, session: { domain: { normalized: investigation.normalizedUrl }, selectedCapabilities: [], capabilityStates: {}, overall: { status: 'complete' } } });
+  });
+
   it('does not automatically retry failed persisted resume', async () => {
     mocks.shellContext.selectedInvestigationId = 'failed-investigation';
     mocks.setSelectedInvestigationId.mockImplementation((value) => {
@@ -239,5 +262,6 @@ describe('ScanPage workflow boundary', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(mocks.workflow.resume).toHaveBeenCalledTimes(1);
+    expect(mocks.setSelectedInvestigationId).not.toHaveBeenCalledWith('');
   });
 });

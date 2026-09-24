@@ -114,6 +114,32 @@ describe('InvestigationsPage', () => {
     expect(onResumeInvestigation).toHaveBeenCalledWith('inv-remote');
   });
 
+  it('deduplicates local fallback rows ahead of remote rows by investigation id', async () => {
+    mockedLoadAnonymousInvestigation.mockReturnValue(localSnapshot('fallback.example') as never);
+    const investigationStore = {
+      list: vi.fn().mockResolvedValue([
+        { ...remoteInvestigation, id: 'local-investigation', normalizedUrl: 'https://remote-fallback.example' },
+        remoteInvestigation,
+        { ...remoteInvestigation, normalizedUrl: 'https://remote-duplicate.example' },
+      ]),
+      get: vi.fn(),
+      save: vi.fn(),
+      claim: vi.fn(),
+    };
+    const onResumeLocal = vi.fn();
+    const onResumeInvestigation = vi.fn();
+
+    renderPage({ isAuthenticated: true, authSession: { getUserId: () => 'user-1', getAccessToken: async () => 'token' }, investigationStore, onResumeLocal, onResumeInvestigation });
+
+    expect(await screen.findByText('fallback.example')).toBeInTheDocument();
+    expect(screen.queryByText('remote-fallback.example')).not.toBeInTheDocument();
+    expect(screen.queryByText('remote-duplicate.example')).not.toBeInTheDocument();
+    expect(await screen.findAllByText('remote.example')).toHaveLength(1);
+    await userEvent.click(screen.getByRole('button', { name: /resume fallback\.example/i }));
+    expect(onResumeLocal).toHaveBeenCalledWith('local-investigation');
+    expect(onResumeInvestigation).not.toHaveBeenCalledWith('local-investigation');
+  });
+
   it('shows loading and empty states', async () => {
     let resolveRequest;
     const investigationStore = { list: vi.fn().mockReturnValue(new Promise((resolve) => { resolveRequest = resolve; })), get: vi.fn(), save: vi.fn(), claim: vi.fn() };

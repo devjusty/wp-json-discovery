@@ -98,9 +98,7 @@ function InvestigationsPage({
   const localRow = localSnapshot ? toLocalRow(localSnapshot) : null;
   const remoteRows: InvestigationRow[] = (investigationsQuery.data ?? []).map((summary) => toRow(summary));
   const storeRows = !isAuthenticated ? remoteRows.map((row) => ({ ...row, local: true })) : remoteRows;
-  const rows = isAuthenticated
-    ? (localRow ? [localRow, ...storeRows] : storeRows)
-    : (storeRows.length > 0 ? storeRows : localRow ? [localRow] : []);
+  const rows = deduplicateRows(localRow ? [localRow, ...storeRows] : storeRows);
 
   return (
     <AppLayout title="Investigations" subtitle={undefined} sidebar={undefined} headerActions={headerActions} onNavigate={onNavigate} embedded={embedded}>
@@ -221,6 +219,15 @@ function deriveStatus(statuses: string[]): string {
   if (successes === statuses.length) return 'complete';
   if (successes > 0) return 'partial';
   return 'failed';
+}
+
+function deduplicateRows(rows: InvestigationRow[]): InvestigationRow[] {
+  const seen = new Set<string>();
+  return rows.filter((row) => {
+    if (seen.has(row.id)) return false;
+    seen.add(row.id);
+    return true;
+  });
 }
 
 export default InvestigationsPage;

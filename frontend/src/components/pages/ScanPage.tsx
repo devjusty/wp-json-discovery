@@ -106,15 +106,23 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, authSes
     if (isAuthenticated || !investigatorWorkflow) return;
     const investigationId = snapshot.record?.session?.investigationId;
     if (!investigationId) return;
+    const resumeKey = `anonymous:${investigationId}`;
+    if (resumeRequestRef.current === resumeKey) return;
+    resumeRequestRef.current = resumeKey;
     setIsResumingInvestigation(true);
+    let resumed = false;
     investigatorWorkflow.resume(investigationId)
       .then((result) => {
+        resumed = true;
         setInvestigatorSession(result.session);
         onDomainChange(result.investigation.submittedUrl);
         setInvestigatorDomain(result.investigation.normalizedUrl);
       })
       .catch((error) => setResumeError(`Saved investigation could not be resumed: ${error.message}`))
-      .finally(() => setIsResumingInvestigation(false));
+      .finally(() => {
+        if (resumed && resumeRequestRef.current === resumeKey) resumeRequestRef.current = null;
+        setIsResumingInvestigation(false);
+      });
   }, [investigatorWorkflow, isAuthenticated, onDomainChange, setInvestigatorDomain, setInvestigatorSession]);
 
   useEffect(() => {
@@ -122,29 +130,29 @@ function ScanPage({ headerActions, onNavigate, isAdmin, isAuthenticated, authSes
     if (activeDomain && !selectedInvestigationId) return undefined;
     const investigationId = selectedInvestigationId || loadAuthenticatedInvestigationId();
     if (!investigationId) return undefined;
-    if (resumeRequestRef.current === investigationId) return undefined;
-    resumeRequestRef.current = investigationId;
-    let cancelled = false;
+    const resumeKey = `authenticated:${investigationId}`;
+    if (resumeRequestRef.current === resumeKey) return undefined;
+    resumeRequestRef.current = resumeKey;
     setIsResumingInvestigation(true);
     setResumeError('');
     let resumed = false;
     investigatorWorkflow.resume(investigationId)
       .then((result) => {
-        if (cancelled) return;
         resumed = true;
         setInvestigatorSession(result.session);
         onDomainChange(result.investigation.submittedUrl);
         setInvestigatorDomain(result.investigation.normalizedUrl);
       })
       .catch((error) => {
-        if (!cancelled) setResumeError(`Saved investigation could not be resumed: ${error.message}`);
+        setResumeError(`Saved investigation could not be resumed: ${error.message}`);
       })
       .finally(() => {
-        if (resumed && resumeRequestRef.current === investigationId) resumeRequestRef.current = null;
-        setSelectedInvestigationId('');
-        if (!cancelled) setIsResumingInvestigation(false);
+        if (resumed && resumeRequestRef.current === resumeKey) {
+          resumeRequestRef.current = null;
+          setSelectedInvestigationId('');
+        }
+        setIsResumingInvestigation(false);
       });
-    return () => { cancelled = true; };
   }, [activeDomain, investigatorWorkflow, isAuthenticated, onDomainChange, selectedInvestigationId, setInvestigatorDomain, setInvestigatorSession, setSelectedInvestigationId]);
 
   const handleInvestigatorSubmit = useCallback(async (normalizedValue, submittedValue = normalizedValue) => {
