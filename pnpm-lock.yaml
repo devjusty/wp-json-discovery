@@ -18,8 +18,8 @@ importers:
   frontend:
     dependencies:
       '@auth0/auth0-react':
-        specifier: ~2.27.0
-        version: 2.27.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: ~2.28.1
+        version: 2.28.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@base-ui/react':
         specifier: ^1.8.0
         version: 1.8.0(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -39,8 +39,8 @@ importers:
         specifier: ^4.3.3
         version: 4.3.3(vite@7.3.6(@types/node@26.0.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))
       '@tanstack/react-query':
-        specifier: ^5.103.2
-        version: 5.103.2(react@19.3.0)
+        specifier: ^5.104.1
+        version: 5.104.1(react@19.3.0)
       '@tanstack/react-table':
         specifier: ^8.21.3
         version: 8.21.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -289,17 +289,17 @@ packages:
     resolution: {integrity: sha512-93Z1N+BQNXysodoicpOIyNh2drHfz/CTf9nnT0FEx72GJcIiwgydD7tGAr78j41LsYn3hlRn+LdGPuBLn1Bl8Q==}
     engines: {node: ^22.13.0 || >=24.0.0}
 
-  '@auth0/auth0-auth-js@1.15.0':
-    resolution: {integrity: sha512-obn/Qhxx3eNs2wV6/lLsIDIcEiSJvBEEy15hppB5Me1j2No2toa7KqQcXHBCyGX4mBBdVnxZJBjEX6E4WanYwg==}
+  '@auth0/auth0-auth-js@1.16.1':
+    resolution: {integrity: sha512-dtH12GiKEZ+YGnwUe0LTe7gJtEEAvhE5ztUL3i8iXN7D3siXe/MUssQq735UlXJzasXNqZOQUkMbv1VMXMZj+g==}
 
-  '@auth0/auth0-react@2.27.0':
-    resolution: {integrity: sha512-SVDiQM1Eatv+zLzy7qyxMdcETdbGVOqXR+zaBXbMyX32xUzTNIppgcHFoD0AFLqVQrBZgTHX4ujj9D9+sfCXsQ==}
+  '@auth0/auth0-react@2.28.1':
+    resolution: {integrity: sha512-CZ2nOBhozEfw6slq0xO7l0gXTJdyG//RO3Nylet8OP+WY2tbU2myi4FSV/5MHboo/hIRWRyOAlHVH2j7vicL3g==}
     peerDependencies:
       react: ^16.11.0 || ^17 || ^18 || ~19.0.1 || ~19.1.2 || ^19.2.1
       react-dom: ^16.11.0 || ^17 || ^18 || ~19.0.1 || ~19.1.2 || ^19.2.1
 
-  '@auth0/auth0-spa-js@2.27.0':
-    resolution: {integrity: sha512-E9U4v9IiowT+z26PQYT55ZAU5J1feyEV9umVX+lvnaHl43E3GvGVsTrfukhPLLWnoCRItWa2TxVQ3Svj1S4qyA==}
+  '@auth0/auth0-spa-js@2.28.1':
+    resolution: {integrity: sha512-adBXMlcgq7YNJ3WkCX3Z/8anbVuUZrCpK8vTpaSDbhNeVtLkBaOdnFqtXCjfmggWQhW5ZuTZL8NmEAx9LkHeFg==}
 
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -2560,11 +2560,11 @@ packages:
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7 || ^8
 
-  '@tanstack/query-core@5.103.2':
-    resolution: {integrity: sha512-I8DkFXls5jXLqtm8+QpOhEmG07hIblhSZFzafg9wHsMSEvMzULy9hK17wU1T/ahfhMbtITJhbxutwwCoihkR7A==}
+  '@tanstack/query-core@5.104.1':
+    resolution: {integrity: sha512-TiRghcrGkUTE+M4JBxvpPSpBhxvIzQairw+cksrHYGr+2uwC77yW1SY9nYxnYRYOppvucf8rEg6b5byoz4rTpw==}
 
-  '@tanstack/react-query@5.103.2':
-    resolution: {integrity: sha512-B+fWiYZBc+0uUD5zDZAeLw9dKj7XEsdnuu6zRZ+no6LNKpeE3P3bJ+N6HINjcIlWR6fW3vUoTneEaGa2V6ehqw==}
+  '@tanstack/react-query@5.104.1':
+    resolution: {integrity: sha512-Zz70EgjahNI7aCz8BZxM3vUGU44ycxEAzMuCUjLeA7SVhhOkg3ZgPjPJPvHjs6Rmky/dtmnu1WzjGHNHmhCoZQ==}
     peerDependencies:
       react: ^18 || ^19
 
@@ -6301,20 +6301,20 @@ snapshots:
       is-potential-custom-element-name: 1.0.1
       lru-cache: 11.5.2
 
-  '@auth0/auth0-auth-js@1.15.0':
+  '@auth0/auth0-auth-js@1.16.1':
     dependencies:
       jose: 6.2.12
       openid-client: 6.8.8
 
-  '@auth0/auth0-react@2.27.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+  '@auth0/auth0-react@2.28.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
     dependencies:
-      '@auth0/auth0-spa-js': 2.27.0
+      '@auth0/auth0-spa-js': 2.28.1
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)
 
-  '@auth0/auth0-spa-js@2.27.0':
+  '@auth0/auth0-spa-js@2.28.1':
     dependencies:
-      '@auth0/auth0-auth-js': 1.15.0
+      '@auth0/auth0-auth-js': 1.16.1
       browser-tabs-lock: 1.3.0
       dpop: 2.1.2
       es-cookie: 1.3.2
@@ -8291,11 +8291,11 @@ snapshots:
       tailwindcss: 4.3.3
       vite: 7.3.6(@types/node@26.0.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0)
 
-  '@tanstack/query-core@5.103.2': {}
+  '@tanstack/query-core@5.104.1': {}
 
-  '@tanstack/react-query@5.103.2(react@19.3.0)':
+  '@tanstack/react-query@5.104.1(react@19.3.0)':
     dependencies:
-      '@tanstack/query-core': 5.103.2
+      '@tanstack/query-core': 5.104.1
       react: 19.3.0
 
   '@tanstack/react-table@8.21.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
